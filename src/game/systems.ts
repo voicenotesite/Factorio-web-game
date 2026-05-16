@@ -1,0 +1,1277 @@
+import {
+  GameState, Building, NPC, Enemy, EnemySpawner, Particle,
+  ResourceType, WorldEvent, Direction,
+} from './types';
+import {
+  TILE_SIZE, CHUNK_SIZE, RECIPES, BUILDING_HEALTH,
+  BUILDING_SIZES, NPC_MAX, ENEMY_MAX, SPAWNER_MAX, MAX_PARTICLES,
+  NPC_NAMES, NPC_DIALOGUES, ENEMY_STATS,
+  RESOURCE_COLORS,
+} from './constants';
+import { getChunkKey, generateChunk } from './world';
+
+let nextId = 1;
+function genId(): string { return `${nextId++}`; }
+
+const DIR_OFFSETS: Record<Direction, { dx: number; dy: number }> = {
+  up: { dx: 0, dy: -1 }, down: { dx: 0, dy: 1 },
+  left: { dx: -1, dy: 0 }, right: { dx: 1, dy: 0 },
+};
+
+// ============ BUILDING COSTS ============
+
+const BUILDING_COSTS: Record<string, { itemId: string; count: number }[]> = {
+  conveyor: [{ itemId: 'iron_plate', count: 1 }, { itemId: 'gear', count: 1 }],
+  inserter: [{ itemId: 'iron_plate', count: 1 }, { itemId: 'gear', count: 1 }, { itemId: 'circuit', count: 1 }],
+  splitter: [{ itemId: 'iron_plate', count: 2 }, { itemId: 'gear', count: 2 }],
+  underground_belt: [{ itemId: 'iron_plate', count: 2 }, { itemId: 'gear', count: 2 }],
+  miner: [{ itemId: 'iron_plate', count: 3 }, { itemId: 'gear', count: 3 }, { itemId: 'circuit', count: 1 }],
+  furnace: [{ itemId: 'stone', count: 5 }, { itemId: 'iron_plate', count: 2 }],
+  assembler: [{ itemId: 'iron_plate', count: 3 }, { itemId: 'gear', count: 3 }, { itemId: 'circuit', count: 1 }],
+  boiler: [{ itemId: 'stone', count: 5 }, { itemId: 'iron_plate', count: 2 }],
+  power_pole: [{ itemId: 'iron_plate', count: 2 }, { itemId: 'copper_plate', count: 1 }],
+  storage: [{ itemId: 'iron_plate', count: 2 }],
+  lab: [{ itemId: 'iron_plate', count: 5 }, { itemId: 'gear', count: 5 }, { itemId: 'circuit', count: 5 }],
+  radar: [{ itemId: 'iron_plate', count: 5 }, { itemId: 'gear', count: 5 }, { itemId: 'circuit', count: 5 }],
+  turret: [{ itemId: 'iron_plate', count: 5 }, { itemId: 'gear', count: 5 }, { itemId: 'copper_plate', count: 5 }],
+  wall: [{ itemId: 'stone', count: 5 }],
+  pumpjack: [{ itemId: 'iron_plate', count: 3 }, { itemId: 'gear', count: 3 }, { itemId: 'circuit', count: 2 }],
+  refinery: [{ itemId: 'iron_plate', count: 10 }, { itemId: 'gear', count: 5 }, { itemId: 'circuit', count: 5 }, { itemId: 'pipe', count: 5 }],
+  chemical_plant: [{ itemId: 'iron_plate', count: 5 }, { itemId: 'gear', count: 3 }, { itemId: 'circuit', count: 3 }, { itemId: 'pipe', count: 3 }],
+  pipe: [{ itemId: 'iron_plate', count: 1 }],
+};
+
+export function getBuildingCost(type: string): { itemId: string; count: number }[] {
+  return BUILDING_COSTS[type] || [];
+}
+
+export function canAffordBuilding(state: GameState, type: string): boolean {
+  const cost = BUILDING_COSTS[type];
+  if (!cost) return true; // free buildings
+  return cost.every(c => {
+    const slot = state.player.inventory.find(s => s.itemId === c.itemId);
+    return slot && slot.count >= c.count;
+  });
+}
+
+export function payBuildingCost(state: GameState, type: string): boolean {
+  const cost = BUILDING_COSTS[type];
+  if (!cost) return true;
+  if (!canAffordBuilding(state, type)) return false;
+  for (const c of cost) {
+    removeItemFromPlayer(state, c.itemId, c.count);
+  }
+  return true;
+}
+
+// ============ BUILDING SYSTEM ============
+
+export function createBuilding(type: string, x: number, y: number, direction: string): Building {
+  const health = BUILDING_HEALTH[type] || 100;
+  return {
+    id: genId(), type: type as Building['type'], x, y,
+    direction: direction as Direction, health, maxHealth: health,
+    recipe: null, progress: 0, energy: 0,
+    maxEnergy: type === 'steam_engine' ? 100 : type === 'boiler' ? 50 : 0,
+    inventory: [], outputInventory: [], isActive: false, level: 1,
+  };
+}
+
+export function placeBuilding(state: GameState, type: string, x: number, y: number, direction: string): boolean {
+  const size = BUILDING_SIZES[type] || { w: 1, h: 1 };
+
+  // Check if area is clear
+  for (let dy = 0; dy < size.h; dy++) {
+    for (let dx = 0; dx < size.w; dx++) {
+      const tx = x + dx, ty = y + dy;
+      const chunk = getChunkAt(state, tx, ty);
+      if (!chunk) return false;
+      const lx = ((tx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+      const ly = ((ty % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+      if (chunk[ly][lx].building) return false;
+    }
+  }
+
+  // Pay cost
+  if (!payBuildingCost(state, type)) return false;
+
+  const building = createBuilding(type, x, y, direction);
+  state.buildings.set(`${x},${y}`, building);
+
+  for (let dy = 0; dy < size.h; dy++) {
+    for (let dx = 0; dx < size.w; dx++) {
+      const tx = x + dx, ty = y + dy;
+      const chunk = getChunkAt(state, tx, ty);
+      if (chunk) {
+        const lx = ((tx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+        const ly = ((ty % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+        chunk[ly][lx].building = building;
+      }
+    }
+  }
+
+  if (type === 'conveyor') {
+    state.conveyors.set(`${x},${y}`, [
+      { itemId: null, progress: 0, direction: direction as Direction },
+      { itemId: null, progress: 0.5, direction: direction as Direction },
+    ]);
+  }
+
+  // Pipes don't have conveyor segments, they just exist as connections
+  if (type === 'pipe') {
+    // Pipe placed - no additional state needed beyond the building itself
+  }
+
+  state.statistics.buildingsPlaced++;
+  grantXPToPlayer(state, 10);
+  return true;
+}
+
+export function removeBuilding(state: GameState, x: number, y: number): boolean {
+  const key = `${x},${y}`;
+  const building = state.buildings.get(key);
+  if (!building) return false;
+
+  const size = BUILDING_SIZES[building.type] || { w: 1, h: 1 };
+  for (let dy = 0; dy < size.h; dy++) {
+    for (let dx = 0; dx < size.w; dx++) {
+      const tx = x + dx, ty = y + dy;
+      const chunk = getChunkAt(state, tx, ty);
+      if (chunk) {
+        const lx = ((tx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+        const ly = ((ty % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+        chunk[ly][lx].building = null;
+      }
+    }
+  }
+
+  // Refund half the cost
+  const cost = BUILDING_COSTS[building.type];
+  if (cost) {
+    for (const c of cost) {
+      addItemToPlayer(state, c.itemId, Math.ceil(c.count / 2));
+    }
+  }
+
+  state.buildings.delete(key);
+  state.conveyors.delete(key);
+  return true;
+}
+
+// ============ CHUNK HELPER ============
+
+function getChunkAt(state: GameState, tx: number, ty: number) {
+  const cx = Math.floor(tx / CHUNK_SIZE);
+  const cy = Math.floor(ty / CHUNK_SIZE);
+  const key = getChunkKey(cx, cy);
+  let chunk = state.chunks.get(key);
+  if (!chunk) {
+    chunk = generateChunk(cx, cy);
+    state.chunks.set(key, chunk);
+  }
+  return chunk;
+}
+
+function getTileAt(state: GameState, tx: number, ty: number) {
+  const chunk = getChunkAt(state, tx, ty);
+  const lx = ((tx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+  const ly = ((ty % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+  return chunk[ly][lx];
+}
+
+// ============ PRODUCTION SYSTEM ============
+
+export function updateProduction(state: GameState) {
+  // First: update power (boilers -> steam engines)
+  updatePowerGrid(state);
+
+  for (const [, building] of state.buildings) {
+    switch (building.type) {
+      case 'miner': updateMiner(state, building); break;
+      case 'furnace': updateFurnace(state, building); break;
+      case 'assembler': updateAssembler(state, building); break;
+      case 'lab': updateLab(state, building); break;
+      case 'radar': updateRadar(state, building); break;
+      case 'turret': updateTurret(state, building); break;
+      case 'pumpjack': updatePumpjack(state, building); break;
+      case 'refinery': updateRefinery(state, building); break;
+      case 'chemical_plant': updateChemicalPlant(state, building); break;
+    }
+  }
+}
+
+function updateMiner(state: GameState, building: Building) {
+  // Check all tiles under the miner (2x2)
+  let foundResource = false;
+  for (let dy = 0; dy < 2; dy++) {
+    for (let dx = 0; dx < 2; dx++) {
+      const tile = getTileAt(state, building.x + dx, building.y + dy);
+      if (tile.resource && tile.resourceAmount > 0 && tile.resource !== 'water' && tile.resource !== 'oil') {
+        foundResource = true;
+        building.progress += state.player.miningSpeed;
+        if (building.progress >= 40) {
+          building.progress = 0;
+          tile.resourceAmount -= 1;
+          if (tile.resourceAmount <= 0) tile.resource = null;
+          // Output to outputInventory (for inserters to pick up)
+          addItemToBuildingOutput(building, tile.resource!, 1);
+          state.statistics.itemsProduced[tile.resource!] = (state.statistics.itemsProduced[tile.resource!] || 0) + 1;
+          spawnParticle(state, building.x * TILE_SIZE + 16, building.y * TILE_SIZE + 16, 'resource', RESOURCE_COLORS[tile.resource!] || '#fff');
+        }
+        building.isActive = true;
+        return;
+      }
+    }
+  }
+  // Also check for oil
+  for (let dy = 0; dy < 2; dy++) {
+    for (let dx = 0; dx < 2; dx++) {
+      const tile = getTileAt(state, building.x + dx, building.y + dy);
+      if (tile.resource === 'oil' && tile.resourceAmount > 0) {
+        foundResource = true;
+        building.progress += state.player.miningSpeed;
+        if (building.progress >= 60) {
+          building.progress = 0;
+          tile.resourceAmount -= 1;
+          addItemToBuildingOutput(building, 'oil', 1);
+          state.statistics.itemsProduced['oil'] = (state.statistics.itemsProduced['oil'] || 0) + 1;
+        }
+        building.isActive = true;
+        return;
+      }
+    }
+  }
+  building.isActive = foundResource;
+}
+
+function updateFurnace(state: GameState, building: Building) {
+  // Auto-detect recipe from input
+  if (!building.recipe) {
+    const ironSlot = building.inventory.find(s => s.itemId === 'iron');
+    const copperSlot = building.inventory.find(s => s.itemId === 'copper');
+    const stoneSlot = building.inventory.find(s => s.itemId === 'stone');
+    if (ironSlot) {
+      building.recipe = { ...RECIPES.iron_plate } as any;
+    } else if (copperSlot) {
+      building.recipe = { ...RECIPES.copper_plate } as any;
+    } else if (stoneSlot && state.research.get('steel_processing')?.unlocked) {
+      building.recipe = { ...RECIPES.steel_plate } as any;
+    }
+  }
+
+  if (!building.recipe) { building.isActive = false; return; }
+
+  // Check if we have the input items
+  for (const input of building.recipe.inputs) {
+    const slot = building.inventory.find(s => s.itemId === input.itemId);
+    if (!slot || slot.count < input.count) { building.isActive = false; return; }
+  }
+
+  // Check if output is full (max 50 items per output type)
+  for (const output of building.recipe.outputs) {
+    const outSlot = building.outputInventory.find(s => s.itemId === output.itemId);
+    if (outSlot && outSlot.count >= 50) { building.isActive = false; return; }
+  }
+
+  building.progress += state.player.craftingSpeed;
+  if (building.progress >= building.recipe.craftTime) {
+    building.progress = 0;
+    for (const input of building.recipe.inputs) {
+      removeItemFromBuilding(building, input.itemId, input.count);
+      state.statistics.itemsConsumed[input.itemId] = (state.statistics.itemsConsumed[input.itemId] || 0) + input.count;
+    }
+    for (const output of building.recipe.outputs) {
+      addItemToBuildingOutput(building, output.itemId, output.count);
+      state.statistics.itemsProduced[output.itemId] = (state.statistics.itemsProduced[output.itemId] || 0) + output.count;
+    }
+    spawnParticle(state, building.x * TILE_SIZE + 16, building.y * TILE_SIZE + 8, 'fire', '#ff6600');
+  }
+  building.isActive = true;
+}
+
+function updateAssembler(state: GameState, building: Building) {
+  if (!building.recipe) { building.isActive = false; return; }
+
+  // Check inputs
+  for (const input of building.recipe.inputs) {
+    const slot = building.inventory.find(s => s.itemId === input.itemId);
+    if (!slot || slot.count < input.count) { building.isActive = false; return; }
+  }
+
+  // Check output not full
+  for (const output of building.recipe.outputs) {
+    const outSlot = building.outputInventory.find(s => s.itemId === output.itemId);
+    if (outSlot && outSlot.count >= 50) { building.isActive = false; return; }
+  }
+
+  building.progress += state.player.craftingSpeed;
+  if (building.progress >= building.recipe.craftTime) {
+    building.progress = 0;
+    for (const input of building.recipe.inputs) {
+      removeItemFromBuilding(building, input.itemId, input.count);
+      state.statistics.itemsConsumed[input.itemId] = (state.statistics.itemsConsumed[input.itemId] || 0) + input.count;
+    }
+    for (const output of building.recipe.outputs) {
+      addItemToBuildingOutput(building, output.itemId, output.count);
+      state.statistics.itemsProduced[output.itemId] = (state.statistics.itemsProduced[output.itemId] || 0) + output.count;
+    }
+    spawnParticle(state, building.x * TILE_SIZE + 24, building.y * TILE_SIZE + 24, 'spark', '#3366ff');
+  }
+  building.isActive = true;
+}
+
+function updateLab(state: GameState, building: Building) {
+  // Find the first research that needs work
+  for (const [, research] of state.research) {
+    if (research.unlocked) continue;
+    if (research.progress <= 0 && !research.prerequisites.every(p => state.research.get(p)?.unlocked)) continue;
+
+    // Check if we have science packs
+    let hasPacks = true;
+    for (const cost of research.cost) {
+      const slot = building.inventory.find(s => s.itemId === cost.itemId);
+      if (!slot || slot.count < 1) { hasPacks = false; break; }
+    }
+    if (!hasPacks) { building.isActive = false; return; }
+
+    // Consume packs and progress
+    if (state.tick % 60 === 0) {
+      for (const cost of research.cost) {
+        removeItemFromBuilding(building, cost.itemId, 1);
+        state.statistics.itemsConsumed[cost.itemId] = (state.statistics.itemsConsumed[cost.itemId] || 0) + 1;
+      }
+      research.progress += 1;
+      if (research.progress >= research.time) {
+        research.unlocked = true;
+        applyResearchEffects(state, research.id);
+        grantXPToPlayer(state, 50);
+        spawnParticle(state, building.x * TILE_SIZE + 24, building.y * TILE_SIZE + 24, 'spark', '#00ccff');
+      }
+    }
+    building.isActive = true;
+    return;
+  }
+  building.isActive = false;
+}
+
+function updateRadar(state: GameState, building: Building) {
+  const radius = 12;
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (dx * dx + dy * dy > radius * radius) continue;
+      const tile = getTileAt(state, building.x + dx, building.y + dy);
+      tile.visibility = 1;
+    }
+  }
+  building.isActive = true;
+}
+
+function updateTurret(state: GameState, building: Building) {
+  const range = 12;
+  let nearestEnemy: Enemy | null = null;
+  let nearestDist = Infinity;
+
+  for (const [, enemy] of state.enemies) {
+    const dx = enemy.x - building.x;
+    const dy = enemy.y - building.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < range && dist < nearestDist) {
+      nearestDist = dist;
+      nearestEnemy = enemy;
+    }
+  }
+
+  if (nearestEnemy) {
+    const dx = nearestEnemy.x - building.x;
+    const dy = nearestEnemy.y - building.y;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      building.direction = dx > 0 ? 'right' : 'left';
+    } else {
+      building.direction = dy > 0 ? 'down' : 'up';
+    }
+
+    const ammoSlot = building.inventory.find(s => s.itemId === 'ammo');
+    if (ammoSlot && ammoSlot.count > 0 && state.tick % 20 === 0) {
+      const damage = 15 * (state.research.get('military')?.unlocked ? (state.research.get('military')!.effects.turretDamage || 1) : 1);
+      nearestEnemy.health -= damage;
+      removeItemFromBuilding(building, 'ammo', 1);
+      spawnParticle(state, nearestEnemy.x * TILE_SIZE, nearestEnemy.y * TILE_SIZE, 'spark', '#ff3333');
+
+      if (nearestEnemy.health <= 0) {
+        state.enemies.delete(nearestEnemy.id);
+        state.statistics.enemiesKilled++;
+        grantXPToPlayer(state, 15);
+        spawnParticle(state, nearestEnemy.x * TILE_SIZE, nearestEnemy.y * TILE_SIZE, 'explosion', '#ff6600');
+      }
+    }
+    building.isActive = true;
+  } else {
+    building.isActive = false;
+  }
+}
+
+function updatePumpjack(state: GameState, building: Building) {
+  // Check for oil under the 2x2 area
+  let foundOil = false;
+  for (let dy = 0; dy < 2; dy++) {
+    for (let dx = 0; dx < 2; dx++) {
+      const tile = getTileAt(state, building.x + dx, building.y + dy);
+      if (tile.resource === 'oil' && tile.resourceAmount > 0) {
+        foundOil = true;
+        building.progress += state.player.miningSpeed;
+        if (building.progress >= 80) {
+          building.progress = 0;
+          tile.resourceAmount -= 1;
+          if (tile.resourceAmount <= 0) tile.resource = null;
+          addItemToBuildingOutput(building, 'oil', 1);
+          state.statistics.itemsProduced['oil'] = (state.statistics.itemsProduced['oil'] || 0) + 1;
+          spawnParticle(state, building.x * TILE_SIZE + 16, building.y * TILE_SIZE + 16, 'resource', RESOURCE_COLORS['oil'] || '#1a1a2e');
+        }
+        building.isActive = true;
+        return;
+      }
+    }
+  }
+  building.isActive = foundOil;
+}
+
+function updateRefinery(state: GameState, building: Building) {
+  // Auto-detect recipe from input
+  if (!building.recipe) {
+    const oilSlot = building.inventory.find(s => s.itemId === 'oil');
+    const lightOilSlot = building.inventory.find(s => s.itemId === 'light_oil');
+    const heavyOilSlot = building.inventory.find(s => s.itemId === 'heavy_oil');
+
+    if (oilSlot && oilSlot.count >= 5) {
+      building.recipe = {
+        id: 'oil_refining', name: 'Oil Refining',
+        inputs: [{ itemId: 'oil', count: 5 }],
+        outputs: [{ itemId: 'petroleum_gas', count: 3 }, { itemId: 'light_oil', count: 1 }, { itemId: 'heavy_oil', count: 1 }],
+        craftTime: 120, energyCost: 2, category: 'oil_processing',
+      } as any;
+    } else if (lightOilSlot && lightOilSlot.count >= 1) {
+      building.recipe = {
+        id: 'light_oil_cracking', name: 'Light Oil Cracking',
+        inputs: [{ itemId: 'light_oil', count: 1 }],
+        outputs: [{ itemId: 'petroleum_gas', count: 2 }],
+        craftTime: 60, energyCost: 1, category: 'oil_processing',
+      } as any;
+    } else if (heavyOilSlot && heavyOilSlot.count >= 1) {
+      building.recipe = {
+        id: 'heavy_oil_cracking', name: 'Heavy Oil Cracking',
+        inputs: [{ itemId: 'heavy_oil', count: 1 }],
+        outputs: [{ itemId: 'light_oil', count: 1 }, { itemId: 'petroleum_gas', count: 1 }],
+        craftTime: 80, energyCost: 1, category: 'oil_processing',
+      } as any;
+    }
+  }
+
+  if (!building.recipe) { building.isActive = false; return; }
+
+  // Check if we have the input items
+  for (const input of building.recipe.inputs) {
+    const slot = building.inventory.find(s => s.itemId === input.itemId);
+    if (!slot || slot.count < input.count) {
+      // Can't continue with this recipe, clear it to try detecting another
+      building.recipe = null;
+      building.isActive = false;
+      return;
+    }
+  }
+
+  // Check if output is full (max 50 items per output type)
+  for (const output of building.recipe.outputs) {
+    const outSlot = building.outputInventory.find(s => s.itemId === output.itemId);
+    if (outSlot && outSlot.count >= 50) { building.isActive = false; return; }
+  }
+
+  building.progress += state.player.craftingSpeed;
+  if (building.progress >= building.recipe.craftTime) {
+    building.progress = 0;
+    for (const input of building.recipe.inputs) {
+      removeItemFromBuilding(building, input.itemId, input.count);
+      state.statistics.itemsConsumed[input.itemId] = (state.statistics.itemsConsumed[input.itemId] || 0) + input.count;
+    }
+    for (const output of building.recipe.outputs) {
+      addItemToBuildingOutput(building, output.itemId, output.count);
+      state.statistics.itemsProduced[output.itemId] = (state.statistics.itemsProduced[output.itemId] || 0) + output.count;
+    }
+    spawnParticle(state, building.x * TILE_SIZE + 24, building.y * TILE_SIZE + 24, 'smoke', '#4a6a8a');
+    // Clear recipe so it can re-detect next cycle
+    building.recipe = null;
+  }
+  building.isActive = true;
+}
+
+function updateChemicalPlant(state: GameState, building: Building) {
+  // Works like assembler but for chemistry category recipes
+  // Auto-detects recipe from input items
+  if (!building.recipe) {
+    // Find matching chemistry recipes from RECIPES
+    for (const [, recipe] of Object.entries(RECIPES)) {
+      if (recipe.category !== 'chemistry') continue;
+      const hasAllInputs = recipe.inputs.every(input => {
+        const slot = building.inventory.find(s => s.itemId === input.itemId);
+        return slot && slot.count >= input.count;
+      });
+      if (hasAllInputs) {
+        building.recipe = { ...recipe } as any;
+        break;
+      }
+    }
+  }
+
+  if (!building.recipe) { building.isActive = false; return; }
+
+  // Check if we still have the input items
+  let hasInputs = true;
+  for (const input of building.recipe.inputs) {
+    const slot = building.inventory.find(s => s.itemId === input.itemId);
+    if (!slot || slot.count < input.count) { hasInputs = false; break; }
+  }
+
+  if (!hasInputs) {
+    // Recipe no longer valid, clear to re-detect
+    building.recipe = null;
+    building.isActive = false;
+    return;
+  }
+
+  // Check if output is full (max 50 items per output type)
+  for (const output of building.recipe.outputs) {
+    const outSlot = building.outputInventory.find(s => s.itemId === output.itemId);
+    if (outSlot && outSlot.count >= 50) { building.isActive = false; return; }
+  }
+
+  building.progress += state.player.craftingSpeed;
+  if (building.progress >= building.recipe.craftTime) {
+    building.progress = 0;
+    for (const input of building.recipe.inputs) {
+      removeItemFromBuilding(building, input.itemId, input.count);
+      state.statistics.itemsConsumed[input.itemId] = (state.statistics.itemsConsumed[input.itemId] || 0) + input.count;
+    }
+    for (const output of building.recipe.outputs) {
+      addItemToBuildingOutput(building, output.itemId, output.count);
+      state.statistics.itemsProduced[output.itemId] = (state.statistics.itemsProduced[output.itemId] || 0) + output.count;
+    }
+    spawnParticle(state, building.x * TILE_SIZE + 16, building.y * TILE_SIZE + 16, 'smoke', '#6a4a8a');
+    // Clear recipe so it can re-detect from available inputs
+    building.recipe = null;
+  }
+  building.isActive = true;
+}
+
+// ============ POWER GRID ============
+
+function updatePowerGrid(state: GameState) {
+  // Boilers consume coal and produce steam
+  for (const [, building] of state.buildings) {
+    if (building.type !== 'boiler') continue;
+    const coalSlot = building.inventory.find(s => s.itemId === 'coal');
+    if (coalSlot && coalSlot.count > 0) {
+      building.energy = Math.min(building.maxEnergy, building.energy + 0.5);
+      if (state.tick % 120 === 0) {
+        removeItemFromBuilding(building, 'coal', 1);
+        state.statistics.itemsConsumed['coal'] = (state.statistics.itemsConsumed['coal'] || 0) + 1;
+        spawnParticle(state, building.x * TILE_SIZE + 16, building.y * TILE_SIZE, 'smoke', '#555');
+      }
+      building.isActive = true;
+    } else {
+      building.isActive = false;
+    }
+  }
+
+  // Steam engines near boilers get power
+  for (const [, building] of state.buildings) {
+    if (building.type !== 'steam_engine') continue;
+    let hasPower = false;
+    for (const [, other] of state.buildings) {
+      if (other.type === 'boiler' && other.energy > 0 && Math.abs(other.x - building.x) <= 3 && Math.abs(other.y - building.y) <= 3) {
+        other.energy -= 0.2;
+        building.energy = Math.min(building.maxEnergy, building.energy + 0.3);
+        hasPower = true;
+      }
+    }
+    building.isActive = hasPower;
+  }
+}
+
+// ============ CONVEYOR & INSERTER SYSTEM ============
+
+export function updateConveyors(state: GameState) {
+  // Update inserters FIRST (they move items between buildings)
+  for (const [, inserter] of state.buildings) {
+    if (inserter.type !== 'inserter') continue;
+    if (state.tick % 20 !== 0) continue; // inserter speed
+
+    const dir = DIR_OFFSETS[inserter.direction] || DIR_OFFSETS.right;
+    // Source is BEHIND inserter, destination is IN FRONT
+    const srcX = inserter.x - dir.dx;
+    const srcY = inserter.y - dir.dy;
+    const dstX = inserter.x + dir.dx;
+    const dstY = inserter.y + dir.dy;
+
+    const srcBuilding = state.buildings.get(`${srcX},${srcY}`);
+    const dstBuilding = state.buildings.get(`${dstX},${dstY}`);
+    const dstConveyor = state.conveyors.get(`${dstX},${dstY}`);
+
+    // Try to pick from source output inventory
+    let pickedItem: string | null = null;
+
+    if (srcBuilding) {
+      // Pick from output first, then input
+      if (srcBuilding.outputInventory.length > 0) {
+        const item = srcBuilding.outputInventory[0];
+        if (item && item.count > 0) {
+          pickedItem = item.itemId;
+          removeItemFromBuildingOutput(srcBuilding, item.itemId, 1);
+        }
+      } else if (srcBuilding.inventory.length > 0 && srcBuilding.type === 'storage') {
+        const item = srcBuilding.inventory[0];
+        if (item && item.count > 0) {
+          pickedItem = item.itemId;
+          removeItemFromBuilding(srcBuilding, item.itemId, 1);
+        }
+      }
+    }
+
+    if (!pickedItem) continue;
+
+    // Place at destination
+    if (dstConveyor) {
+      for (const seg of dstConveyor) {
+        if (!seg.itemId) {
+          seg.itemId = pickedItem;
+          seg.progress = 0;
+          pickedItem = null;
+          break;
+        }
+      }
+    }
+    if (pickedItem && dstBuilding) {
+      addItemToBuilding(dstBuilding, pickedItem, 1);
+      pickedItem = null;
+    }
+  }
+
+  // Then update conveyor belts
+  for (const [key, segments] of state.conveyors) {
+    const building = state.buildings.get(key);
+    if (!building) continue;
+
+    const dir = DIR_OFFSETS[building.direction] || DIR_OFFSETS.right;
+
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      if (!seg.itemId) continue;
+
+      seg.progress += 0.025;
+
+      if (seg.progress >= 1) {
+        const nx = building.x + dir.dx;
+        const ny = building.y + dir.dy;
+        const nextKey = `${nx},${ny}`;
+        const nextConveyor = state.conveyors.get(nextKey);
+        const nextBuilding = state.buildings.get(nextKey);
+
+        let transferred = false;
+
+        // Try next conveyor
+        if (nextConveyor) {
+          for (const nextSeg of nextConveyor) {
+            if (!nextSeg.itemId) {
+              nextSeg.itemId = seg.itemId;
+              nextSeg.progress = 0;
+              seg.itemId = null;
+              seg.progress = i === 0 ? 0 : 0.5;
+              transferred = true;
+              break;
+            }
+          }
+        }
+
+        // Try to insert into building input
+        if (!transferred && nextBuilding) {
+          const acceptedTypes = getAcceptedItemTypes(nextBuilding.type);
+          if (acceptedTypes === 'any' || acceptedTypes.includes(seg.itemId!)) {
+            addItemToBuilding(nextBuilding, seg.itemId!, 1);
+            seg.itemId = null;
+            seg.progress = i === 0 ? 0 : 0.5;
+            transferred = true;
+          }
+        }
+
+        if (!transferred) {
+          seg.progress = 1; // blocked, item stays at end
+        }
+      }
+    }
+  }
+}
+
+function getAcceptedItemTypes(buildingType: string): string[] | 'any' {
+  switch (buildingType) {
+    case 'furnace': return ['iron', 'copper', 'stone']; // raw ores
+    case 'assembler': return 'any'; // depends on recipe
+    case 'storage': return 'any';
+    case 'lab': return ['science_red', 'science_green', 'science_blue'];
+    case 'boiler': return ['coal'];
+    case 'turret': return ['ammo'];
+    case 'pumpjack': return [];
+    case 'refinery': return ['oil', 'light_oil', 'heavy_oil'];
+    case 'chemical_plant': return 'any';
+    default: return [];
+  }
+}
+
+// ============ NPC SYSTEM ============
+
+export function spawnNPCs(state: GameState) {
+  if (state.npcs.size >= NPC_MAX) return;
+  const buildings = Array.from(state.buildings.values());
+  if (buildings.length < 3) return;
+
+  const types: NPC['type'][] = ['worker', 'scout', 'trader', 'guard', 'settler'];
+  const type = types[Math.floor(Math.random() * types.length)];
+  const home = buildings[Math.floor(Math.random() * buildings.length)];
+
+  const npc: NPC = {
+    id: genId(), type,
+    x: home.x + (Math.random() - 0.5) * 10,
+    y: home.y + (Math.random() - 0.5) * 10,
+    targetX: home.x, targetY: home.y,
+    health: 100, maxHealth: 100,
+    speed: 0.04 + Math.random() * 0.02,
+    state: 'idle', inventory: [],
+    homeX: home.x, homeY: home.y,
+    name: NPC_NAMES[Math.floor(Math.random() * NPC_NAMES.length)],
+    faction: 'colony',
+    dialogue: NPC_DIALOGUES[type] || ['...'],
+    taskTimer: Math.random() * 200, path: [], pathIndex: 0,
+  };
+  state.npcs.set(npc.id, npc);
+}
+
+export function updateNPCs(state: GameState) {
+  for (const [, npc] of state.npcs) {
+    npc.taskTimer--;
+
+    // Always check for nearby enemies to flee from
+    let nearEnemy = false;
+    for (const [, enemy] of state.enemies) {
+      const d = Math.sqrt((enemy.x - npc.x) ** 2 + (enemy.y - npc.y) ** 2);
+      if (d < 10) { nearEnemy = true; npc.state = 'fleeing'; break; }
+    }
+
+    if (!nearEnemy) {
+      switch (npc.state) {
+        case 'idle':
+          if (npc.taskTimer <= 0) {
+            if (npc.type === 'worker') npc.state = 'working';
+            else if (npc.type === 'guard') npc.state = 'patrolling';
+            else if (npc.type === 'scout') npc.state = 'moving';
+            else if (npc.type === 'trader') npc.state = 'trading';
+            else npc.state = 'gathering';
+            npc.targetX = npc.homeX + (Math.random() - 0.5) * 20;
+            npc.targetY = npc.homeY + (Math.random() - 0.5) * 20;
+            npc.taskTimer = 300 + Math.random() * 300;
+          }
+          break;
+
+        case 'moving':
+        case 'patrolling':
+        case 'gathering': {
+          const dx = npc.targetX - npc.x;
+          const dy = npc.targetY - npc.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 0.5) {
+            npc.x += (dx / dist) * npc.speed;
+            npc.y += (dy / dist) * npc.speed;
+          } else {
+            npc.state = 'idle';
+            npc.taskTimer = 60 + Math.random() * 120;
+          }
+          break;
+        }
+
+        case 'working': {
+          // Find nearest building that needs work
+          let target: Building | null = null;
+          let minDist = Infinity;
+          for (const [, b] of state.buildings) {
+            const d = Math.sqrt((b.x - npc.x) ** 2 + (b.y - npc.y) ** 2);
+            if (d < minDist) { minDist = d; target = b; }
+          }
+          if (target) {
+            const dx = target.x - npc.x;
+            const dy = target.y - npc.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 1.5) {
+              npc.x += (dx / dist) * npc.speed;
+              npc.y += (dy / dist) * npc.speed;
+            } else {
+              // Actually boost the building
+              target.progress += 1;
+              // Workers also move items from output to nearby storage
+              if (state.tick % 60 === 0 && target.outputInventory.length > 0) {
+                const item = target.outputInventory[0];
+                if (item && item.count > 0) {
+                  // Find nearby storage or conveyor
+                  for (const [, b] of state.buildings) {
+                    if (b.type === 'storage' && Math.abs(b.x - target.x) <= 3 && Math.abs(b.y - target.y) <= 3) {
+                      addItemToBuilding(b, item.itemId, 1);
+                      removeItemFromBuildingOutput(target, item.itemId, 1);
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          if (npc.taskTimer <= 0) { npc.state = 'idle'; npc.taskTimer = 60 + Math.random() * 120; }
+          break;
+        }
+
+        case 'trading': {
+          // Move toward player
+          const dx = state.player.x - npc.x;
+          const dy = state.player.y - npc.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 3) {
+            npc.x += (dx / dist) * npc.speed;
+            npc.y += (dy / dist) * npc.speed;
+          }
+          if (npc.taskTimer <= 0) { npc.state = 'idle'; npc.taskTimer = 60; }
+          break;
+        }
+
+        case 'fleeing': {
+          let nearestEnemy: Enemy | null = null;
+          let nearestDist = Infinity;
+          for (const [, e] of state.enemies) {
+            const d = Math.sqrt((e.x - npc.x) ** 2 + (e.y - npc.y) ** 2);
+            if (d < nearestDist) { nearestDist = d; nearestEnemy = e; }
+          }
+          if (nearestEnemy) {
+            const dx = npc.x - nearestEnemy.x;
+            const dy = npc.y - nearestEnemy.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 0) {
+              npc.x += (dx / dist) * npc.speed * 2;
+              npc.y += (dy / dist) * npc.speed * 2;
+            }
+          } else {
+            npc.state = 'idle';
+            npc.taskTimer = 60;
+          }
+          break;
+        }
+      }
+    }
+  }
+}
+
+// ============ ENEMY SYSTEM ============
+
+export function spawnEnemies(state: GameState) {
+  if (state.enemies.size >= ENEMY_MAX) return;
+
+  for (const [, spawner] of state.spawners) {
+    spawner.spawnTimer--;
+    if (spawner.spawnTimer <= 0) {
+      spawner.spawnTimer = Math.max(60, spawner.spawnRate);
+      const types: Enemy['type'][] = ['biter', 'spitter'];
+      const type = types[Math.floor(Math.random() * types.length)];
+      const stats = ENEMY_STATS[type];
+      const evo = state.evolution;
+
+      const enemy: Enemy = {
+        id: genId(), type,
+        x: spawner.x + (Math.random() - 0.5) * 4,
+        y: spawner.y + (Math.random() - 0.5) * 4,
+        health: stats.health * (1 + evo), maxHealth: stats.health * (1 + evo),
+        attack: stats.attack * (1 + evo * 0.5), speed: stats.speed * (1 + evo * 0.2),
+        range: stats.range, target: null, evolution: evo,
+        state: 'moving', attackCooldown: 0, spawnerId: spawner.id,
+      };
+      state.enemies.set(enemy.id, enemy);
+      spawner.enemies.push(enemy.id);
+    }
+  }
+
+  // Spawn spawners away from player
+  if (state.spawners.size < SPAWNER_MAX && state.tick % 600 === 0) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 30 + Math.random() * 40;
+    const sx = Math.floor(state.player.x + Math.cos(angle) * dist);
+    const sy = Math.floor(state.player.y + Math.sin(angle) * dist);
+
+    const spawner: EnemySpawner = {
+      id: genId(), x: sx, y: sy,
+      health: 300 * (1 + state.evolution), maxHealth: 300 * (1 + state.evolution),
+      spawnTimer: 300, spawnRate: Math.max(60, 300 - state.evolution * 100),
+      evolution: state.evolution, enemies: [],
+    };
+    state.spawners.set(spawner.id, spawner);
+    getChunkAt(state, sx, sy); // ensure chunk exists
+  }
+}
+
+export function updateEnemies(state: GameState) {
+  for (const [, enemy] of state.enemies) {
+    enemy.attackCooldown = Math.max(0, enemy.attackCooldown - 1);
+
+    // Find closest target: polluted buildings first, then player
+    let targetX = state.player.x;
+    let targetY = state.player.y;
+    let targetDist = Math.sqrt((enemy.x - state.player.x) ** 2 + (enemy.y - state.player.y) ** 2);
+
+    // Prefer nearby buildings (attracted by pollution)
+    for (const [, building] of state.buildings) {
+      const d = Math.sqrt((enemy.x - building.x) ** 2 + (enemy.y - building.y) ** 2);
+      if (d < targetDist && d < 25) {
+        targetDist = d;
+        targetX = building.x;
+        targetY = building.y;
+      }
+    }
+
+    // Move toward target
+    if (targetDist > enemy.range * 0.8) {
+      const dx = targetX - enemy.x;
+      const dy = targetY - enemy.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 0.1) {
+        const moveSpeed = enemy.speed * 0.04;
+        enemy.x += (dx / dist) * moveSpeed;
+        enemy.y += (dy / dist) * moveSpeed;
+        enemy.state = 'moving';
+      }
+    } else {
+      enemy.state = 'attacking';
+      if (enemy.attackCooldown <= 0) {
+        enemy.attackCooldown = 40;
+
+        // Attack player if in range
+        const playerDist = Math.sqrt((enemy.x - state.player.x) ** 2 + (enemy.y - state.player.y) ** 2);
+        if (playerDist <= enemy.range) {
+          state.player.health -= enemy.attack;
+          spawnParticle(state, state.player.x * TILE_SIZE, state.player.y * TILE_SIZE, 'spark', '#ff0000');
+        }
+
+        // Attack nearest building in range
+        for (const [key, building] of state.buildings) {
+          const d = Math.sqrt((enemy.x - building.x) ** 2 + (enemy.y - building.y) ** 2);
+          if (d <= enemy.range + 0.5) {
+            building.health -= enemy.attack;
+            spawnParticle(state, building.x * TILE_SIZE, building.y * TILE_SIZE, 'spark', '#ff6600');
+            if (building.health <= 0) {
+              const [bx, by] = key.split(',').map(Number);
+              removeBuilding(state, bx, by);
+              spawnParticle(state, building.x * TILE_SIZE, building.y * TILE_SIZE, 'explosion', '#ff6600');
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    if (enemy.health <= 0) {
+      state.enemies.delete(enemy.id);
+      state.statistics.enemiesKilled++;
+      grantXPToPlayer(state, 15);
+      spawnParticle(state, enemy.x * TILE_SIZE, enemy.y * TILE_SIZE, 'explosion', '#ff6600');
+    }
+  }
+}
+
+// ============ POLLUTION & EVOLUTION ============
+
+export function updatePollution(state: GameState) {
+  let totalPollution = 0;
+  for (const [, building] of state.buildings) {
+    if (building.type === 'miner' || building.type === 'furnace' || building.type === 'boiler') {
+      if (!building.isActive) continue;
+      const tile = getTileAt(state, building.x, building.y);
+      tile.pollution += 0.05;
+      totalPollution += tile.pollution;
+    }
+  }
+
+  for (const [, chunk] of state.chunks) {
+    for (let y = 0; y < CHUNK_SIZE; y++) {
+      for (let x = 0; x < CHUNK_SIZE; x++) {
+        chunk[y][x].pollution *= 0.998;
+      }
+    }
+  }
+
+  state.pollution = totalPollution;
+  state.evolution = Math.min(1, state.pollution * 0.0001 + state.tick * 0.000005);
+}
+
+// ============ PARTICLE SYSTEM ============
+
+export function spawnParticle(state: GameState, x: number, y: number, type: Particle['type'], color: string) {
+  if (state.particles.length >= MAX_PARTICLES) state.particles.shift();
+  const angle = Math.random() * Math.PI * 2;
+  const speed = type === 'explosion' ? 3 : type === 'spark' ? 2 : 0.5;
+  state.particles.push({
+    x, y,
+    vx: Math.cos(angle) * speed * (0.5 + Math.random()),
+    vy: Math.sin(angle) * speed * (0.5 + Math.random()) - (type === 'smoke' ? 1 : 0),
+    life: 30 + Math.random() * 30, maxLife: 60, color,
+    size: type === 'explosion' ? 4 : type === 'smoke' ? 6 : 2, type,
+  });
+}
+
+export function updateParticles(state: GameState) {
+  for (let i = state.particles.length - 1; i >= 0; i--) {
+    const p = state.particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.02;
+    if (p.type === 'smoke') p.vy -= 0.05;
+    p.life--;
+    if (p.life <= 0) state.particles.splice(i, 1);
+  }
+}
+
+// ============ WORLD EVENTS ============
+
+export function updateWorldEvents(state: GameState) {
+  if (state.tick % 1800 === 0 && Math.random() < 0.3) {
+    const types: WorldEvent['type'][] = ['meteor', 'raid', 'trade_caravan', 'resource_vein'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 20 + Math.random() * 30;
+    state.events.push({
+      id: genId(), type,
+      x: Math.floor(state.player.x + Math.cos(angle) * dist),
+      y: Math.floor(state.player.y + Math.sin(angle) * dist),
+      timer: 600, data: {},
+    });
+  }
+
+  for (let i = state.events.length - 1; i >= 0; i--) {
+    const event = state.events[i];
+    event.timer--;
+
+    if (event.type === 'raid' && event.timer === 500) {
+      const count = Math.floor(5 + state.evolution * 10);
+      for (let j = 0; j < count; j++) {
+        const a = Math.random() * Math.PI * 2;
+        const d = 25 + Math.random() * 10;
+        const stats = ENEMY_STATS.biter;
+        const enemy: Enemy = {
+          id: genId(), type: 'biter',
+          x: event.x + Math.cos(a) * d, y: event.y + Math.sin(a) * d,
+          health: stats.health * (1 + state.evolution), maxHealth: stats.health * (1 + state.evolution),
+          attack: stats.attack * (1 + state.evolution * 0.5), speed: stats.speed,
+          range: stats.range, target: null, evolution: state.evolution,
+          state: 'moving', attackCooldown: 0, spawnerId: null,
+        };
+        state.enemies.set(enemy.id, enemy);
+      }
+    }
+
+    if (event.type === 'trade_caravan' && event.timer === 400) {
+      const npc: NPC = {
+        id: genId(), type: 'trader', x: event.x, y: event.y,
+        targetX: state.player.x, targetY: state.player.y,
+        health: 100, maxHealth: 100, speed: 0.04, state: 'trading',
+        inventory: [{ itemId: 'circuit', count: 10 }, { itemId: 'gear', count: 20 }],
+        homeX: event.x, homeY: event.y,
+        name: 'Merchant ' + NPC_NAMES[Math.floor(Math.random() * NPC_NAMES.length)],
+        faction: 'traders', dialogue: NPC_DIALOGUES.trader,
+        taskTimer: 600, path: [], pathIndex: 0,
+      };
+      state.npcs.set(npc.id, npc);
+    }
+
+    if (event.type === 'resource_vein' && event.timer === 500) {
+      const resources: ResourceType[] = ['iron', 'copper', 'coal', 'stone'];
+      const resource = resources[Math.floor(Math.random() * resources.length)];
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const tile = getTileAt(state, event.x + dx, event.y + dy);
+          if (!tile.building) {
+            tile.resource = resource;
+            tile.resourceAmount = 500 + Math.random() * 500;
+          }
+        }
+      }
+    }
+
+    if (event.type === 'meteor' && event.timer === 300) {
+      spawnParticle(state, event.x * TILE_SIZE, event.y * TILE_SIZE, 'explosion', '#ff4400');
+      const tile = getTileAt(state, event.x, event.y);
+      if (!tile.building) {
+        tile.resource = 'uranium';
+        tile.resourceAmount = 200;
+      }
+    }
+
+    if (event.timer <= 0) state.events.splice(i, 1);
+  }
+}
+
+// ============ WEATHER ============
+
+export function updateWeather(state: GameState) {
+  state.weatherTimer--;
+  if (state.weatherTimer <= 0) {
+    const weathers: GameState['weather'][] = ['clear', 'clear', 'clear', 'rain', 'storm', 'fog'];
+    state.weather = weathers[Math.floor(Math.random() * weathers.length)];
+    state.weatherTimer = 3000 + Math.random() * 3000;
+  }
+}
+
+// ============ RESEARCH ============
+
+function applyResearchEffects(state: GameState, researchId: string) {
+  const research = state.research.get(researchId);
+  if (!research) return;
+  for (const [key, value] of Object.entries(research.effects)) {
+    switch (key) {
+      case 'miningSpeed': state.player.miningSpeed *= value; break;
+      case 'craftingSpeed': state.player.craftingSpeed *= value; break;
+      case 'playerSpeed': state.player.speed *= value; break;
+      case 'playerHealth': state.player.maxHealth *= value; state.player.health = state.player.maxHealth; break;
+    }
+  }
+}
+
+// ============ INVENTORY HELPERS ============
+
+function addItemToBuilding(building: Building, itemId: string, count: number) {
+  const slot = building.inventory.find(s => s.itemId === itemId);
+  if (slot) slot.count += count;
+  else building.inventory.push({ itemId, count });
+}
+
+function addItemToBuildingOutput(building: Building, itemId: string, count: number) {
+  const slot = building.outputInventory.find(s => s.itemId === itemId);
+  if (slot) slot.count += count;
+  else building.outputInventory.push({ itemId, count });
+}
+
+function removeItemFromBuilding(building: Building, itemId: string, count: number) {
+  const slot = building.inventory.find(s => s.itemId === itemId);
+  if (slot) {
+    slot.count -= count;
+    if (slot.count <= 0) building.inventory = building.inventory.filter(s => s.count > 0);
+  }
+}
+
+function removeItemFromBuildingOutput(building: Building, itemId: string, count: number) {
+  const slot = building.outputInventory.find(s => s.itemId === itemId);
+  if (slot) {
+    slot.count -= count;
+    if (slot.count <= 0) building.outputInventory = building.outputInventory.filter(s => s.count > 0);
+  }
+}
+
+export function addItemToPlayer(state: GameState, itemId: string, count: number) {
+  const slot = state.player.inventory.find(s => s.itemId === itemId);
+  if (slot) slot.count += count;
+  else state.player.inventory.push({ itemId, count });
+}
+
+export function removeItemFromPlayer(state: GameState, itemId: string, count: number): boolean {
+  const slot = state.player.inventory.find(s => s.itemId === itemId);
+  if (!slot || slot.count < count) return false;
+  slot.count -= count;
+  if (slot.count <= 0) state.player.inventory = state.player.inventory.filter(s => s.count > 0);
+  return true;
+}
+
+// ============ BUILDING UPGRADE ============
+
+const UPGRADE_COSTS: Record<number, { itemId: string; count: number }[]> = {
+  2: [{ itemId: 'iron_plate', count: 10 }, { itemId: 'circuit', count: 5 }],
+  3: [{ itemId: 'steel_plate', count: 10 }, { itemId: 'advanced_circuit', count: 5 }],
+};
+
+export function getUpgradeCost(level: number): { itemId: string; count: number }[] {
+  return UPGRADE_COSTS[level + 1] || [];
+}
+
+export function canAffordUpgrade(state: GameState, level: number): boolean {
+  const cost = UPGRADE_COSTS[level + 1];
+  if (!cost) return false;
+  return cost.every(c => {
+    const slot = state.player.inventory.find(s => s.itemId === c.itemId);
+    return slot && slot.count >= c.count;
+  });
+}
+
+export function upgradeBuilding(state: GameState, x: number, y: number): boolean {
+  const key = `${x},${y}`;
+  const building = state.buildings.get(key);
+  if (!building || building.level >= 3) return false;
+
+  const cost = UPGRADE_COSTS[building.level + 1];
+  if (!cost) return false;
+  if (!cost.every(c => {
+    const slot = state.player.inventory.find(s => s.itemId === c.itemId);
+    return slot && slot.count >= c.count;
+  })) return false;
+
+  for (const c of cost) {
+    removeItemFromPlayer(state, c.itemId, c.count);
+  }
+
+  building.level++;
+  building.maxHealth = Math.floor(building.maxHealth * 1.5);
+  building.health = building.maxHealth;
+  grantXPToPlayer(state, 25);
+  return true;
+}
+
+// ============ PLAYER MINING ============
+
+export function playerMine(state: GameState, tx: number, ty: number) {
+  const tile = getTileAt(state, tx, ty);
+  if (tile.resource && tile.resourceAmount > 0 && tile.resource !== 'water') {
+    tile.resourceAmount -= 1;
+    if (tile.resourceAmount <= 0) tile.resource = null;
+    addItemToPlayer(state, tile.resource!, 1);
+    spawnParticle(state, tx * TILE_SIZE + 16, ty * TILE_SIZE + 16, 'resource', RESOURCE_COLORS[tile.resource!] || '#fff');
+    grantXPToPlayer(state, 5);
+    return true;
+  }
+  return false;
+}
+
+// ============ XP & LEVEL SYSTEM ============
+
+export function grantXPToPlayer(state: GameState, amount: number, notify?: (msg: string) => void) {
+  state.player.xp += amount;
+  let requiredXP = state.player.level * 100;
+  while (state.player.xp >= requiredXP) {
+    state.player.xp -= requiredXP;
+    state.player.level++;
+    state.player.premiumCurrency += 5;
+    const msg = `Level Up! Now level ${state.player.level}! +5 premium currency`;
+    if (notify) {
+      notify(msg);
+    }
+    state.notifications.push({ text: msg, timer: 180 });
+    requiredXP = state.player.level * 100;
+  }
+}
+
+// ============ VISIBILITY ============
+
+export function updateVisibility(state: GameState) {
+  const radius = 8;
+  const px = Math.floor(state.player.x);
+  const py = Math.floor(state.player.y);
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (dx * dx + dy * dy > radius * radius) continue;
+      const tile = getTileAt(state, px + dx, py + dy);
+      tile.visibility = 1;
+    }
+  }
+}

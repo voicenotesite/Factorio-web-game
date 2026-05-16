@@ -1,0 +1,200 @@
+import { useRef, useState, useCallback, useEffect } from 'react';
+import GameCanvas from './components/GameCanvas';
+import HUD from './components/HUD';
+import BuildMenu from './components/BuildMenu';
+import ResearchMenu from './components/ResearchMenu';
+import InventoryMenu from './components/InventoryMenu';
+import StatsMenu from './components/StatsMenu';
+import LeaderboardMenu from './components/LeaderboardMenu';
+import ShopMenu from './components/ShopMenu';
+import BuildingInfo from './components/BuildingInfo';
+import SaveLoad from './components/SaveLoad';
+import StartScreen from './components/StartScreen';
+import { GameEngine } from './game/engine';
+import { GameState } from './game/types';
+
+function App() {
+  const engineRef = useRef<GameEngine | null>(null);
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [started, setStarted] = useState(false);
+  const [showBuild, setShowBuild] = useState(false);
+  const [showResearch, setShowResearch] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showShop, setShowShop] = useState(false);
+  const [showSaveLoad, setShowSaveLoad] = useState(false);
+  const [notifications, setNotifications] = useState<{ text: string; timer: number }[]>([]);
+
+  const handleEngineReady = useCallback((engine: GameEngine) => {
+    engineRef.current = engine;
+    engine.onStateChange = (state) => {
+      setGameState({ ...state });
+      setNotifications([...engine.notifications]);
+      if (engine.keys.has('b')) { setShowBuild(prev => !prev); engine.keys.delete('b'); }
+      if (engine.keys.has('r')) { setShowResearch(prev => !prev); engine.keys.delete('r'); }
+      if (engine.keys.has('i')) { setShowInventory(prev => !prev); engine.keys.delete('i'); }
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') { e.preventDefault(); setShowStats(prev => !prev); }
+      if (e.key === 'l') setShowLeaderboard(prev => !prev);
+      if (e.key === 'p') setShowShop(prev => !prev);
+      if (e.key === 'Enter' && !started) setStarted(true);
+      if (e.key === 'Escape') {
+        setShowBuild(false); setShowResearch(false); setShowInventory(false);
+        setShowStats(false); setShowLeaderboard(false); setShowShop(false); setShowSaveLoad(false);
+        if (engineRef.current) engineRef.current.selectedBuilding = null;
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [started]);
+
+  const engine = engineRef.current;
+
+  return (
+    <div className="w-screen h-screen overflow-hidden bg-[#060a12] select-none font-exo">
+      {!started && <StartScreen onStart={() => setStarted(true)} />}
+      {started && <GameCanvas engineRef={engineRef} onEngineReady={handleEngineReady} />}
+      {started && gameState && <HUD state={gameState} notifications={notifications} />}
+      {started && gameState && engine && <BuildingInfo engine={engine} state={gameState} />}
+
+      {/* Bottom action bar */}
+      {started && (
+        <div
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 animate-slide-up"
+          style={{
+            background: 'rgba(6,10,18,0.92)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(245,158,11,0.12)',
+            borderRadius: '14px',
+            padding: '6px 10px',
+            boxShadow: '0 0 0 1px rgba(0,0,0,0.5), 0 8px 40px rgba(0,0,0,0.6), 0 0 30px rgba(245,158,11,0.05)',
+          }}
+        >
+          <ActionBarBtn label="Build" shortcut="B" onClick={() => setShowBuild(true)} active={showBuild}
+            icon={<WrenchIcon />} color="#f59e0b" />
+          <ActionBarBtn label="Research" shortcut="R" onClick={() => setShowResearch(true)} active={showResearch}
+            icon={<FlaskIcon />} color="#38bdf8" />
+          <ActionBarBtn label="Craft" shortcut="I" onClick={() => setShowInventory(true)} active={showInventory}
+            icon={<PackageIcon />} color="#22c55e" />
+          <ActionBarBtn label="Stats" shortcut="Tab" onClick={() => setShowStats(true)} active={showStats}
+            icon={<ChartIcon />} color="#a78bfa" />
+          <ActionBarBtn label="Ranks" shortcut="L" onClick={() => setShowLeaderboard(true)} active={showLeaderboard}
+            icon={<TrophyIcon />} color="#fbbf24" />
+          <ActionBarBtn label="Shop" shortcut="P" onClick={() => setShowShop(true)} active={showShop}
+            icon={<GemIcon />} color="#06b6d4" />
+          <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
+          <ActionBarBtn label="Save" shortcut="" onClick={() => setShowSaveLoad(true)} active={showSaveLoad}
+            icon={<SaveIcon />} color="#94a3b8" />
+        </div>
+      )}
+
+      {/* Placing indicator */}
+      {engine?.selectedBuilding && (
+        <div
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-20 text-sm px-5 py-2.5 rounded-xl font-exo animate-fade-in"
+          style={{
+            background: 'rgba(6,10,18,0.9)',
+            border: '1px solid rgba(34,197,94,0.3)',
+            boxShadow: '0 0 20px rgba(34,197,94,0.15)',
+            backdropFilter: 'blur(12px)',
+          }}
+        >
+          <span className="text-white/40">Placing: </span>
+          <span className="font-semibold text-emerald-400">{engine.selectedBuilding.replace(/_/g, ' ')}</span>
+          <span className="text-white/25 ml-2">· Dir: <span className="text-white/40">{engine.selectedDirection.toUpperCase()}</span></span>
+          <span className="text-white/20 ml-2 text-xs">(Q rotate · ESC cancel)</span>
+        </div>
+      )}
+
+      {/* Menus */}
+      {showBuild && engine && gameState && <BuildMenu engine={engine} state={gameState} onClose={() => setShowBuild(false)} />}
+      {showResearch && engine && gameState && <ResearchMenu engine={engine} state={gameState} onClose={() => setShowResearch(false)} />}
+      {showInventory && engine && gameState && <InventoryMenu engine={engine} state={gameState} onClose={() => setShowInventory(false)} />}
+      {showStats && gameState && <StatsMenu state={gameState} onClose={() => setShowStats(false)} />}
+      {showLeaderboard && <LeaderboardMenu onClose={() => setShowLeaderboard(false)} />}
+      {showShop && engine && gameState && <ShopMenu engine={engine} state={gameState} onClose={() => setShowShop(false)} />}
+      {showSaveLoad && engine && <SaveLoad engine={engine} onClose={() => setShowSaveLoad(false)} />}
+    </div>
+  );
+}
+
+function ActionBarBtn({ label, shortcut, onClick, icon, color, active }: {
+  label: string; shortcut: string; onClick: () => void; icon: React.ReactNode; color: string; active?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="btn-factory flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all duration-150 group"
+      style={{
+        background: active ? `${color}18` : 'transparent',
+        border: `1px solid ${active ? `${color}40` : 'transparent'}`,
+        boxShadow: active ? `0 0 15px ${color}20` : 'none',
+      }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLElement).style.background = `${color}12`;
+        (e.currentTarget as HTMLElement).style.border = `1px solid ${color}30`;
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLElement).style.background = active ? `${color}18` : 'transparent';
+        (e.currentTarget as HTMLElement).style.border = `1px solid ${active ? `${color}40` : 'transparent'}`;
+      }}
+    >
+      <span style={{ color: active ? color : 'rgba(255,255,255,0.5)', filter: active ? `drop-shadow(0 0 6px ${color})` : 'none' }}>
+        {icon}
+      </span>
+      <span className="text-[9px] font-orbitron tracking-wider" style={{ color: active ? color : 'rgba(255,255,255,0.35)' }}>
+        {label}
+      </span>
+      {shortcut && (
+        <span className="text-[8px] px-1 rounded" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.2)' }}>
+          {shortcut}
+        </span>
+      )}
+    </button>
+  );
+}
+
+// Minimal inline SVG icons
+const WrenchIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+  </svg>
+);
+const FlaskIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 3h6l1 9H8L9 3z" /><path d="M6.4 18.3a2 2 0 0 0 1.8 1.7h7.6a2 2 0 0 0 1.8-1.7L18 12H6l.4 6.3z" />
+  </svg>
+);
+const PackageIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" /><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27,6.96 12,12.01 20.73,6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
+  </svg>
+);
+const ChartIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+  </svg>
+);
+const TrophyIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="14,9 12,11 10,9" /><path d="M21 4H3v4a9 9 0 0 0 18 0V4z" /><path d="M12 17v4" /><line x1="8" y1="21" x2="16" y2="21" />
+  </svg>
+);
+const GemIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5" /><line x1="12" y1="22" x2="12" y2="15.5" /><polyline points="22,8.5 12,15.5 2,8.5" /><polyline points="2,8.5 12,2 22,8.5" />
+  </svg>
+);
+const SaveIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17,21 17,13 7,13 7,21" /><polyline points="7,3 7,8 15,8" />
+  </svg>
+);
+
+export default App;
+
