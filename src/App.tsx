@@ -56,7 +56,7 @@ function App() {
   const engine = engineRef.current;
 
   return (
-    <div className="w-screen h-screen overflow-hidden bg-[#060a12] select-none font-exo">
+    <div className="w-screen h-screen overflow-hidden select-none font-exo" style={{ background: 'var(--factory-bg)' }}>
       {!started && <StartScreen onStart={() => setStarted(true)} />}
       {started && <GameCanvas engineRef={engineRef} onEngineReady={handleEngineReady} />}
       {started && gameState && <HUD state={gameState} notifications={notifications} />}
@@ -67,12 +67,12 @@ function App() {
         <div
           className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 animate-slide-up"
           style={{
-            background: 'rgba(6,10,18,0.92)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(245,158,11,0.12)',
-            borderRadius: '14px',
+            background: 'linear-gradient(180deg, #0f1418 0%, #0a0d11 100%)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(42,54,66,0.9)',
+            borderRadius: '4px',
             padding: '6px 10px',
-            boxShadow: '0 0 0 1px rgba(0,0,0,0.5), 0 8px 40px rgba(0,0,0,0.6), 0 0 30px rgba(245,158,11,0.05)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.6), 0 8px 32px rgba(0,0,0,0.7)',
           }}
         >
           <ActionBarBtn label="Build" shortcut="B" onClick={() => setShowBuild(true)} active={showBuild}
@@ -98,10 +98,10 @@ function App() {
         <div
           className="fixed bottom-20 left-1/2 -translate-x-1/2 z-20 text-sm px-5 py-2.5 rounded-xl font-exo animate-fade-in"
           style={{
-            background: 'rgba(6,10,18,0.9)',
-            border: '1px solid rgba(34,197,94,0.3)',
-            boxShadow: '0 0 20px rgba(34,197,94,0.15)',
-            backdropFilter: 'blur(12px)',
+            background: 'linear-gradient(180deg, #0f1418 0%, #0a0d11 100%)',
+            border: '1px solid rgba(42,54,66,0.9)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 4px 20px rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(10px)',
           }}
         >
           <span className="text-white/40">Placing: </span>
@@ -136,12 +136,12 @@ function ActionBarBtn({ label, shortcut, onClick, icon, color, active }: {
         boxShadow: active ? `0 0 15px ${color}20` : 'none',
       }}
       onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.background = `${color}12`;
-        (e.currentTarget as HTMLElement).style.border = `1px solid ${color}30`;
+        (e.currentTarget as HTMLElement).style.background = `rgba(42,54,66,0.5)`;
+        (e.currentTarget as HTMLElement).style.border = `1px solid rgba(42,54,66,0.9)`;
       }}
       onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.background = active ? `${color}18` : 'transparent';
-        (e.currentTarget as HTMLElement).style.border = `1px solid ${active ? `${color}40` : 'transparent'}`;
+        (e.currentTarget as HTMLElement).style.background = active ? `${color}14` : 'transparent';
+        (e.currentTarget as HTMLElement).style.border = `1px solid ${active ? `${color}35` : 'transparent'}`;
       }}
     >
       <span style={{ color: active ? color : 'rgba(255,255,255,0.5)', filter: active ? `drop-shadow(0 0 6px ${color})` : 'none' }}>

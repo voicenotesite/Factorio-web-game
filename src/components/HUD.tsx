@@ -34,7 +34,7 @@ export default function HUD({ state, notifications }: Props) {
       <div
         className="flex items-center justify-between px-4 py-2.5"
         style={{
-          background: 'linear-gradient(to bottom, rgba(6,10,18,0.9) 0%, rgba(6,10,18,0.5) 70%, transparent 100%)',
+          background: 'linear-gradient(to bottom, rgba(6,8,10,0.95) 0%, rgba(6,8,10,0.6) 70%, transparent 100%)',
           borderBottom: 'none',
         }}
       >
@@ -136,12 +136,12 @@ export default function HUD({ state, notifications }: Props) {
             key={i}
             className="px-5 py-2 text-sm font-exo rounded-lg notify-enter"
             style={{
-              background: 'rgba(6,10,18,0.92)',
-              border: '1px solid rgba(245,158,11,0.25)',
-              boxShadow: '0 0 20px rgba(245,158,11,0.1), 0 4px 20px rgba(0,0,0,0.5)',
-              color: 'rgba(255,255,255,0.9)',
+              background: 'linear-gradient(180deg, #0f1418 0%, #0a0d11 100%)',
+              border: '1px solid rgba(42,54,66,0.9)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 4px 20px rgba(0,0,0,0.7)',
+              color: 'rgba(176,186,196,0.9)',
               opacity: Math.min(1, n.timer / 30),
-              backdropFilter: 'blur(12px)',
+              backdropFilter: 'blur(10px)',
               transform: `translateX(-50%)`,
               position: 'relative',
               left: '50%',
@@ -156,13 +156,13 @@ export default function HUD({ state, notifications }: Props) {
       <div
         className="absolute top-14 right-4 w-44 h-44 rounded-xl overflow-hidden shadow-2xl"
         style={{
-          background: 'rgba(6,10,18,0.85)',
-          border: '1px solid rgba(245,158,11,0.15)',
-          boxShadow: '0 0 0 1px rgba(0,0,0,0.5), 0 8px 32px rgba(0,0,0,0.5)',
+          background: 'linear-gradient(180deg, #0f1418 0%, #0a0d11 100%)',
+          border: '1px solid rgba(42,54,66,0.9)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 0 0 1px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.7)',
           backdropFilter: 'blur(8px)',
         }}
       >
-        <div className="absolute top-1 left-2 text-[8px] font-orbitron text-amber-500/40 tracking-widest z-10">MAP</div>
+        <div className="absolute top-1 left-2 text-[8px] font-orbitron text-white/20 tracking-widest z-10">MAP</div>
         <Minimap state={state} />
       </div>
 
@@ -201,7 +201,7 @@ function Minimap({ state }: { state: GameState }) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.fillStyle = '#060a12';
+    ctx.fillStyle = '#06080a';
     ctx.fillRect(0, 0, 176, 176);
 
     const scale = 2;

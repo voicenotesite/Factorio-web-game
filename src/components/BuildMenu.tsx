@@ -32,8 +32,8 @@ const BUILDABLE_ITEMS = [
 
 const CATEGORIES = ['Logistics', 'Production', 'Oil', 'Power', 'Storage', 'Research', 'Defense'];
 const CATEGORY_COLORS: Record<string, string> = {
-  Logistics: '#f59e0b', Production: '#22c55e', Oil: '#a78bfa',
-  Power: '#fbbf24', Storage: '#94a3b8', Research: '#38bdf8', Defense: '#ef4444',
+  Logistics: '#c8890a', Production: '#1a7a45', Oil: '#7a5fa0',
+  Power: '#c8a020', Storage: '#4a5a6a', Research: '#2a6080', Defense: '#8b2020',
 };
 
 const ITEM_NAMES: Record<string, string> = {
@@ -62,7 +62,7 @@ export default function BuildMenu({ engine, state, onClose }: Props) {
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(245,158,11,0.1)' }}>
+        <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(42,54,66,0.8)' }}>
           <div>
             <h2 className="font-orbitron font-bold text-lg text-white tracking-wider">BUILD MENU</h2>
             <p className="text-xs text-white/30 mt-1">
