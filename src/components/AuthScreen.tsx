@@ -61,9 +61,9 @@ export default function AuthScreen({ onAuth }: Props) {
             className="inline-block text-3xl font-orbitron font-black tracking-[0.2em] mb-1"
             style={{ color: '#d88010', textShadow: '0 0 30px rgba(216,128,16,0.5)' }}
           >
-            FACTORIO
+            NOVACTORIO
           </div>
-          <div className="text-xs font-exo tracking-[0.3em] text-white/20">INDUSTRIAL EMPIRE</div>
+          <div className="text-xs font-exo tracking-[0.3em] text-white/20">BUILD. AUTOMATE. SURVIVE.</div>
         </div>
 
         {/* Card */}

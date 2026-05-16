@@ -19,7 +19,7 @@ export interface SaveData {
 }
 
 function getSaveKey(username: string): string {
-  return `factorio_save_${username.toLowerCase()}`;
+  return `novactorio_save_${username.toLowerCase()}`;
 }
 
 export function saveGame(username: string, state: GameState): void {

@@ -3,8 +3,8 @@ export interface Account {
   passwordHash: string;
 }
 
-const ACCOUNTS_KEY = 'factorio_accounts';
-const CURRENT_USER_KEY = 'factorio_current_user';
+const ACCOUNTS_KEY = 'novactorio_accounts';
+const CURRENT_USER_KEY = 'novactorio_current_user';
 
 function hashPassword(password: string): string {
   let hash = 5381;
