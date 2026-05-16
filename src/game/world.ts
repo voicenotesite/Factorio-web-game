@@ -47,9 +47,9 @@ function getResource(x: number, y: number, biome: BiomeType): { resource: Resour
   const yieldTier = getYield(x, y);
   const yieldMult = getYieldMultiplier(yieldTier);
 
-  // Resource veins - clustered deposits
-  if (v1 > 0.5 && v2 > 0.3) {
-    const baseAmount = Math.floor(200 + v3 * 300);
+  // Biome-specific deposits — rare, tight clusters
+  if (v1 > 0.65 && v2 > 0.55) {
+    const baseAmount = Math.floor(300 + v3 * 400);
     const amount = Math.floor(baseAmount * yieldMult);
     switch (biome) {
       case 'desert': return { resource: 'stone', amount, yield: yieldTier };
@@ -60,23 +60,23 @@ function getResource(x: number, y: number, biome: BiomeType): { resource: Resour
     }
   }
 
-  // Iron deposits - most common
-  if (v1 > 0.35 && v2 > 0.2 && v3 > 0.1) {
+  // Iron deposits — most common, but only in clear patches
+  if (v1 > 0.55 && v2 > 0.45) {
     return { resource: 'iron', amount: Math.floor((300 + v1 * 500) * yieldMult), yield: yieldTier };
   }
 
   // Copper deposits
-  if (v1 > 0.3 && v2 < -0.2 && v3 > 0.15) {
+  if (v1 > 0.50 && v2 < -0.42) {
     return { resource: 'copper', amount: Math.floor((250 + v1 * 400) * yieldMult), yield: yieldTier };
   }
 
   // Coal deposits
-  if (v1 < -0.3 && v2 > 0.25) {
+  if (v1 < -0.52 && v2 > 0.48) {
     return { resource: 'coal', amount: Math.floor((200 + Math.abs(v1) * 350) * yieldMult), yield: yieldTier };
   }
 
   // Stone patches
-  if (v1 < -0.4 && v2 < -0.3) {
+  if (v1 < -0.58 && v2 < -0.52) {
     return { resource: 'stone', amount: Math.floor((400 + Math.abs(v1) * 300) * yieldMult), yield: yieldTier };
   }
 
@@ -141,7 +141,7 @@ export function getTileColor(tile: Tile, dayFactor: number): string {
 export function hasTreeAt(x: number, y: number, biome: BiomeType): boolean {
   if (biome !== 'forest' && biome !== 'grass') return false;
   const v = treeNoise.noise2D(x * 0.3, y * 0.3);
-  return v > 0.4;
+  return v > 0.6;
 }
 
 export function getEnemySpawnChance(cx: number, cy: number, pollution: number, evolution: number): number {

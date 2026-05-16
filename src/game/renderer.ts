@@ -345,7 +345,6 @@ export class GameRenderer {
       ctx.beginPath();
       ctx.ellipse(x + TILE_SIZE / 2, y + TILE_SIZE / 2, 11, 9, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Oil sheen
       const sheen = Math.sin(this.frameCount * 0.03 + tile.x) * 0.1;
       ctx.fillStyle = `rgba(80,40,120,${0.15 + sheen})`;
       ctx.beginPath();
@@ -354,29 +353,62 @@ export class GameRenderer {
       return;
     }
 
-    // Resource deposit with 3D effect
-    const count = Math.min(6, Math.ceil(tile.resourceAmount / 80));
-    for (let i = 0; i < count; i++) {
-      const dx = ((i * 7 + tile.x * 3) % 22) + 5;
-      const dy = ((i * 11 + tile.y * 5) % 22) + 5;
-      // Shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    // Parse ore color components
+    const rC = parseInt(color.slice(1, 3), 16);
+    const gC = parseInt(color.slice(3, 5), 16);
+    const bC = parseInt(color.slice(5, 7), 16);
+
+    // Tile-wide ore ground tint — makes the patch clearly visible even when zoomed out
+    ctx.fillStyle = `rgba(${Math.floor(rC * 0.35)},${Math.floor(gC * 0.35)},${Math.floor(bC * 0.35)},0.6)`;
+    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+
+    // Deterministic hash for rock positions
+    const h1 = ((tile.x * 7919 + tile.y * 104729) & 0xFFFF) / 65535;
+    const h2 = ((tile.x * 104729 + tile.y * 7919) & 0xFFFF) / 65535;
+    const h3 = ((tile.x * 49999 + tile.y * 86413) & 0xFFFF) / 65535;
+
+    // Draw 3–5 ore rock chunks per tile
+    const rockCount = 3 + Math.floor(h3 * 3);
+    for (let i = 0; i < rockCount; i++) {
+      const t = i / rockCount;
+      const rx = x + ((h1 + t * 0.37) % 1) * (TILE_SIZE - 10) + 5;
+      const ry = y + ((h2 + t * 0.53) % 1) * (TILE_SIZE - 10) + 5;
+      const rs = 3.5 + ((h1 + h2 + t) % 1) * 2.5;
+      const angle = (h3 + t) * Math.PI;
+
+      // Rock shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
       ctx.beginPath();
-      ctx.ellipse(x + dx + 1, y + dy + 2, 3.5, 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(rx + 1.5, ry + 2, rs * 0.9, rs * 0.55, angle, 0, Math.PI * 2);
       ctx.fill();
-      // Crystal/deposit
+
+      // Rock body — angular polygon
+      const pts = 5 + Math.floor((h1 + i) % 1 * 2);
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(x + dx, y + dy, 3, 0, Math.PI * 2);
+      for (let p = 0; p < pts; p++) {
+        const a = (p / pts) * Math.PI * 2 + angle;
+        const jitter = 0.7 + ((h2 + p * 0.17) % 1) * 0.6;
+        const px2 = rx + Math.cos(a) * rs * jitter;
+        const py2 = ry + Math.sin(a) * rs * 0.65 * jitter;
+        p === 0 ? ctx.moveTo(px2, py2) : ctx.lineTo(px2, py2);
+      }
+      ctx.closePath();
       ctx.fill();
-      // Highlight
-      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+
+      // Rock outline (darker edge)
+      ctx.strokeStyle = `rgba(${Math.floor(rC * 0.5)},${Math.floor(gC * 0.5)},${Math.floor(bC * 0.5)},0.8)`;
+      ctx.lineWidth = 0.6;
+      ctx.stroke();
+
+      // Highlight facet
+      ctx.fillStyle = `rgba(255,255,255,0.22)`;
       ctx.beginPath();
-      ctx.arc(x + dx - 1, y + dy - 1, 1.2, 0, Math.PI * 2);
+      ctx.ellipse(rx - rs * 0.3, ry - rs * 0.35, rs * 0.3, rs * 0.2, angle - 0.5, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Yield quality indicator
+    // Yield quality indicator — small corner gem
     if (tile.resourceYield !== 'normal') {
       const yieldColor = getYieldColor(tile.resourceYield);
       ctx.fillStyle = yieldColor;
@@ -384,7 +416,7 @@ export class GameRenderer {
       ctx.arc(x + TILE_SIZE - 5, y + 5, 2.5, 0, Math.PI * 2);
       ctx.fill();
       if (tile.resourceYield === 'rich' || tile.resourceYield === 'very_rich') {
-        ctx.globalAlpha = 0.2;
+        ctx.globalAlpha = 0.25;
         ctx.beginPath();
         ctx.arc(x + TILE_SIZE - 5, y + 5, 5, 0, Math.PI * 2);
         ctx.fill();
