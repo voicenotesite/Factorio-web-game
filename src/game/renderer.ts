@@ -174,6 +174,39 @@ export class GameRenderer {
       this.renderGhostBuilding(ctx, state);
     }
 
+    // Render build queue sites (construction scaffolding)
+    for (const task of state.buildQueue) {
+      const bsize = BUILDING_SIZES[task.type] || { w: 1, h: 1 };
+      const bx = task.x * TILE_SIZE;
+      const by = task.y * TILE_SIZE;
+      const bw = bsize.w * TILE_SIZE;
+      const bh = bsize.h * TILE_SIZE;
+      const prog = task.constructionProgress / 100;
+
+      // Scaffolding frame
+      ctx.strokeStyle = 'rgba(255,200,80,0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(bx + 1, by + 1, bw - 2, bh - 2);
+      ctx.setLineDash([]);
+
+      // Construction fill
+      ctx.fillStyle = `rgba(255,200,80,${0.08 + prog * 0.18})`;
+      ctx.fillRect(bx, by, bw, bh * prog);
+
+      // Progress bar
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(bx, by + bh - 5, bw, 5);
+      ctx.fillStyle = '#ffcc44';
+      ctx.fillRect(bx, by + bh - 5, bw * prog, 5);
+
+      // Build icon
+      ctx.font = `${Math.min(bw, bh) * 0.5}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,200,80,0.9)';
+      ctx.fillText('🔨', bx + bw / 2, by + bh / 2 + 4);
+    }
+
     // Render particles
     this.renderParticles(ctx, state, viewLeft, viewTop, viewRight, viewBottom);
 
@@ -734,24 +767,15 @@ export class GameRenderer {
       ctx.fill();
     }
 
-    // Active pulse
-    if (building.isActive) {
-      const pulse = Math.sin(this.frameCount * 0.08) * 0.15 + 0.15;
-      ctx.fillStyle = `rgba(0,255,136,${pulse})`;
-      ctx.beginPath();
-      ctx.roundRect(x, y, w, h, 2);
-      ctx.fill();
-    }
-
-    // Animated active pulse ring
-    if (building.isActive) {
-      const pulsePhase = (this.frameCount * 0.06) % (Math.PI * 2);
-      const pulseR = 3 + Math.sin(pulsePhase) * 1.5;
-      ctx.strokeStyle = `rgba(80,220,100,${0.3 + Math.sin(pulsePhase) * 0.25})`;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(x + w / 2, y + h / 2, pulseR + w * 0.35, 0, Math.PI * 2);
-      ctx.stroke();
+    // Subtle status indicator: thin horizontal bar at bottom
+    const statusColor = building.isActive ? '#22dd44' : '#444';
+    ctx.fillStyle = statusColor;
+    ctx.fillRect(x + 2, y + h - 3, (w - 4), 2);
+    if (building.isActive && building.recipe && building.progress > 0) {
+      // progress fill on same bar in accent color
+      const prog = Math.min(1, building.progress / (building.recipe?.craftTime ?? 100));
+      ctx.fillStyle = '#88ffaa';
+      ctx.fillRect(x + 2, y + h - 3, (w - 4) * prog, 2);
     }
 
     // Type-specific details

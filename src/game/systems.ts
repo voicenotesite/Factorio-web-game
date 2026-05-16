@@ -21,24 +21,26 @@ const DIR_OFFSETS: Record<Direction, { dx: number; dy: number }> = {
 // ============ BUILDING COSTS ============
 
 const BUILDING_COSTS: Record<string, { itemId: string; count: number }[]> = {
-  conveyor: [{ itemId: 'iron_plate', count: 1 }, { itemId: 'gear', count: 1 }],
-  inserter: [{ itemId: 'iron_plate', count: 1 }, { itemId: 'gear', count: 1 }, { itemId: 'circuit', count: 1 }],
-  splitter: [{ itemId: 'iron_plate', count: 2 }, { itemId: 'gear', count: 2 }],
-  underground_belt: [{ itemId: 'iron_plate', count: 2 }, { itemId: 'gear', count: 2 }],
-  miner: [{ itemId: 'iron_plate', count: 3 }, { itemId: 'gear', count: 3 }, { itemId: 'circuit', count: 1 }],
-  furnace: [{ itemId: 'stone', count: 5 }, { itemId: 'iron_plate', count: 2 }],
-  assembler: [{ itemId: 'iron_plate', count: 3 }, { itemId: 'gear', count: 3 }, { itemId: 'circuit', count: 1 }],
-  boiler: [{ itemId: 'stone', count: 5 }, { itemId: 'iron_plate', count: 2 }],
-  power_pole: [{ itemId: 'iron_plate', count: 2 }, { itemId: 'copper_plate', count: 1 }],
-  storage: [{ itemId: 'iron_plate', count: 2 }],
-  lab: [{ itemId: 'iron_plate', count: 5 }, { itemId: 'gear', count: 5 }, { itemId: 'circuit', count: 5 }],
-  radar: [{ itemId: 'iron_plate', count: 5 }, { itemId: 'gear', count: 5 }, { itemId: 'circuit', count: 5 }],
-  turret: [{ itemId: 'iron_plate', count: 5 }, { itemId: 'gear', count: 5 }, { itemId: 'copper_plate', count: 5 }],
-  wall: [{ itemId: 'stone', count: 5 }],
-  pumpjack: [{ itemId: 'iron_plate', count: 3 }, { itemId: 'gear', count: 3 }, { itemId: 'circuit', count: 2 }],
-  refinery: [{ itemId: 'iron_plate', count: 10 }, { itemId: 'gear', count: 5 }, { itemId: 'circuit', count: 5 }, { itemId: 'pipe', count: 5 }],
-  chemical_plant: [{ itemId: 'iron_plate', count: 5 }, { itemId: 'gear', count: 3 }, { itemId: 'circuit', count: 3 }, { itemId: 'pipe', count: 3 }],
-  pipe: [{ itemId: 'iron_plate', count: 1 }],
+  conveyor:          [{ itemId: 'iron_plate', count: 4 }, { itemId: 'gear', count: 4 }],
+  inserter:          [{ itemId: 'iron_plate', count: 5 }, { itemId: 'gear', count: 5 }, { itemId: 'circuit', count: 3 }],
+  splitter:          [{ itemId: 'iron_plate', count: 10 }, { itemId: 'gear', count: 8 }],
+  underground_belt:  [{ itemId: 'iron_plate', count: 10 }, { itemId: 'gear', count: 8 }],
+  miner:             [{ itemId: 'iron_plate', count: 15 }, { itemId: 'gear', count: 12 }, { itemId: 'circuit', count: 5 }],
+  furnace:           [{ itemId: 'stone', count: 20 }, { itemId: 'iron_plate', count: 10 }],
+  assembler:         [{ itemId: 'iron_plate', count: 15 }, { itemId: 'gear', count: 12 }, { itemId: 'circuit', count: 8 }],
+  storage:           [{ itemId: 'iron_plate', count: 12 }, { itemId: 'gear', count: 8 }],
+  power_pole:        [{ itemId: 'iron_plate', count: 2 }, { itemId: 'copper_plate', count: 2 }],
+  steam_engine:      [{ itemId: 'iron_plate', count: 30 }, { itemId: 'gear', count: 20 }, { itemId: 'copper_plate', count: 10 }],
+  boiler:            [{ itemId: 'stone', count: 20 }, { itemId: 'iron_plate', count: 15 }, { itemId: 'copper_plate', count: 8 }],
+  lab:               [{ itemId: 'iron_plate', count: 20 }, { itemId: 'gear', count: 15 }, { itemId: 'circuit', count: 12 }],
+  radar:             [{ itemId: 'iron_plate', count: 15 }, { itemId: 'gear', count: 10 }, { itemId: 'circuit', count: 8 }],
+  turret:            [{ itemId: 'iron_plate', count: 25 }, { itemId: 'gear', count: 20 }, { itemId: 'copper_plate', count: 15 }],
+  wall:              [{ itemId: 'stone', count: 8 }],
+  belt_junction:     [{ itemId: 'iron_plate', count: 5 }, { itemId: 'gear', count: 5 }],
+  pumpjack:          [{ itemId: 'iron_plate', count: 25 }, { itemId: 'gear', count: 20 }, { itemId: 'circuit', count: 10 }],
+  refinery:          [{ itemId: 'iron_plate', count: 40 }, { itemId: 'gear', count: 30 }, { itemId: 'circuit', count: 20 }, { itemId: 'steel_plate', count: 10 }],
+  chemical_plant:    [{ itemId: 'iron_plate', count: 30 }, { itemId: 'gear', count: 20 }, { itemId: 'circuit', count: 15 }, { itemId: 'steel_plate', count: 8 }],
+  pipe:              [{ itemId: 'iron_plate', count: 2 }],
 };
 
 export function getBuildingCost(type: string): { itemId: string; count: number }[] {
@@ -77,7 +79,7 @@ export function createBuilding(type: string, x: number, y: number, direction: st
   };
 }
 
-export function placeBuilding(state: GameState, type: string, x: number, y: number, direction: string): boolean {
+export function placeBuilding(state: GameState, type: string, x: number, y: number, direction: string, skipPayment = false): boolean {
   const size = BUILDING_SIZES[type] || { w: 1, h: 1 };
 
   // Check if area is clear
@@ -93,7 +95,7 @@ export function placeBuilding(state: GameState, type: string, x: number, y: numb
   }
 
   // Pay cost
-  if (!payBuildingCost(state, type)) return false;
+  if (!skipPayment && !payBuildingCost(state, type)) return false;
 
   const building = createBuilding(type, x, y, direction);
   state.buildings.set(`${x},${y}`, building);
@@ -246,7 +248,7 @@ function updateMiner(state: GameState, building: Building) {
       if (tile.resource && tile.resourceAmount > 0 && tile.resource !== 'water' && tile.resource !== 'oil') {
         foundResource = true;
         building.progress += state.player.miningSpeed;
-        if (building.progress >= 40) {
+        if (building.progress >= 80) {
           building.progress = 0;
           const minedResource = tile.resource!;
           tile.resourceAmount -= 1;
@@ -858,7 +860,9 @@ function getAcceptedItemTypes(buildingType: string): string[] | 'any' {
 // ============ NPC SYSTEM ============
 
 export function spawnNPCs(state: GameState) {
-  if (state.npcs.size >= NPC_MAX) return;
+  // Dynamic NPC cap: 4 at start, +1 per 20 buildings placed, max NPC_MAX
+  const effectiveMax = Math.min(NPC_MAX, 4 + Math.floor(state.statistics.buildingsPlaced / 20));
+  if (state.npcs.size >= effectiveMax) return;
   const buildings = Array.from(state.buildings.values());
   // Allow spawning even without buildings — NPCs wander the world
 
@@ -1001,7 +1005,43 @@ export function updateNPCs(state: GameState) {
         }
 
         case 'working': {
-          // Worker: carry item from building output to nearest accepting building
+          // First priority: check build queue for assigned or unassigned tasks
+          const myTask = state.buildQueue.find(q => q.assignedNpcId === npc.id);
+          const freeTask = !myTask ? state.buildQueue.find(q => !q.assignedNpcId) : null;
+          const task = myTask || freeTask;
+
+          if (task && !myTask) {
+            task.assignedNpcId = npc.id;
+          }
+
+          if (task) {
+            // Walk toward build site
+            const dx = task.x - npc.x;
+            const dy = task.y - npc.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 1.5) {
+              npc.x += (dx / dist) * npc.speed;
+              npc.y += (dy / dist) * npc.speed;
+            } else {
+              // At build site — construct slowly
+              task.constructionProgress += 1.2; // ~83 ticks to finish
+              if (task.constructionProgress >= 100) {
+                // Place the building (payment already taken when queued)
+                placeBuilding(state, task.type, task.x, task.y, task.direction, true);
+                state.buildQueue = state.buildQueue.filter(q => q.id !== task.id);
+                spawnParticle(state, task.x * TILE_SIZE + 16, task.y * TILE_SIZE + 16, 'spark', '#88ffcc');
+              }
+            }
+            if (npc.taskTimer <= 0) {
+              // Abandon task
+              if (task.assignedNpcId === npc.id) task.assignedNpcId = undefined;
+              npc.state = 'idle';
+              npc.taskTimer = 60;
+            }
+            break;
+          }
+
+          // No build tasks — carry items between buildings (original worker logic)
           let srcBuilding: Building | null = null;
           for (const b of buildingList) {
             const d = Math.sqrt((b.x - npc.x) ** 2 + (b.y - npc.y) ** 2);
@@ -1012,16 +1052,13 @@ export function updateNPCs(state: GameState) {
           }
 
           if (srcBuilding) {
-            // Arrived at source — pick up item and move to destination
             const item = srcBuilding.outputInventory[0];
             const pickedItem = item.itemId;
             removeItemFromBuildingOutput(srcBuilding, pickedItem, 1);
-            // Add to NPC inventory for display
             const existing = npc.inventory.find((s: { itemId: string; count: number }) => s.itemId === pickedItem);
             if (existing) existing.count++;
             else npc.inventory.push({ itemId: pickedItem, count: 1 });
 
-            // Find a building that accepts this item type
             let dstBuilding: Building | null = null;
             let dstDist = Infinity;
             for (const b of buildingList) {
@@ -1035,18 +1072,15 @@ export function updateNPCs(state: GameState) {
             if (dstBuilding) {
               npc.targetX = dstBuilding.x;
               npc.targetY = dstBuilding.y;
-              // Store destination
               (npc as any)._deliverTarget = dstBuilding.id;
               (npc as any)._deliverItem = pickedItem;
             } else {
-              // No destination, drop back to output
               addItemToBuildingOutput(srcBuilding, pickedItem, 1);
               npc.inventory = [];
               npc.state = 'idle';
               npc.taskTimer = 60;
             }
           } else {
-            // Move toward target
             const dx = npc.targetX - npc.x;
             const dy = npc.targetY - npc.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
@@ -1054,7 +1088,6 @@ export function updateNPCs(state: GameState) {
               npc.x += (dx / dist) * npc.speed;
               npc.y += (dy / dist) * npc.speed;
             } else {
-              // Check if we have something to deliver
               if (npc.inventory.length > 0 && (npc as any)._deliverTarget) {
                 const dstB = buildingList.find(b => b.id === (npc as any)._deliverTarget);
                 if (dstB) {

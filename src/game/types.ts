@@ -77,7 +77,7 @@ export interface NPC {
   health: number;
   maxHealth: number;
   speed: number;
-  state: 'idle' | 'moving' | 'working' | 'fleeing' | 'trading' | 'patrolling' | 'gathering';
+  state: 'idle' | 'moving' | 'working' | 'building' | 'fleeing' | 'trading' | 'patrolling' | 'gathering';
   inventory: InventorySlot[];
   homeX: number;
   homeY: number;
@@ -171,6 +171,16 @@ export interface PlayerState {
   totalPlayTime: number;
 }
 
+export interface BuildQueueItem {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  direction: Direction;
+  assignedNpcId?: string;
+  constructionProgress: number; // 0..100
+}
+
 export interface GameState {
   player: PlayerState;
   camera: { x: number; y: number; zoom: number };
@@ -199,4 +209,5 @@ export interface GameState {
     timePlayed: number;
   };
   notifications: { text: string; timer: number }[];
+  buildQueue: BuildQueueItem[];
 }

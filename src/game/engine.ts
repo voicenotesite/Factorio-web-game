@@ -7,7 +7,7 @@ import {
   spawnNPCs, updateNPCs, spawnEnemies, updateEnemies,
   updatePollution, updateParticles, updateWorldEvents, updateWeather,
   updateVisibility, playerMine, addItemToPlayer, spawnParticle,
-  canAffordBuilding, grantXPToPlayer, getTileAt, checkAchievements,
+  canAffordBuilding, payBuildingCost, grantXPToPlayer, getTileAt, checkAchievements,
 } from './systems';
 
 export class GameEngine {
@@ -48,15 +48,15 @@ export class GameEngine {
         x: 0, y: 0,
         health: 100, maxHealth: 100,
         inventory: [
-          { itemId: 'iron', count: 50 },
-          { itemId: 'copper', count: 30 },
-          { itemId: 'coal', count: 50 },
-          { itemId: 'stone', count: 50 },
-          { itemId: 'wood', count: 20 },
-          { itemId: 'iron_plate', count: 20 },
-          { itemId: 'copper_plate', count: 10 },
-          { itemId: 'gear', count: 10 },
-          { itemId: 'circuit', count: 5 },
+          { itemId: 'iron', count: 200 },
+          { itemId: 'copper', count: 150 },
+          { itemId: 'coal', count: 150 },
+          { itemId: 'stone', count: 200 },
+          { itemId: 'wood', count: 50 },
+          { itemId: 'iron_plate', count: 80 },
+          { itemId: 'copper_plate', count: 40 },
+          { itemId: 'gear', count: 30 },
+          { itemId: 'circuit', count: 10 },
         ],
         selectedSlot: 0,
         direction: 'right',
@@ -97,6 +97,7 @@ export class GameEngine {
         timePlayed: 0,
       },
       notifications: [],
+      buildQueue: [],
     };
   }
 
@@ -350,13 +351,39 @@ export class GameEngine {
     }
 
     if (this.mouse.rightDown) {
-      const building = getTileAt(this.state, x, y)?.building;
+      const tile = getTileAt(this.state, x, y);
+      const building = tile?.building;
       if (building) {
+        // Right-click existing building = remove and refund
         for (const item of [...building.inventory, ...building.outputInventory]) {
           addItemToPlayer(this.state, item.itemId, item.count);
         }
         if (removeBuilding(this.state, building.x, building.y)) {
           this.addNotification('Removed ' + building.type.replace(/_/g, ' '));
+          // Also cancel any queued build at this position
+          this.state.buildQueue = this.state.buildQueue.filter(q => !(q.x === x && q.y === y));
+        }
+      } else if (this.selectedBuilding) {
+        // Right-click empty tile with building selected = queue for worker to build
+        const dist = Math.sqrt((x - this.state.player.x) ** 2 + (y - this.state.player.y) ** 2);
+        if (dist <= this.state.player.reach + 4) {
+          // Check not already queued
+          const alreadyQueued = this.state.buildQueue.some(q => q.x === x && q.y === y);
+          if (!alreadyQueued && canAffordBuilding(this.state, this.selectedBuilding)) {
+            const queueItem: import('./types').BuildQueueItem = {
+              id: `bq_${Date.now()}_${Math.random()}`,
+              type: this.selectedBuilding,
+              x, y,
+              direction: this.selectedDirection as import('./types').Direction,
+              constructionProgress: 0,
+            };
+            this.state.buildQueue.push(queueItem);
+            // Reserve the materials from player inventory immediately
+            payBuildingCost(this.state, this.selectedBuilding);
+            this.addNotification(`Queued ${this.selectedBuilding.replace(/_/g, ' ')} for worker`);
+          } else if (!canAffordBuilding(this.state, this.selectedBuilding)) {
+            this.addNotification('Not enough resources to queue build!');
+          }
         }
       }
     }
