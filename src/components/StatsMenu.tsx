@@ -1,4 +1,5 @@
 import { GameState } from '../game/types';
+import { ACHIEVEMENT_CATALOG } from '../game/systems';
 
 interface Props {
   state: GameState;
@@ -39,7 +40,7 @@ export default function StatsMenu({ state, onClose }: Props) {
 
           <Section title="Player" color="#38bdf8">
             <StatRow label="Level" value={player.level.toString()} color="#818cf8" />
-            <StatRow label="Experience" value={`${player.xp} / ${player.level * 100}`} />
+            <StatRow label="Experience" value={`${player.xp} / ${player.level * 500}`} />
             <StatRow label="Gems" value={`${player.premiumCurrency} ◆`} color="#06b6d4" />
             <StatRow label="Health" value={`${Math.ceil(player.health)} / ${player.maxHealth}`} color={player.health / player.maxHealth > 0.5 ? '#22c55e' : '#ef4444'} />
             <StatRow label="Speed" value={player.speed.toFixed(2)} />
@@ -49,16 +50,17 @@ export default function StatsMenu({ state, onClose }: Props) {
           </Section>
 
           <Section title="Achievements" color="#fbbf24">
-            {player.achievements.length === 0 ? (
-              <div className="text-white/20 text-xs py-2 font-exo">No achievements yet — keep playing!</div>
-            ) : (
-              player.achievements.map((a, i) => (
-                <div key={i} className="text-xs py-0.5 flex items-center gap-2">
-                  <span className="text-amber-400">⭐</span>
-                  <span className="text-amber-300/80">{a}</span>
+            {ACHIEVEMENT_CATALOG.map(def => {
+              const unlocked = player.achievements.includes(def.id);
+              return (
+                <div key={def.id} className={`text-xs py-0.5 flex items-center gap-2 ${unlocked ? '' : 'opacity-30'}`}>
+                  <span>{unlocked ? '🏆' : '🔒'}</span>
+                  <span className={unlocked ? 'text-amber-300' : 'text-white/50'}>
+                    <strong>{def.name}</strong> — {def.description}
+                  </span>
                 </div>
-              ))
-            )}
+              );
+            })}
           </Section>
 
           <Section title="World" color="#22c55e">

@@ -123,7 +123,7 @@ export function placeBuilding(state: GameState, type: string, x: number, y: numb
   }
 
   state.statistics.buildingsPlaced++;
-  grantXPToPlayer(state, 10);
+  grantXPToPlayer(state, 3);
   return true;
 }
 
@@ -354,7 +354,7 @@ function updateLab(state: GameState, building: Building) {
       if (research.progress >= research.time) {
         research.unlocked = true;
         applyResearchEffects(state, research.id);
-        grantXPToPlayer(state, 50);
+        grantXPToPlayer(state, 20);
         spawnParticle(state, building.x * TILE_SIZE + 24, building.y * TILE_SIZE + 24, 'spark', '#00ccff');
       }
     }
@@ -410,7 +410,7 @@ function updateTurret(state: GameState, building: Building) {
       if (nearestEnemy.health <= 0) {
         state.enemies.delete(nearestEnemy.id);
         state.statistics.enemiesKilled++;
-        grantXPToPlayer(state, 15);
+        grantXPToPlayer(state, 8);
         spawnParticle(state, nearestEnemy.x * TILE_SIZE, nearestEnemy.y * TILE_SIZE, 'explosion', '#ff6600');
       }
     }
@@ -1066,7 +1066,7 @@ export function updateEnemies(state: GameState) {
     if (enemy.health <= 0) {
       state.enemies.delete(enemy.id);
       state.statistics.enemiesKilled++;
-      grantXPToPlayer(state, 15);
+      grantXPToPlayer(state, 8);
       spawnParticle(state, enemy.x * TILE_SIZE, enemy.y * TILE_SIZE, 'explosion', '#ff6600');
     }
   }
@@ -1311,7 +1311,7 @@ export function upgradeBuilding(state: GameState, x: number, y: number): boolean
   building.level++;
   building.maxHealth = Math.floor(building.maxHealth * 1.5);
   building.health = building.maxHealth;
-  grantXPToPlayer(state, 25);
+  grantXPToPlayer(state, 10);
   return true;
 }
 
@@ -1325,7 +1325,7 @@ export function playerMine(state: GameState, tx: number, ty: number) {
     if (tile.resourceAmount <= 0) tile.resource = null;
     addItemToPlayer(state, minedResource, 1);
     spawnParticle(state, tx * TILE_SIZE + 16, ty * TILE_SIZE + 16, 'resource', RESOURCE_COLORS[minedResource] || '#fff');
-    grantXPToPlayer(state, 5);
+    grantXPToPlayer(state, 1);
     return true;
   }
   return false;
@@ -1335,21 +1335,62 @@ export function playerMine(state: GameState, tx: number, ty: number) {
 
 export function grantXPToPlayer(state: GameState, amount: number, notify?: (msg: string) => void) {
   state.player.xp += amount;
-  let requiredXP = state.player.level * 100;
+  // Require level * 500 XP per level (5× slower progression)
+  let requiredXP = state.player.level * 500;
   while (state.player.xp >= requiredXP) {
     state.player.xp -= requiredXP;
     state.player.level++;
-    state.player.premiumCurrency += 5;
-    const msg = `Level Up! Now level ${state.player.level}! +5 premium currency`;
+    state.player.premiumCurrency += 3;
+    const msg = `Level Up! Now level ${state.player.level}! +3 gems`;
     if (notify) {
       notify(msg);
     }
     state.notifications.push({ text: msg, timer: 180 });
-    requiredXP = state.player.level * 100;
+    requiredXP = state.player.level * 500;
   }
 }
 
-// ============ VISIBILITY ============
+// ============ ACHIEVEMENT SYSTEM ============
+
+interface AchievementDef {
+  id: string;
+  name: string;
+  description: string;
+  check: (state: GameState) => boolean;
+}
+
+const ACHIEVEMENT_DEFS: AchievementDef[] = [
+  { id: 'first_mine',        name: 'First Strike',       description: 'Mine your first resource.',                  check: s => Object.values(s.statistics.itemsProduced).some(v => v > 0) || s.statistics.buildingsPlaced > 0 || (s.player.inventory.find(i => i.itemId === 'iron')?.count ?? 50) < 50 },
+  { id: 'builder',           name: 'Builder',             description: 'Place 10 buildings.',                        check: s => s.statistics.buildingsPlaced >= 10 },
+  { id: 'architect',         name: 'Architect',           description: 'Place 50 buildings.',                        check: s => s.statistics.buildingsPlaced >= 50 },
+  { id: 'first_plate',       name: 'Ironworker',          description: 'Produce your first iron plate.',             check: s => (s.statistics.itemsProduced['iron_plate'] || 0) >= 1 },
+  { id: 'automation',        name: 'Automation Begins',   description: 'Produce 100 iron plates automatically.',     check: s => (s.statistics.itemsProduced['iron_plate'] || 0) >= 100 },
+  { id: 'first_enemy',       name: 'First Blood',         description: 'Kill your first enemy.',                     check: s => s.statistics.enemiesKilled >= 1 },
+  { id: 'exterminator',      name: 'Exterminator',        description: 'Kill 25 enemies.',                           check: s => s.statistics.enemiesKilled >= 25 },
+  { id: 'level5',            name: 'Seasoned',            description: 'Reach player level 5.',                      check: s => s.player.level >= 5 },
+  { id: 'level10',           name: 'Veteran',             description: 'Reach player level 10.',                     check: s => s.player.level >= 10 },
+  { id: 'first_research',    name: 'Scientist',           description: 'Unlock your first technology.',              check: s => [...s.research.values()].some(r => r.unlocked) },
+  { id: 'power_grid',        name: 'Electrified',         description: 'Build a boiler and a steam engine.',         check: s => [...s.buildings.values()].some(b => b.type === 'boiler') && [...s.buildings.values()].some(b => b.type === 'steam_engine') },
+  { id: 'rich',              name: 'Gem Collector',       description: 'Earn 50 gems.',                              check: s => s.player.premiumCurrency >= 50 },
+  { id: 'circuit_prod',      name: 'Circuitry',           description: 'Produce your first circuit.',                check: s => (s.statistics.itemsProduced['circuit'] || 0) >= 1 },
+  { id: 'polluter',          name: 'Industrial Smog',     description: 'Reach 500 pollution.',                       check: s => s.pollution >= 500 },
+  { id: 'survivor',          name: 'Survivor',            description: 'Play for 30 minutes.',                       check: s => s.statistics.timePlayed >= 60 * 30 * 60 },
+];
+
+export function checkAchievements(state: GameState) {
+  for (const def of ACHIEVEMENT_DEFS) {
+    if (state.player.achievements.includes(def.id)) continue;
+    if (def.check(state)) {
+      state.player.achievements.push(def.id);
+      state.notifications.push({ text: `🏆 Achievement: ${def.name} — ${def.description}`, timer: 300 });
+      state.player.premiumCurrency += 2; // small gem bonus
+    }
+  }
+}
+
+export const ACHIEVEMENT_CATALOG = ACHIEVEMENT_DEFS.map(({ id, name, description }) => ({ id, name, description }));
+
+
 
 export function updateVisibility(state: GameState) {
   const radius = 8;

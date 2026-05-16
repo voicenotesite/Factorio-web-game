@@ -141,21 +141,6 @@ export class GameRenderer {
       })
       .sort((a, b) => a.y - b.y);
 
-    // Terrain ambient occlusion pass — darken ground under/around buildings
-    for (const building of sortedBuildings) {
-      const bsize = BUILDING_SIZES[building.type] || { w: 1, h: 1 };
-      const bx = building.x * TILE_SIZE;
-      const by = building.y * TILE_SIZE;
-      const bw = bsize.w * TILE_SIZE;
-      const bh = bsize.h * TILE_SIZE;
-      const aoGrad = ctx.createRadialGradient(bx + bw * 0.5, by + bh * 0.5, Math.min(bw, bh) * 0.2, bx + bw * 0.5, by + bh * 0.5, Math.max(bw, bh) * 1.1);
-      aoGrad.addColorStop(0, 'rgba(0,0,0,0.18)');
-      aoGrad.addColorStop(0.55, 'rgba(0,0,0,0.07)');
-      aoGrad.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = aoGrad;
-      ctx.fillRect(bx - bw * 0.5, by - bh * 0.5, bw * 2, bh * 2);
-    }
-
     for (const building of sortedBuildings) {
       this.renderBuilding(ctx, building, state);
     }

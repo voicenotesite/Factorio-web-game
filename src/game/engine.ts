@@ -7,7 +7,7 @@ import {
   spawnNPCs, updateNPCs, spawnEnemies, updateEnemies,
   updatePollution, updateParticles, updateWorldEvents, updateWeather,
   updateVisibility, playerMine, addItemToPlayer, spawnParticle,
-  canAffordBuilding, grantXPToPlayer, getTileAt,
+  canAffordBuilding, grantXPToPlayer, getTileAt, checkAchievements,
 } from './systems';
 
 export class GameEngine {
@@ -233,6 +233,7 @@ export class GameEngine {
     if (state.tick % 300 === 0) spawnNPCs(state);
     if (state.tick % 60 === 0) spawnEnemies(state);
     if (state.tick % 1800 === 0) updateWorldEvents(state);
+    if (state.tick % 120 === 0) checkAchievements(state);
 
     if (state.tick % 120 === 0 && state.player.health < state.player.maxHealth) {
       state.player.health = Math.min(state.player.maxHealth, state.player.health + 1);
