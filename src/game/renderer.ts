@@ -24,6 +24,9 @@ export class GameRenderer {
   private lightCanvas: HTMLCanvasElement;
   private lightCtx: CanvasRenderingContext2D;
   isPlayerMoving = false;
+  private sunShadowDX = 4;
+  private sunShadowDY = 4;
+  private sunShadowAlpha = 0.25;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -39,6 +42,17 @@ export class GameRenderer {
     const dayPhase = state.dayTime / state.dayLength;
     const dayFactor = Math.max(0.25, Math.sin(dayPhase * Math.PI * 2) * 0.5 + 0.5);
     const isNight = dayFactor < 0.5;
+
+    // Directional sun shadow based on time of day
+    {
+      // dayPhase: 0.25 = noon (dayFactor=1), 0.75 = midnight (dayFactor=0.25)
+      const dayAngle = (dayPhase - 0.25) * Math.PI * 2;
+      const shadowLength = isNight ? 0 : Math.max(1.5, (1.0 - dayFactor) * 14 + 1.5);
+      // Shadow opposite to sun: dawn (sun east) → shadow west (negative X), dusk → east (positive X)
+      this.sunShadowDX = -Math.sin(dayAngle) * shadowLength * 0.65;
+      this.sunShadowDY = Math.max(1.5, Math.abs(Math.cos(dayAngle)) * shadowLength * 0.35 + (isNight ? 0 : 1.8));
+      this.sunShadowAlpha = isNight ? 0 : Math.max(0, Math.min(0.38, (dayFactor - 0.33) * 0.55));
+    }
 
     // Sky — atmospheric industrial backdrop
     const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -119,6 +133,21 @@ export class GameRenderer {
         return sx >= viewLeft - 100 && sx <= viewRight + 100 && sy >= viewTop - 100 && sy <= viewBottom + 100;
       })
       .sort((a, b) => a.y - b.y);
+
+    // Terrain ambient occlusion pass — darken ground under/around buildings
+    for (const building of sortedBuildings) {
+      const bsize = BUILDING_SIZES[building.type] || { w: 1, h: 1 };
+      const bx = building.x * TILE_SIZE;
+      const by = building.y * TILE_SIZE;
+      const bw = bsize.w * TILE_SIZE;
+      const bh = bsize.h * TILE_SIZE;
+      const aoGrad = ctx.createRadialGradient(bx + bw * 0.5, by + bh * 0.5, Math.min(bw, bh) * 0.2, bx + bw * 0.5, by + bh * 0.5, Math.max(bw, bh) * 1.1);
+      aoGrad.addColorStop(0, 'rgba(0,0,0,0.18)');
+      aoGrad.addColorStop(0.55, 'rgba(0,0,0,0.07)');
+      aoGrad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = aoGrad;
+      ctx.fillRect(bx - bw * 0.5, by - bh * 0.5, bw * 2, bh * 2);
+    }
 
     for (const building of sortedBuildings) {
       this.renderBuilding(ctx, building, state);
@@ -240,19 +269,35 @@ export class GameRenderer {
           break;
         }
         case 'desert': {
-          if (hash > 0.55) {
-            ctx.strokeStyle = `rgba(255,230,150,${(hash - 0.55) * 0.14})`;
-            ctx.lineWidth = 0.5;
+          // Wind ripple arcs
+          if (hash > 0.52) {
+            ctx.strokeStyle = `rgba(210,185,125,${(hash - 0.52) * 0.18})`;
+            ctx.lineWidth = 0.6;
             ctx.beginPath();
-            ctx.arc(x + hash2 * TILE_SIZE, y + TILE_SIZE, (hash - 0.5) * 28, Math.PI * 1.1, Math.PI * 1.9);
+            ctx.arc(x + hash2 * TILE_SIZE, y + TILE_SIZE * 1.1, (hash - 0.45) * 24, Math.PI * 1.1, Math.PI * 1.9);
             ctx.stroke();
           }
-          // Small pebbles
-          if (hash > 0.82) {
-            ctx.fillStyle = `rgba(120,100,70,${(hash - 0.82) * 0.8})`;
+          // Second ripple (offset)
+          if (hash > 0.68) {
+            ctx.strokeStyle = `rgba(195,168,108,${(hash - 0.68) * 0.14})`;
+            ctx.lineWidth = 0.5;
             ctx.beginPath();
-            ctx.ellipse(x + hash2 * 26 + 3, y + hash * 26 + 3, 2, 1.2, hash * 4, 0, Math.PI * 2);
+            ctx.arc(x + (1 - hash2) * TILE_SIZE, y + TILE_SIZE * 0.6, (hash - 0.6) * 18, Math.PI * 1.15, Math.PI * 1.85);
+            ctx.stroke();
+          }
+          // Small pebble clusters
+          if (hash > 0.8) {
+            const pAlpha = (hash - 0.8) * 1.2;
+            ctx.fillStyle = `rgba(115,95,65,${pAlpha})`;
+            ctx.beginPath();
+            ctx.ellipse(x + hash2 * 26 + 3, y + hash * 26 + 3, 2.2, 1.3, hash * 4, 0, Math.PI * 2);
             ctx.fill();
+            if (hash > 0.9) {
+              ctx.fillStyle = `rgba(90,72,50,${pAlpha * 0.7})`;
+              ctx.beginPath();
+              ctx.ellipse(x + hash2 * 26 + 7, y + hash * 26 + 6, 1.5, 1, hash * 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
           }
           break;
         }
@@ -289,16 +334,40 @@ export class GameRenderer {
         case 'grass': {
           // Small dirt patches (natural ground variation)
           if (hash < 0.1) {
-            ctx.fillStyle = `rgba(60,40,20,${(0.1 - hash) * 0.4})`;
+            ctx.fillStyle = `rgba(55,35,15,${(0.1 - hash) * 0.5})`;
             ctx.beginPath();
             ctx.ellipse(x + hash2 * 24 + 4, y + (1 - hash2) * 24 + 4, 5, 3.5, hash * 4, 0, Math.PI * 2);
             ctx.fill();
           }
-          // Occasional small rock
-          if (hash > 0.9) {
-            ctx.fillStyle = `rgba(100,90,75,${(hash - 0.9) * 1.2})`;
+          // Grass tufts - tiny blade-like strokes
+          if (hash > 0.7) {
+            const tuftAlpha = (hash - 0.7) * 0.5;
+            const gx = x + hash2 * 26 + 3;
+            const gy = y + hash * 26 + 3;
+            ctx.strokeStyle = `rgba(28,55,12,${tuftAlpha})`;
+            ctx.lineWidth = 0.8;
+            ctx.lineCap = 'round';
             ctx.beginPath();
-            ctx.ellipse(x + hash2 * 24 + 4, y + hash * 24 + 4, 2.5, 1.8, hash2 * 3, 0, Math.PI * 2);
+            ctx.moveTo(gx, gy + 3);
+            ctx.lineTo(gx - 2 + hash2 * 2, gy);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(gx + 2, gy + 3);
+            ctx.lineTo(gx + 3 + hash2, gy + 0.5);
+            ctx.stroke();
+            ctx.lineCap = 'butt';
+          }
+          // Occasional small rock
+          if (hash > 0.88) {
+            const rockAlpha = (hash - 0.88) * 1.5;
+            ctx.fillStyle = `rgba(95,85,68,${rockAlpha})`;
+            ctx.beginPath();
+            ctx.ellipse(x + hash2 * 24 + 4, y + hash * 24 + 4, 2.8, 1.8, hash2 * 3, 0, Math.PI * 2);
+            ctx.fill();
+            // Rock highlight
+            ctx.fillStyle = `rgba(130,120,100,${rockAlpha * 0.5})`;
+            ctx.beginPath();
+            ctx.ellipse(x + hash2 * 24 + 3, y + hash * 24 + 3, 1.2, 0.8, hash2 * 3, 0, Math.PI * 2);
             ctx.fill();
           }
           break;
@@ -347,10 +416,14 @@ export class GameRenderer {
     const h = ((Math.floor(x / TILE_SIZE) * 7919 + Math.floor(y / TILE_SIZE) * 104729) & 0xFFFF) / 65535;
     const scale = 0.82 + h * 0.36; // size variation
 
-    // Ground shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    // Directional tree shadow
+    const sShadowDX = this.sunShadowDX * 0.5 + 2;
+    const sShadowDY = this.sunShadowDY * 0.4 + 3;
+    const shadowW = (9 + Math.abs(this.sunShadowDX) * 0.4) * scale;
+    const shadowH = (3.5 + Math.abs(this.sunShadowDY) * 0.15) * scale;
+    ctx.fillStyle = `rgba(0,0,0,${0.12 + this.sunShadowAlpha * 0.8})`;
     ctx.beginPath();
-    ctx.ellipse(cx + 2, treeBase + 4, 10 * scale, 4 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + sShadowDX, treeBase + sShadowDY, shadowW, shadowH, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Trunk
@@ -482,6 +555,15 @@ export class GameRenderer {
       ctx.beginPath();
       ctx.ellipse(rx - rs * 0.3, ry - rs * 0.35, rs * 0.3, rs * 0.2, angle - 0.5, 0, Math.PI * 2);
       ctx.fill();
+
+      // Metallic specular sparkle (animated)
+      const sparkPhase = Math.sin(this.frameCount * 0.04 + i * 1.5 + tile.x * 0.3) * 0.5 + 0.5;
+      if (sparkPhase > 0.85) {
+        ctx.fillStyle = `rgba(255,255,255,${(sparkPhase - 0.85) * 2.5})`;
+        ctx.beginPath();
+        ctx.arc(rx - rs * 0.25, ry - rs * 0.3, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     // Yield quality indicator — small corner gem
@@ -509,12 +591,25 @@ export class GameRenderer {
     const h = size.h * TILE_SIZE;
     const color = BUILDING_COLORS[building.type] || '#888';
 
-    // Drop shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    const shadowOff = 4;
-    ctx.beginPath();
-    ctx.roundRect(x + shadowOff, y + shadowOff, w, h, 2);
-    ctx.fill();
+    // Directional sun shadow + ambient contact shadow
+    if (this.sunShadowAlpha > 0.02) {
+      // Hard shadow (direction from sun)
+      ctx.fillStyle = `rgba(0,0,0,${this.sunShadowAlpha})`;
+      ctx.beginPath();
+      ctx.roundRect(x + this.sunShadowDX, y + this.sunShadowDY, w, h, 2);
+      ctx.fill();
+    }
+    // Soft ambient occlusion contact shadow (always present)
+    {
+      const aoGrad = ctx.createRadialGradient(x + w * 0.5, y + h * 0.85, 0, x + w * 0.5, y + h * 0.85, Math.max(w, h) * 0.8);
+      aoGrad.addColorStop(0, 'rgba(0,0,0,0.22)');
+      aoGrad.addColorStop(0.45, 'rgba(0,0,0,0.09)');
+      aoGrad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = aoGrad;
+      ctx.beginPath();
+      ctx.ellipse(x + w * 0.5, y + h, w * 0.7, h * 0.35, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // Building body with gradient (dark industrial look, lit from above-left)
     const grad = ctx.createLinearGradient(x, y, x + w * 0.3, y + h);
@@ -1098,69 +1193,142 @@ export class GameRenderer {
       const by = parseInt(yStr);
       const sx = bx * TILE_SIZE;
       const sy = by * TILE_SIZE;
-
       if (sx < vl - TILE_SIZE || sx > vr + TILE_SIZE || sy < vt - TILE_SIZE || sy > vb + TILE_SIZE) continue;
 
       const building = state.buildings.get(key);
       if (!building) continue;
-
       const dir = DIR_OFFSETS[building.direction];
       const dx = dir ? dir.dx : 1;
       const dy = dir ? dir.dy : 0;
+      const isVertical = dy !== 0;
 
-      // Belt surface
-      ctx.fillStyle = '#3a3a3a';
-      ctx.fillRect(sx + 2, sy + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+      // ── Belt rubber surface ──
+      ctx.fillStyle = '#211f1a';
+      ctx.beginPath();
+      ctx.roundRect(sx + 2, sy + 2, TILE_SIZE - 4, TILE_SIZE - 4, 1.5);
+      ctx.fill();
 
-      // Animated belt lines
-      const animOffset = (this.frameCount * 1.5) % (TILE_SIZE / 3);
-      ctx.strokeStyle = 'rgba(100,100,100,0.5)';
-      ctx.lineWidth = 1;
-      for (let i = -1; i < 4; i++) {
-        const offset = (i * TILE_SIZE / 3 + animOffset) % TILE_SIZE;
-        if (dx !== 0) {
-          const lx = sx + offset;
+      // ── Center track strip (slightly lighter rubber) ──
+      ctx.fillStyle = '#2c2924';
+      if (isVertical) {
+        ctx.fillRect(sx + 6, sy + 2, TILE_SIZE - 12, TILE_SIZE - 4);
+      } else {
+        ctx.fillRect(sx + 2, sy + 6, TILE_SIZE - 4, TILE_SIZE - 12);
+      }
+
+      // ── Metal side rails ──
+      const railGrad = isVertical
+        ? ctx.createLinearGradient(sx + 2, 0, sx + 6, 0)
+        : ctx.createLinearGradient(0, sy + 2, 0, sy + 6);
+      railGrad.addColorStop(0, '#5a5648');
+      railGrad.addColorStop(1, '#3a3830');
+      ctx.fillStyle = railGrad;
+      if (isVertical) {
+        ctx.fillRect(sx + 2, sy + 2, 4, TILE_SIZE - 4);
+        ctx.fillRect(sx + TILE_SIZE - 6, sy + 2, 4, TILE_SIZE - 4);
+      } else {
+        ctx.fillRect(sx + 2, sy + 2, TILE_SIZE - 4, 4);
+        ctx.fillRect(sx + 2, sy + TILE_SIZE - 6, TILE_SIZE - 4, 4);
+      }
+      // Rail highlight edge
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      if (isVertical) {
+        ctx.fillRect(sx + 2, sy + 2, 1, TILE_SIZE - 4);
+        ctx.fillRect(sx + TILE_SIZE - 6, sy + 2, 1, TILE_SIZE - 4);
+      } else {
+        ctx.fillRect(sx + 2, sy + 2, TILE_SIZE - 4, 1);
+        ctx.fillRect(sx + 2, sy + TILE_SIZE - 6, TILE_SIZE - 4, 1);
+      }
+      // Rail shadow edge
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      if (isVertical) {
+        ctx.fillRect(sx + 5, sy + 2, 1, TILE_SIZE - 4);
+        ctx.fillRect(sx + TILE_SIZE - 7, sy + 2, 1, TILE_SIZE - 4);
+      } else {
+        ctx.fillRect(sx + 2, sy + 5, TILE_SIZE - 4, 1);
+        ctx.fillRect(sx + 2, sy + TILE_SIZE - 7, TILE_SIZE - 4, 1);
+      }
+
+      // ── Animated belt cleats (perpendicular ridges) ──
+      const speed = 1.8;
+      const cleatSpacing = TILE_SIZE / 3;
+      const animOff = ((this.frameCount * speed) % cleatSpacing + cleatSpacing) % cleatSpacing;
+      ctx.strokeStyle = 'rgba(50,46,38,0.75)';
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = 'round';
+      for (let i = -1; i <= 3; i++) {
+        if (isVertical) {
+          const cy = sy + ((i * cleatSpacing + animOff * (dy > 0 ? 1 : -1) + TILE_SIZE * 2) % TILE_SIZE + TILE_SIZE) % TILE_SIZE;
+          if (cy < sy + 2 || cy > sy + TILE_SIZE - 2) continue;
           ctx.beginPath();
-          ctx.moveTo(lx, sy + 3);
-          ctx.lineTo(lx + dx * 4, sy + 3);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(lx, sy + TILE_SIZE - 3);
-          ctx.lineTo(lx + dx * 4, sy + TILE_SIZE - 3);
+          ctx.moveTo(sx + 6, cy);
+          ctx.lineTo(sx + TILE_SIZE - 6, cy);
           ctx.stroke();
         } else {
-          const ly = sy + offset;
+          const cx2 = sx + ((i * cleatSpacing + animOff * (dx > 0 ? 1 : -1) + TILE_SIZE * 2) % TILE_SIZE + TILE_SIZE) % TILE_SIZE;
+          if (cx2 < sx + 2 || cx2 > sx + TILE_SIZE - 2) continue;
           ctx.beginPath();
-          ctx.moveTo(sx + 3, ly);
-          ctx.lineTo(sx + 3, ly + dy * 4);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(sx + TILE_SIZE - 3, ly);
-          ctx.lineTo(sx + TILE_SIZE - 3, ly + dy * 4);
+          ctx.moveTo(cx2, sy + 6);
+          ctx.lineTo(cx2, sy + TILE_SIZE - 6);
           ctx.stroke();
         }
       }
+      ctx.lineCap = 'butt';
 
-      // Items on belt with 3D effect
+      // ── Direction arrow painted on belt ──
+      const acx = sx + TILE_SIZE / 2;
+      const acy = sy + TILE_SIZE / 2;
+      ctx.save();
+      ctx.translate(acx, acy);
+      ctx.rotate(Math.atan2(dy, dx));
+      ctx.fillStyle = 'rgba(255,215,80,0.28)';
+      ctx.beginPath();
+      ctx.moveTo(-5, -3.5);
+      ctx.lineTo(4, 0);
+      ctx.lineTo(-5, 3.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // ── Items on belt (3D box style) ──
       for (const seg of segments) {
-        if (seg.itemId) {
-          const progress = seg.progress;
-          const ix = sx + TILE_SIZE / 2 + dx * (progress - 0.5) * TILE_SIZE;
-          const iy = sy + TILE_SIZE / 2 + dy * (progress - 0.5) * TILE_SIZE;
-          // Item shadow
-          ctx.fillStyle = 'rgba(0,0,0,0.3)';
-          ctx.beginPath();
-          ctx.ellipse(ix + 1, iy + 2, 4, 2.5, 0, 0, Math.PI * 2);
-          ctx.fill();
-          // Item
-          ctx.fillStyle = RESOURCE_COLORS[seg.itemId] || '#fff';
-          ctx.beginPath();
-          ctx.roundRect(ix - 4, iy - 4, 8, 8, 1.5);
-          ctx.fill();
-          // Item highlight
-          ctx.fillStyle = 'rgba(255,255,255,0.2)';
-          ctx.fillRect(ix - 3, iy - 3, 3, 2);
-        }
+        if (!seg.itemId) continue;
+        const progress = seg.progress;
+        const ix = sx + TILE_SIZE / 2 + dx * (progress - 0.5) * TILE_SIZE;
+        const iy = sy + TILE_SIZE / 2 + dy * (progress - 0.5) * TILE_SIZE;
+        const itemColor = RESOURCE_COLORS[seg.itemId] || '#aaa888';
+
+        // Parse color components
+        const rI = parseInt(itemColor.slice(1, 3), 16);
+        const gI = parseInt(itemColor.slice(3, 5), 16);
+        const bI = parseInt(itemColor.slice(5, 7), 16);
+
+        // Ground shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.beginPath();
+        ctx.ellipse(ix + 1.5, iy + 3, 5.5, 2.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Box top face (lighter)
+        ctx.fillStyle = `rgb(${Math.min(255, rI + 35)},${Math.min(255, gI + 35)},${Math.min(255, bI + 35)})`;
+        ctx.fillRect(ix - 4.5, iy - 6, 9, 7);
+
+        // Box front face (darker, slight 3D illusion)
+        ctx.fillStyle = `rgb(${Math.max(0, rI - 35)},${Math.max(0, gI - 35)},${Math.max(0, bI - 35)})`;
+        ctx.fillRect(ix - 4.5, iy + 1, 9, 2.5);
+
+        // Box right face (mid tone)
+        ctx.fillStyle = `rgb(${Math.max(0, rI - 15)},${Math.max(0, gI - 15)},${Math.max(0, bI - 15)})`;
+        ctx.fillRect(ix + 4.5, iy - 4, 2, 5);
+
+        // Top highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.28)';
+        ctx.fillRect(ix - 3.5, iy - 5, 4, 1.5);
+
+        // Item border
+        ctx.strokeStyle = `rgba(${Math.max(0, rI - 50)},${Math.max(0, gI - 50)},${Math.max(0, bI - 50)},0.7)`;
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(ix - 4.5, iy - 6, 9, 7);
       }
     }
   }
@@ -1502,10 +1670,20 @@ export class GameRenderer {
 
       switch (p.type) {
         case 'smoke': {
-          const radius = p.size * (1 + (1 - alpha) * 2.5);
-          ctx.globalAlpha = alpha * 0.6;
+          // Volumetric multi-puff smoke (3 offset circles for depth)
+          const radius = p.size * (1 + (1 - alpha) * 3);
+          const swirl = this.frameCount * 0.012 + p.x * 0.01;
+          ctx.globalAlpha = alpha * 0.35;
           ctx.beginPath();
-          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+          ctx.arc(p.x + Math.cos(swirl) * radius * 0.25, p.y + Math.sin(swirl) * radius * 0.15, radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = alpha * 0.45;
+          ctx.beginPath();
+          ctx.arc(p.x - Math.sin(swirl * 1.3) * radius * 0.2, p.y - radius * 0.1, radius * 0.8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = alpha * 0.3;
+          ctx.beginPath();
+          ctx.arc(p.x + Math.cos(swirl * 0.7 + 1) * radius * 0.3, p.y + Math.sin(swirl * 0.7 + 1) * radius * 0.2, radius * 0.6, 0, Math.PI * 2);
           ctx.fill();
           break;
         }
