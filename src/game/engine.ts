@@ -27,6 +27,9 @@ export class GameEngine {
   hoveredTile: { x: number; y: number } | null = null;
   notifications: { text: string; timer: number }[] = [];
   isPlayerMoving = false;
+  private targetZoom = 1.5;
+  private miningCooldown = 0;
+  private lastMinedTile = '';
 
   constructor(canvas: HTMLCanvasElement) {
     this.state = this.createInitialState();
@@ -106,6 +109,27 @@ export class GameEngine {
         const idx = dirs.indexOf(this.selectedDirection);
         this.selectedDirection = dirs[(idx + 1) % 4];
       }
+      // E: pick building type from hovered tile
+      if ((e.key === 'e' || e.key === 'E') && this.hoveredTile) {
+        const building = getTileAt(this.state, this.hoveredTile.x, this.hoveredTile.y)?.building;
+        if (building) {
+          this.selectedBuilding = building.type;
+          this.selectedDirection = building.direction;
+        }
+      }
+      // F: mine/interact at hovered tile
+      if (e.key === 'f' || e.key === 'F') {
+        if (this.hoveredTile) {
+          const dist = Math.sqrt((this.hoveredTile.x - this.state.player.x) ** 2 + (this.hoveredTile.y - this.state.player.y) ** 2);
+          if (dist <= this.state.player.reach) {
+            playerMine(this.state, this.hoveredTile.x, this.hoveredTile.y);
+          }
+        }
+      }
+      // Escape: deselect building
+      if (e.key === 'Escape') {
+        this.selectedBuilding = null;
+      }
     });
 
     window.addEventListener('keyup', (e) => {
@@ -137,9 +161,10 @@ export class GameEngine {
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     canvas.addEventListener('wheel', (e) => {
-      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-      this.state.camera.zoom = Math.max(0.5, Math.min(4, this.state.camera.zoom * zoomFactor));
-    });
+      e.preventDefault();
+      const zoomFactor = e.deltaY > 0 ? 0.88 : 1.14;
+      this.targetZoom = Math.max(0.4, Math.min(5, this.targetZoom * zoomFactor));
+    }, { passive: false });
   }
 
   start() {
@@ -173,6 +198,10 @@ export class GameEngine {
       this.tickAccumulator -= 16.67;
     }
 
+    this.renderer.ghostBuilding = this.selectedBuilding;
+    this.renderer.ghostTile = this.hoveredTile;
+    this.renderer.ghostDirection = this.selectedDirection;
+    this.renderer.ghostCanAfford = this.selectedBuilding ? canAffordBuilding(this.state, this.selectedBuilding) : false;
     this.renderer.render(this.state);
     requestAnimationFrame(this.loop);
   };
@@ -189,6 +218,7 @@ export class GameEngine {
     this.updateCamera();
     this.generateChunksAroundPlayer();
     this.handleMouseActions();
+    if (this.miningCooldown > 0) this.miningCooldown--;
     this.spawnAmbientParticles();
 
     updateProduction(state);
@@ -244,8 +274,9 @@ export class GameEngine {
       const len = Math.sqrt(dx * dx + dy * dy);
       dx /= len;
       dy /= len;
-      player.x += dx * player.speed;
-      player.y += dy * player.speed;
+      const sprintMult = this.keys.has('shift') ? 1.9 : 1;
+      player.x += dx * player.speed * sprintMult;
+      player.y += dy * player.speed * sprintMult;
 
       if (Math.abs(dx) > Math.abs(dy)) {
         player.direction = dx > 0 ? 'right' : 'left';
@@ -261,6 +292,7 @@ export class GameEngine {
     const targetCamY = state.player.y * TILE_SIZE;
     state.camera.x += (targetCamX - state.camera.x) * 0.08;
     state.camera.y += (targetCamY - state.camera.y) * 0.08;
+    state.camera.zoom += (this.targetZoom - state.camera.zoom) * 0.12;
   }
 
   private generateChunksAroundPlayer() {
@@ -295,15 +327,21 @@ export class GameEngine {
       if (this.selectedBuilding) {
         if (!canAffordBuilding(this.state, this.selectedBuilding)) {
           this.addNotification('Not enough resources!');
-          this.selectedBuilding = null;
+          // Don't clear selection so player can see what they need
         } else if (placeBuilding(this.state, this.selectedBuilding, x, y, this.selectedDirection)) {
           this.addNotification(`Placed ${this.selectedBuilding.replace(/_/g, ' ')}`);
           // Keep selected to allow placing multiple (Shift+click or just click again)
         }
       } else {
         const dist = Math.sqrt((x - this.state.player.x) ** 2 + (y - this.state.player.y) ** 2);
+        const tileKey = `${x},${y}`;
         if (dist <= this.state.player.reach) {
-          playerMine(this.state, x, y);
+          if (this.miningCooldown <= 0 || this.lastMinedTile !== tileKey) {
+            if (playerMine(this.state, x, y)) {
+              this.miningCooldown = 8;
+              this.lastMinedTile = tileKey;
+            }
+          }
         }
       }
     }
@@ -340,6 +378,11 @@ export class GameEngine {
       }
     }
   }
+
+  getHoveredTile() { return this.hoveredTile; }
+  getSelectedBuilding() { return this.selectedBuilding; }
+  getSelectedDirection() { return this.selectedDirection; }
+  canAffordSelected() { return this.selectedBuilding ? canAffordBuilding(this.state, this.selectedBuilding) : false; }
 
   addNotification(text: string) {
     this.notifications.push({ text, timer: 180 });

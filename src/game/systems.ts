@@ -251,12 +251,20 @@ function updateFurnace(state: GameState, building: Building) {
     const ironSlot = building.inventory.find(s => s.itemId === 'iron');
     const copperSlot = building.inventory.find(s => s.itemId === 'copper');
     const stoneSlot = building.inventory.find(s => s.itemId === 'stone');
+    const steelSlot = building.inventory.find(s => s.itemId === 'iron_plate');
     if (ironSlot) {
       building.recipe = { ...RECIPES.iron_plate } as any;
     } else if (copperSlot) {
       building.recipe = { ...RECIPES.copper_plate } as any;
-    } else if (stoneSlot && state.research.get('steel_processing')?.unlocked) {
+    } else if (steelSlot && state.research.get('steel_processing')?.unlocked) {
       building.recipe = { ...RECIPES.steel_plate } as any;
+    } else if (stoneSlot) {
+      building.recipe = {
+        id: 'stone_brick', name: 'Stone Brick',
+        inputs: [{ itemId: 'stone', count: 2 }],
+        outputs: [{ itemId: 'stone_brick', count: 1 }],
+        craftTime: 30, energyCost: 1, category: 'smelting',
+      } as any;
     }
   }
 
@@ -325,7 +333,8 @@ function updateLab(state: GameState, building: Building) {
   // Find the first research that needs work
   for (const [, research] of state.research) {
     if (research.unlocked) continue;
-    if (research.progress <= 0 && !research.prerequisites.every(p => state.research.get(p)?.unlocked)) continue;
+    // Skip if prerequisites not met
+    if (!research.prerequisites.every(p => state.research.get(p)?.unlocked)) continue;
 
     // Check if we have science packs
     let hasPacks = true;
@@ -335,8 +344,8 @@ function updateLab(state: GameState, building: Building) {
     }
     if (!hasPacks) { building.isActive = false; return; }
 
-    // Consume packs and progress
-    if (state.tick % 60 === 0) {
+    // Consume packs and progress — consume 1 pack per 30 ticks, advance by 1
+    if (state.tick % 30 === 0) {
       for (const cost of research.cost) {
         removeItemFromBuilding(building, cost.itemId, 1);
         state.statistics.itemsConsumed[cost.itemId] = (state.statistics.itemsConsumed[cost.itemId] || 0) + 1;
@@ -570,8 +579,8 @@ function updatePowerGrid(state: GameState) {
     if (building.type !== 'boiler') continue;
     const coalSlot = building.inventory.find(s => s.itemId === 'coal');
     if (coalSlot && coalSlot.count > 0) {
-      building.energy = Math.min(building.maxEnergy, building.energy + 0.5);
-      if (state.tick % 120 === 0) {
+      building.energy = Math.min(building.maxEnergy, building.energy + 1.2);
+      if (state.tick % 90 === 0) {
         removeItemFromBuilding(building, 'coal', 1);
         state.statistics.itemsConsumed['coal'] = (state.statistics.itemsConsumed['coal'] || 0) + 1;
         spawnParticle(state, building.x * TILE_SIZE + 16, building.y * TILE_SIZE, 'smoke', '#555');
@@ -603,7 +612,11 @@ export function updateConveyors(state: GameState) {
   // Update inserters FIRST (they move items between buildings)
   for (const [, inserter] of state.buildings) {
     if (inserter.type !== 'inserter') continue;
-    if (state.tick % 20 !== 0) continue; // inserter speed
+    // Per-building tick counter: use building.progress as tick counter (reuse field)
+    // inserter.progress counts up; when it hits 20, fire and reset
+    inserter.progress = (inserter.progress || 0) + 1;
+    if (inserter.progress < 20) continue;
+    inserter.progress = 0;
 
     const dir = DIR_OFFSETS[inserter.direction] || DIR_OFFSETS.right;
     // Source is BEHIND inserter, destination is IN FRONT
@@ -708,11 +721,84 @@ export function updateConveyors(state: GameState) {
       }
     }
   }
+
+  // Underground belts: teleport items across gaps
+  for (const [key, building] of state.buildings) {
+    if (building.type !== 'underground_belt') continue;
+    const segments = state.conveyors.get(key);
+    if (!segments) continue;
+    const dir = DIR_OFFSETS[building.direction] || DIR_OFFSETS.right;
+    // Look for an exit underground belt up to 4 tiles away in direction
+    for (let dist = 2; dist <= 5; dist++) {
+      const exitX = building.x + dir.dx * dist;
+      const exitY = building.y + dir.dy * dist;
+      const exitKey = `${exitX},${exitY}`;
+      const exitBuilding = state.buildings.get(exitKey);
+      if (!exitBuilding || exitBuilding.type !== 'underground_belt') continue;
+      if (exitBuilding.direction !== building.direction) continue;
+      // Transfer items from entrance output to exit input
+      const exitSegments = state.conveyors.get(exitKey);
+      if (!exitSegments) continue;
+      for (const seg of segments) {
+        if (seg.itemId && seg.progress >= 1) {
+          // Try to place in exit segment
+          for (const exitSeg of exitSegments) {
+            if (!exitSeg.itemId) {
+              exitSeg.itemId = seg.itemId;
+              exitSeg.progress = 0;
+              seg.itemId = null;
+              seg.progress = 0;
+              break;
+            }
+          }
+        }
+      }
+      break; // found exit, stop searching
+    }
+  }
+
+  // Splitters: alternately route items left and right
+  for (const [key, building] of state.buildings) {
+    if (building.type !== 'splitter') continue;
+    const segments = state.conveyors.get(key);
+    if (!segments) continue;
+    const dir = DIR_OFFSETS[building.direction] || DIR_OFFSETS.right;
+    for (const seg of segments) {
+      if (!seg.itemId || seg.progress < 1) continue;
+      // Two output positions: one to left, one to right of direction
+      const leftDx = -dir.dy, leftDy = dir.dx;
+      const rightDx = dir.dy, rightDy = -dir.dx;
+      const outputs = [
+        { x: building.x + dir.dx + leftDx, y: building.y + dir.dy + leftDy },
+        { x: building.x + dir.dx + rightDx, y: building.y + dir.dy + rightDy },
+        { x: building.x + dir.dx, y: building.y + dir.dy }, // straight through
+      ];
+      let transferred = false;
+      for (const out of outputs) {
+        const outKey = `${out.x},${out.y}`;
+        const outConveyor = state.conveyors.get(outKey);
+        if (outConveyor) {
+          for (const outSeg of outConveyor) {
+            if (!outSeg.itemId) {
+              outSeg.itemId = seg.itemId;
+              outSeg.progress = 0;
+              seg.itemId = null;
+              seg.progress = 0;
+              transferred = true;
+              break;
+            }
+          }
+        }
+        if (transferred) break;
+      }
+      if (!transferred) seg.progress = 1;
+    }
+  }
 }
 
 function getAcceptedItemTypes(buildingType: string): string[] | 'any' {
   switch (buildingType) {
-    case 'furnace': return ['iron', 'copper', 'stone']; // raw ores
+    case 'furnace': return ['iron', 'copper', 'stone', 'iron_plate']; // raw ores + iron_plate for steel
     case 'assembler': return 'any'; // depends on recipe
     case 'storage': return 'any';
     case 'lab': return ['science_red', 'science_green', 'science_blue'];
@@ -901,7 +987,7 @@ export function spawnEnemies(state: GameState) {
   }
 
   // Spawn spawners away from player
-  if (state.spawners.size < SPAWNER_MAX && state.tick % 600 === 0) {
+  if (state.spawners.size < SPAWNER_MAX && (state.tick % 600 === 0 || (state.tick === 1200 && state.spawners.size === 0))) {
     const angle = Math.random() * Math.PI * 2;
     const dist = 30 + Math.random() * 40;
     const sx = Math.floor(state.player.x + Math.cos(angle) * dist);
@@ -951,7 +1037,7 @@ export function updateEnemies(state: GameState) {
     } else {
       enemy.state = 'attacking';
       if (enemy.attackCooldown <= 0) {
-        enemy.attackCooldown = 40;
+        enemy.attackCooldown = 55;
 
         // Attack player if in range
         const playerDist = Math.sqrt((enemy.x - state.player.x) ** 2 + (enemy.y - state.player.y) ** 2);

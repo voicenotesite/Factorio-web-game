@@ -24,6 +24,13 @@ export class GameRenderer {
   private lightCanvas: HTMLCanvasElement;
   private lightCtx: CanvasRenderingContext2D;
   isPlayerMoving = false;
+  ghostBuilding: string | null = null;
+  ghostTile: { x: number; y: number } | null = null;
+  ghostDirection = 'right';
+  ghostCanAfford = true;
+  private enemyHitFlash = new Map<string, number>(); // enemyId -> flashFrames remaining
+  private damageNumbers: { x: number; y: number; value: number; life: number; color: string }[] = [];
+  private prevEnemyHealth = new Map<string, number>();
   private sunShadowDX = 4;
   private sunShadowDY = 4;
   private sunShadowAlpha = 0.25;
@@ -177,8 +184,32 @@ export class GameRenderer {
     entities.sort((a, b) => a.y - b.y);
     for (const e of entities) e.render();
 
+    // Ghost building preview
+    if (this.ghostBuilding && this.ghostTile) {
+      this.renderGhostBuilding(ctx, state);
+    }
+
     // Render particles
     this.renderParticles(ctx, state, viewLeft, viewTop, viewRight, viewBottom);
+
+    // Render floating damage numbers
+    for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
+      const dn = this.damageNumbers[i];
+      const alpha = dn.life / 40;
+      ctx.globalAlpha = alpha;
+      ctx.font = `bold ${10 + (1 - alpha) * 4}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = dn.color;
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 2;
+      ctx.strokeText(`-${dn.value}`, dn.x, dn.y);
+      ctx.fillText(`-${dn.value}`, dn.x, dn.y);
+      dn.y -= 0.35;
+      dn.life--;
+      if (dn.life <= 0) this.damageNumbers.splice(i, 1);
+    }
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
 
     // Render building glow effects (emissive)
     for (const building of sortedBuildings) {
@@ -1183,6 +1214,63 @@ export class GameRenderer {
         }
         break;
       }
+      case 'inserter': {
+        // Mechanical arm — base plate, rotating arm, claw
+        const dir = DIR_OFFSETS[building.direction] || DIR_OFFSETS.right;
+        const cx2 = x + TILE_SIZE / 2;
+        const cy2 = y + TILE_SIZE / 2;
+
+        // Arm swing animation
+        const swingMax = 0.65;
+        const swingSpeed = building.isActive ? 0.08 : 0.015;
+        const swing = Math.sin(this.frameCount * swingSpeed) * swingMax;
+
+        // Base plate
+        ctx.fillStyle = '#3a3a30';
+        ctx.beginPath();
+        ctx.arc(cx2, cy2, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#5a5a48';
+        ctx.beginPath();
+        ctx.arc(cx2, cy2, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Arm direction angle
+        const baseAngle = Math.atan2(dir.dy, dir.dx) - Math.PI / 2; // -90 rotated to point in dir
+        const armAngle = baseAngle + swing;
+
+        // Upper arm
+        const armLength = 9;
+        const elbowX = cx2 + Math.cos(armAngle) * armLength;
+        const elbowY = cy2 + Math.sin(armAngle) * armLength;
+        ctx.strokeStyle = '#6a6a58';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(cx2, cy2);
+        ctx.lineTo(elbowX, elbowY);
+        ctx.stroke();
+
+        // Forearm (slightly offset angle)
+        const foreAngle = armAngle + 0.3;
+        const clawX = elbowX + Math.cos(foreAngle) * 6;
+        const clawY = elbowY + Math.sin(foreAngle) * 6;
+        ctx.strokeStyle = '#8a8a72';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(elbowX, elbowY);
+        ctx.lineTo(clawX, clawY);
+        ctx.stroke();
+
+        // Claw / grip at tip
+        ctx.fillStyle = building.isActive ? '#ffcc44' : '#888870';
+        ctx.beginPath();
+        ctx.arc(clawX, clawY, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.lineCap = 'butt';
+        break;
+      }
     }
   }
 
@@ -1339,6 +1427,20 @@ export class GameRenderer {
     const size = enemy.type === 'behemoth' ? 14 : enemy.type === 'worm' ? 12 : 8;
     const evolution = enemy.evolution;
 
+    // Track hit flash
+    const flashFrames = this.enemyHitFlash.get(enemy.id) || 0;
+    if (flashFrames > 0) this.enemyHitFlash.set(enemy.id, flashFrames - 1);
+    const isFlashing = flashFrames > 0;
+
+    // Detect damage taken this frame
+    const prevHp = this.prevEnemyHealth.get(enemy.id);
+    if (prevHp !== undefined && enemy.health < prevHp) {
+      const dmg = Math.ceil(prevHp - enemy.health);
+      this.enemyHitFlash.set(enemy.id, 6);
+      this.damageNumbers.push({ x, y: y - size - 5, value: dmg, life: 40, color: '#ff4444' });
+    }
+    this.prevEnemyHealth.set(enemy.id, enemy.health);
+
     // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
@@ -1477,69 +1579,114 @@ export class GameRenderer {
       ctx.arc(x, y, size + 6, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    // White hit flash
+    if (isFlashing) {
+      ctx.fillStyle = `rgba(255,255,255,${(flashFrames / 6) * 0.65})`;
+      ctx.beginPath();
+      ctx.ellipse(x, y, size + 2, size * 0.9, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   private renderNPC(ctx: CanvasRenderingContext2D, npc: NPC, state: GameState) {
     const x = npc.x * TILE_SIZE;
     const y = npc.y * TILE_SIZE;
-    const colors = NPC_COLORS[npc.type] || { body: '#888', accent: '#aaa' };
-    const bob = Math.sin(this.frameCount * 0.06 + npc.id.charCodeAt(0)) * 1.5;
+    const bob = Math.sin(this.frameCount * 0.07 + npc.id.charCodeAt(0)) * 1;
 
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    // Clothing colors by type
+    const jacketColors: Record<string, string> = {
+      worker: '#2a3c2a', scout: '#1e3028', trader: '#3a2810', guard: '#2a1a1a', settler: '#2c2a3a',
+    };
+    const accentColors: Record<string, string> = {
+      worker: '#c87020', scout: '#20a840', trader: '#d4a017', guard: '#cc2020', settler: '#7a60cc',
+    };
+    const jacket = jacketColors[npc.type] || '#2a3a2a';
+    const accent = accentColors[npc.type] || '#c87020';
+
+    // Ground shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
     ctx.beginPath();
-    ctx.ellipse(x, y + 11, 7, 3, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y + 11, 6.5, 2.5, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    // Legs
+    ctx.fillStyle = '#181c14';
+    ctx.fillRect(x - 4, y + 4 + bob, 3.5, 6);
+    ctx.fillRect(x + 0.5, y + 4 + bob, 3.5, 6);
 
     // Body
-    const bodyGrad = ctx.createLinearGradient(x - 7, y - 4, x + 7, y + 8);
-    bodyGrad.addColorStop(0, colors.accent);
-    bodyGrad.addColorStop(1, colors.body);
-    ctx.fillStyle = bodyGrad;
+    const bGrad = ctx.createLinearGradient(x - 6, y - 3, x + 6, y + 5);
+    bGrad.addColorStop(0, lightenColorUtil(jacket, 18));
+    bGrad.addColorStop(1, jacket);
+    ctx.fillStyle = bGrad;
     ctx.beginPath();
-    ctx.ellipse(x, y - 1 + bob, 7, 8, 0, 0, Math.PI * 2);
+    ctx.roundRect(x - 6, y - 3 + bob, 12, 9, 2);
     ctx.fill();
+
+    // Accent stripe
+    ctx.fillStyle = accent + 'aa';
+    ctx.fillRect(x - 6, y - 0.5 + bob, 12, 2);
 
     // Head
-    ctx.fillStyle = '#f0c878';
+    ctx.fillStyle = '#daa870';
     ctx.beginPath();
-    ctx.arc(x, y - 10 + bob, 5.5, 0, Math.PI * 2);
+    ctx.arc(x, y - 10 + bob, 5, 0, Math.PI * 2);
     ctx.fill();
 
-    // Hair
-    ctx.fillStyle = npc.type === 'guard' ? '#2a1a0a' : npc.type === 'trader' ? '#5a3a1a' : '#4a3a2a';
-    ctx.beginPath();
-    ctx.arc(x, y - 12 + bob, 5.5, Math.PI, Math.PI * 2);
-    ctx.fill();
+    // Hat / helmet based on type
+    if (npc.type === 'worker' || npc.type === 'guard') {
+      ctx.fillStyle = npc.type === 'guard' ? '#880010' : '#cc8010';
+      ctx.beginPath();
+      ctx.ellipse(x, y - 13.5 + bob, 6.5, 3.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = npc.type === 'guard' ? '#aa0020' : '#ee9020';
+      ctx.beginPath();
+      ctx.ellipse(x, y - 14.5 + bob, 5, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (npc.type === 'scout') {
+      ctx.fillStyle = '#1a3818';
+      ctx.beginPath();
+      ctx.ellipse(x, y - 13 + bob, 6, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (npc.type === 'trader') {
+      ctx.fillStyle = '#6a4010';
+      ctx.fillRect(x - 3.5, y - 16 + bob, 7, 6);
+      ctx.fillRect(x - 5, y - 11 + bob, 10, 1.5);
+    }
 
     // Eyes
-    ctx.fillStyle = '#222';
-    ctx.fillRect(x - 2.5, y - 11 + bob, 1.5, 1.5);
-    ctx.fillRect(x + 1, y - 11 + bob, 1.5, 1.5);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(x - 1.8, y - 10.5 + bob, 1.1, 0, Math.PI * 2);
+    ctx.arc(x + 1.8, y - 10.5 + bob, 1.1, 0, Math.PI * 2);
+    ctx.fill();
 
     // Name tag
     if (state.camera.zoom > 1) {
       ctx.font = 'bold 8px system-ui, sans-serif';
       ctx.textAlign = 'center';
-      // Background
       const nameWidth = ctx.measureText(npc.name).width + 6;
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillStyle = 'rgba(0,0,0,0.65)';
       ctx.beginPath();
-      ctx.roundRect(x - nameWidth / 2, y - 22 + bob, nameWidth, 11, 3);
+      ctx.roundRect(x - nameWidth / 2, y - 24 + bob, nameWidth, 10, 3);
       ctx.fill();
-      // Text
-      ctx.fillStyle = '#fff';
-      ctx.fillText(npc.name, x, y - 14 + bob);
+      ctx.fillStyle = accent;
+      ctx.fillText(npc.name, x, y - 17 + bob);
     }
 
-    // State indicator
-    const stateIcons: Record<string, string> = {
-      idle: '...', moving: '>>', working: 'W', fleeing: '!!', trading: '$', patrolling: 'P', gathering: '+',
-    };
-    ctx.font = '7px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.fillText(stateIcons[npc.state] || '', x, y + 18);
+    // HP bar if damaged
+    if (npc.health < npc.maxHealth) {
+      const hp = npc.health / npc.maxHealth;
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.beginPath();
+      ctx.roundRect(x - 12, y - 28 + bob, 24, 3.5, 1.5);
+      ctx.fill();
+      ctx.fillStyle = hp > 0.5 ? '#22c55e' : '#ef4444';
+      ctx.beginPath();
+      ctx.roundRect(x - 11.5, y - 27.5 + bob, 23 * hp, 2.5, 1);
+      ctx.fill();
+    }
   }
 
   private renderPlayer(ctx: CanvasRenderingContext2D, state: GameState) {
@@ -1658,6 +1805,74 @@ export class GameRenderer {
 
   private keysPressed(state: GameState): boolean {
     return state.player.x !== state.player.x || state.player.y !== state.player.y;
+  }
+
+  private renderGhostBuilding(ctx: CanvasRenderingContext2D, state: GameState) {
+    if (!this.ghostBuilding || !this.ghostTile) return;
+    const { x, y } = this.ghostTile;
+    const bsize = BUILDING_SIZES[this.ghostBuilding] || { w: 1, h: 1 };
+    const sx = x * TILE_SIZE;
+    const sy = y * TILE_SIZE;
+    const sw = bsize.w * TILE_SIZE;
+    const sh = bsize.h * TILE_SIZE;
+
+    // Check if placement is valid (no building in the way)
+    let canPlace = true;
+    for (let dy = 0; dy < bsize.h && canPlace; dy++) {
+      for (let dx = 0; dx < bsize.w && canPlace; dx++) {
+        const tile = state.chunks.size > 0 ? (() => {
+          const tx = x + dx, ty = y + dy;
+          const cx = Math.floor(tx / 32), cy2 = Math.floor(ty / 32);
+          const chunk = state.chunks.get(`${cx},${cy2}`);
+          if (!chunk) return null;
+          const lx = ((tx % 32) + 32) % 32, ly = ((ty % 32) + 32) % 32;
+          return chunk[ly][lx];
+        })() : null;
+        if (tile?.building) canPlace = false;
+      }
+    }
+    canPlace = canPlace && this.ghostCanAfford;
+
+    ctx.save();
+    ctx.globalAlpha = 0.52;
+    if (canPlace) {
+      // Valid placement: blue-green tint
+      ctx.fillStyle = 'rgba(80,220,130,0.35)';
+    } else {
+      // Invalid: red tint
+      ctx.fillStyle = 'rgba(255,60,60,0.35)';
+    }
+    ctx.beginPath();
+    ctx.roundRect(sx, sy, sw, sh, 2);
+    ctx.fill();
+
+    // Outline
+    ctx.strokeStyle = canPlace ? 'rgba(80,220,130,0.85)' : 'rgba(255,80,80,0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(sx + 0.75, sy + 0.75, sw - 1.5, sh - 1.5, 2);
+    ctx.stroke();
+
+    // Show direction arrow
+    const dir = DIR_OFFSETS[this.ghostDirection];
+    if (dir) {
+      const acx = sx + sw / 2;
+      const acy = sy + sh / 2;
+      ctx.fillStyle = canPlace ? 'rgba(255,255,255,0.7)' : 'rgba(255,150,150,0.7)';
+      ctx.save();
+      ctx.translate(acx, acy);
+      ctx.rotate(Math.atan2(dir.dy, dir.dx));
+      ctx.beginPath();
+      ctx.moveTo(-6, -4);
+      ctx.lineTo(6, 0);
+      ctx.lineTo(-6, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   private renderParticles(ctx: CanvasRenderingContext2D, state: GameState, vl: number, vt: number, vr: number, vb: number) {
@@ -1847,6 +2062,13 @@ export class GameRenderer {
     ctx.fillStyle = hazeGrad;
     ctx.fillRect(0, 0, w, h);
   }
+}
+
+function lightenColorUtil(hex: string, amount: number): string {
+  const r = Math.min(255, parseInt(hex.slice(1, 3), 16) + amount);
+  const g = Math.min(255, parseInt(hex.slice(3, 5), 16) + amount);
+  const b = Math.min(255, parseInt(hex.slice(5, 7), 16) + amount);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
 function lightenColor(hex: string, amount: number): string {
