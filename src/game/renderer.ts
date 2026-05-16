@@ -145,6 +145,8 @@ export class GameRenderer {
       this.renderBuilding(ctx, building, state);
     }
 
+    this.renderPowerConnections(ctx, state);
+
     // Render entities sorted by Y for depth
     const entities: { y: number; render: () => void }[] = [];
 
@@ -768,7 +770,13 @@ export class GameRenderer {
     }
 
     // Subtle status indicator: thin horizontal bar at bottom
-    const statusColor = building.isActive ? '#22dd44' : '#444';
+    let statusColor: string;
+    if (building.type === 'boiler') {
+      const coalCount = building.inventory.find(s => s.itemId === 'coal')?.count ?? 0;
+      statusColor = building.isActive && coalCount > 0 ? '#ff8800' : coalCount === 0 ? '#ff2222' : '#444';
+    } else {
+      statusColor = building.isActive ? '#22dd44' : '#444';
+    }
     ctx.fillStyle = statusColor;
     ctx.fillRect(x + 2, y + h - 3, (w - 4), 2);
     if (building.isActive && building.recipe && building.progress > 0) {
@@ -780,6 +788,86 @@ export class GameRenderer {
 
     // Type-specific details
     this.renderBuildingDetails(ctx, building, x, y, w, h);
+  }
+
+  private renderPowerConnections(ctx: CanvasRenderingContext2D, state: GameState) {
+    const boilers = Array.from(state.buildings.values()).filter(b => b.type === 'boiler');
+    const steamEngines = Array.from(state.buildings.values()).filter(b => b.type === 'steam_engine');
+    const powerPoles = Array.from(state.buildings.values()).filter(b => b.type === 'power_pole');
+
+    // Draw orange steam pipes connecting boilers to nearby steam engines
+    for (const boiler of boilers) {
+      for (const engine of steamEngines) {
+        const dx = engine.x - boiler.x;
+        const dy = engine.y - boiler.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= 12) {
+          const sx = (boiler.x + 1) * TILE_SIZE;
+          const sy = (boiler.y + 1) * TILE_SIZE;
+          const ex = (engine.x + 1.5) * TILE_SIZE;
+          const ey = (engine.y + 1) * TILE_SIZE;
+          const alpha = boiler.isActive ? 0.7 : 0.25;
+          ctx.strokeStyle = `rgba(255,140,0,${alpha})`;
+          ctx.lineWidth = 3;
+          ctx.setLineDash([6, 4]);
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          // Animated steam flow dot
+          if (boiler.isActive) {
+            const t = (this.frameCount * 0.04) % 1;
+            const dotX = sx + (ex - sx) * t;
+            const dotY = sy + (ey - sy) * t;
+            ctx.fillStyle = 'rgba(255,200,100,0.9)';
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+    }
+
+    // Draw yellow wires between power poles (within 15 tiles of each other)
+    for (let i = 0; i < powerPoles.length; i++) {
+      for (let j = i + 1; j < powerPoles.length; j++) {
+        const a = powerPoles[i];
+        const b = powerPoles[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= 15) {
+          const ax = a.x * TILE_SIZE + TILE_SIZE / 2;
+          const ay = a.y * TILE_SIZE + TILE_SIZE / 2;
+          const bx = b.x * TILE_SIZE + TILE_SIZE / 2;
+          const by = b.y * TILE_SIZE + TILE_SIZE / 2;
+          // Catenary sag
+          const midX = (ax + bx) / 2;
+          const midY = (ay + by) / 2 + dist * 1.5;
+          ctx.strokeStyle = 'rgba(220,200,60,0.55)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.quadraticCurveTo(midX, midY, bx, by);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Power pole range indicator (very subtle, only when there are poles)
+    for (const pole of powerPoles) {
+      const px = pole.x * TILE_SIZE + TILE_SIZE / 2;
+      const py = pole.y * TILE_SIZE + TILE_SIZE / 2;
+      const rangeR = 15 * TILE_SIZE;
+      ctx.strokeStyle = 'rgba(220,200,60,0.08)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 8]);
+      ctx.beginPath();
+      ctx.arc(px, py, rangeR, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
   }
 
   private renderBuildingGlow(ctx: CanvasRenderingContext2D, building: Building) {
@@ -908,8 +996,42 @@ export class GameRenderer {
         }
         break;
       }
+      case 'boiler': {
+        // Firebox glow
+        const flicker2 = Math.sin(this.frameCount * 0.15) * 2;
+        if (building.isActive) {
+          ctx.fillStyle = `rgba(255,${80 + flicker2 * 8},10,0.85)`;
+          ctx.beginPath();
+          ctx.ellipse(x + w / 2, y + h / 2 + 4, 6 + flicker2 * 0.5, 8, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = `rgba(255,${160 + flicker2 * 6},60,0.5)`;
+          ctx.beginPath();
+          ctx.ellipse(x + w / 2, y + h / 2 + 3, 3, 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Pressure gauge (small circle top-right)
+        ctx.fillStyle = '#1a1a18';
+        ctx.beginPath();
+        ctx.arc(x + w - 7, y + 7, 5, 0, Math.PI * 2);
+        ctx.fill();
+        const pressure = building.energy / (building.maxEnergy || 50);
+        ctx.strokeStyle = pressure > 0.5 ? '#44ff88' : pressure > 0.2 ? '#ffcc44' : '#ff4444';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x + w - 7, y + 7, 3.5, -Math.PI * 0.8, -Math.PI * 0.8 + pressure * Math.PI * 1.6);
+        ctx.stroke();
+        // Coal level indicator & "NO COAL" warning
+        const coalCount2 = building.inventory.find((s: {itemId: string; count: number}) => s.itemId === 'coal')?.count ?? 0;
+        if (coalCount2 === 0 && Math.floor(this.frameCount / 20) % 2 === 0) {
+          ctx.fillStyle = 'rgba(255,60,60,0.95)';
+          ctx.font = 'bold 8px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('NO COAL', x + w / 2, y - 2);
+          ctx.textAlign = 'left';
+        }
+        break;
+      }
       case 'furnace': {
-        // Brick chimney stack above
         ctx.fillStyle = '#1a0a04';
         ctx.fillRect(x + w / 2 - 3, y - 12, 6, 14);
         ctx.fillStyle = '#2a1208';
@@ -1213,6 +1335,13 @@ export class GameRenderer {
           ctx.beginPath();
           ctx.arc(x + w * 0.25, steamY, 3 + ((this.frameCount * 0.4) % 14) * 0.2, 0, Math.PI * 2);
           ctx.fill();
+        }
+        if (!building.isActive && Math.floor(this.frameCount / 25) % 2 === 0) {
+          ctx.fillStyle = 'rgba(255,60,60,0.95)';
+          ctx.font = 'bold 8px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('NO STEAM', x + w / 2, y - 2);
+          ctx.textAlign = 'left';
         }
         break;
       }

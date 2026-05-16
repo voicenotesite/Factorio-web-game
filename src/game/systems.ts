@@ -888,22 +888,103 @@ export function spawnNPCs(state: GameState) {
   state.npcs.set(npc.id, npc);
 }
 
+interface SupplyJob {
+  srcId: string; srcX: number; srcY: number;
+  dstId: string; dstX: number; dstY: number;
+  itemId: string; amount: number;
+}
+
+function findSupplyJob(state: GameState, buildingList: Building[]): SupplyJob | null {
+  type Need = { building: Building; itemId: string; urgency: number };
+  const needs: Need[] = [];
+
+  for (const b of buildingList) {
+    switch (b.type) {
+      case 'boiler': {
+        const count = b.inventory.find(s => s.itemId === 'coal')?.count ?? 0;
+        if (count < 20) needs.push({ building: b, itemId: 'coal', urgency: 100 - count * 3 });
+        break;
+      }
+      case 'furnace': {
+        for (const ore of ['iron', 'copper', 'stone']) {
+          const count = b.inventory.find(s => s.itemId === ore)?.count ?? 0;
+          if (count < 15) needs.push({ building: b, itemId: ore, urgency: 60 - count * 2 });
+        }
+        const ipCount = b.inventory.find(s => s.itemId === 'iron_plate')?.count ?? 0;
+        if (ipCount < 10) needs.push({ building: b, itemId: 'iron_plate', urgency: 40 - ipCount * 2 });
+        break;
+      }
+      case 'assembler': {
+        if (b.recipe) {
+          for (const input of b.recipe.inputs) {
+            const count = b.inventory.find(s => s.itemId === input.itemId)?.count ?? 0;
+            if (count < 10) needs.push({ building: b, itemId: input.itemId, urgency: 35 - count * 2 });
+          }
+        }
+        break;
+      }
+      case 'lab': {
+        for (const sp of ['science_red', 'science_green', 'science_blue']) {
+          const count = b.inventory.find(s => s.itemId === sp)?.count ?? 0;
+          if (count < 5) needs.push({ building: b, itemId: sp, urgency: 25 - count * 3 });
+        }
+        break;
+      }
+      case 'turret': {
+        const ammo = b.inventory.find(s => s.itemId === 'ammo')?.count ?? 0;
+        if (ammo < 10) needs.push({ building: b, itemId: 'ammo', urgency: 50 - ammo * 3 });
+        break;
+      }
+    }
+  }
+
+  needs.sort((a, b) => b.urgency - a.urgency);
+
+  const sz = (type: string) => BUILDING_SIZES[type] || { w: 1, h: 1 };
+
+  for (const need of needs) {
+    let bestSrc: Building | null = null;
+    let bestCount = 0;
+
+    for (const src of buildingList) {
+      if (src.id === need.building.id) continue;
+      const outSlot = src.outputInventory.find(s => s.itemId === need.itemId);
+      if (outSlot && outSlot.count > bestCount) {
+        bestSrc = src;
+        bestCount = outSlot.count;
+      }
+      if (src.type === 'storage') {
+        const inSlot = src.inventory.find(s => s.itemId === need.itemId);
+        if (inSlot && inSlot.count > bestCount) {
+          bestSrc = src;
+          bestCount = inSlot.count;
+        }
+      }
+    }
+
+    if (bestSrc && bestCount > 0) {
+      const srcSize = sz(bestSrc.type);
+      const dstSize = sz(need.building.type);
+      return {
+        srcId: bestSrc.id,
+        srcX: bestSrc.x + srcSize.w / 2,
+        srcY: bestSrc.y + srcSize.h / 2,
+        dstId: need.building.id,
+        dstX: need.building.x + dstSize.w / 2,
+        dstY: need.building.y + dstSize.h / 2,
+        itemId: need.itemId,
+        amount: Math.min(bestCount, 8),
+      };
+    }
+  }
+  return null;
+}
+
 export function updateNPCs(state: GameState) {
   const buildingList = Array.from(state.buildings.values());
 
   for (const [, npc] of state.npcs) {
     npc.taskTimer--;
-
-    // Flee from nearby enemies
-    let nearEnemy = false;
-    for (const [, enemy] of state.enemies) {
-      const d = Math.sqrt((enemy.x - npc.x) ** 2 + (enemy.y - npc.y) ** 2);
-      if (d < 10) { nearEnemy = true; npc.state = 'fleeing'; break; }
-    }
-
-    if (nearEnemy && npc.state !== 'fleeing') {
-      npc.state = 'fleeing';
-    }
 
     // Guards attack nearby enemies instead of fleeing
     if (npc.type === 'guard') {
@@ -913,241 +994,258 @@ export function updateNPCs(state: GameState) {
         const d = Math.sqrt((enemy.x - npc.x) ** 2 + (enemy.y - npc.y) ** 2);
         if (d < nearestDist) { nearestDist = d; nearestEnemy = enemy; }
       }
-      if (nearestEnemy && nearestDist < 12) {
-        // Move toward enemy
+      if (nearestEnemy && nearestDist < 14) {
         const dx = nearestEnemy.x - npc.x;
         const dy = nearestEnemy.y - npc.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist > 1.5) {
           npc.x += (dx / dist) * npc.speed * 1.3;
           npc.y += (dy / dist) * npc.speed * 1.3;
-        } else {
-          // Attack — deal 5 damage every 30 ticks
-          if (state.tick % 30 === 0) {
-            nearestEnemy.health -= 5;
-            spawnParticle(state, nearestEnemy.x * TILE_SIZE, nearestEnemy.y * TILE_SIZE, 'spark', '#ff4444');
-            if (nearestEnemy.health <= 0) {
-              state.enemies.delete(nearestEnemy.id);
-              state.statistics.enemiesKilled++;
-              grantXPToPlayer(state, 5);
-              spawnParticle(state, nearestEnemy.x * TILE_SIZE, nearestEnemy.y * TILE_SIZE, 'explosion', '#ff6600');
-            }
+        } else if (state.tick % 30 === 0) {
+          nearestEnemy.health -= 5;
+          spawnParticle(state, nearestEnemy.x * TILE_SIZE, nearestEnemy.y * TILE_SIZE, 'spark', '#ff4444');
+          if (nearestEnemy.health <= 0) {
+            state.enemies.delete(nearestEnemy.id);
+            state.statistics.enemiesKilled++;
+            grantXPToPlayer(state, 5);
+            spawnParticle(state, nearestEnemy.x * TILE_SIZE, nearestEnemy.y * TILE_SIZE, 'explosion', '#ff6600');
           }
         }
-        continue; // skip normal state machine for guards in combat
+        continue;
       }
     }
 
-    if (!nearEnemy || npc.type === 'guard') {
-      switch (npc.state) {
-        case 'idle':
-          if (npc.taskTimer <= 0) {
-            // Pick a behavior based on type
-            if (npc.type === 'worker') {
-              npc.state = 'working';
-              // Find a building with output items
-              let bestTarget: Building | null = null;
-              let bestScore = -1;
-              for (const b of buildingList) {
-                if (b.outputInventory.length > 0 && b.outputInventory[0].count > 0) {
-                  const score = b.outputInventory[0].count;
-                  if (score > bestScore) { bestScore = score; bestTarget = b; }
-                }
-              }
-              if (bestTarget) {
-                npc.targetX = bestTarget.x;
-                npc.targetY = bestTarget.y;
-              } else {
-                // Wander near home
-                npc.targetX = npc.homeX + (Math.random() - 0.5) * 16;
-                npc.targetY = npc.homeY + (Math.random() - 0.5) * 16;
-              }
-            } else if (npc.type === 'guard') {
-              npc.state = 'patrolling';
-              // Patrol around nearest building or home
-              const anchor = buildingList.length > 0
-                ? buildingList[Math.floor(Math.random() * Math.min(buildingList.length, 5))]
-                : { x: npc.homeX, y: npc.homeY };
-              npc.targetX = anchor.x + (Math.random() - 0.5) * 14;
-              npc.targetY = anchor.y + (Math.random() - 0.5) * 14;
-            } else if (npc.type === 'scout') {
-              npc.state = 'moving';
-              npc.targetX = npc.x + (Math.random() - 0.5) * 40;
-              npc.targetY = npc.y + (Math.random() - 0.5) * 40;
-            } else if (npc.type === 'trader') {
-              npc.state = 'trading';
-              // Head toward player
-              npc.targetX = state.player.x + (Math.random() - 0.5) * 4;
-              npc.targetY = state.player.y + (Math.random() - 0.5) * 4;
-            } else {
-              npc.state = 'gathering';
-              npc.targetX = npc.homeX + (Math.random() - 0.5) * 20;
-              npc.targetY = npc.homeY + (Math.random() - 0.5) * 20;
-            }
-            npc.taskTimer = 200 + Math.random() * 300;
-          }
-          break;
+    // Non-guards flee from nearby enemies
+    if (npc.type !== 'guard') {
+      let nearEnemy = false;
+      for (const [, enemy] of state.enemies) {
+        const d = Math.sqrt((enemy.x - npc.x) ** 2 + (enemy.y - npc.y) ** 2);
+        if (d < 10) { nearEnemy = true; break; }
+      }
+      if (nearEnemy) {
+        npc.state = 'fleeing';
+      }
+    }
 
-        case 'moving':
-        case 'patrolling':
-        case 'gathering': {
-          const dx = npc.targetX - npc.x;
-          const dy = npc.targetY - npc.y;
+    switch (npc.state) {
+      case 'idle': {
+        if (npc.taskTimer > 0) break;
+
+        if (npc.type === 'worker') {
+          // Priority 1: pick up an unassigned build task
+          const freeTask = state.buildQueue.find(q => !q.assignedNpcId);
+          if (freeTask) {
+            freeTask.assignedNpcId = npc.id;
+            npc.state = 'working';
+            npc.taskTimer = 600;
+            break;
+          }
+          // Priority 2: supply chain job
+          const sJob = findSupplyJob(state, buildingList);
+          if (sJob) {
+            (npc as any)._supplyJob = sJob;
+            (npc as any)._supplyPhase = 'toSource';
+            npc.targetX = sJob.srcX;
+            npc.targetY = sJob.srcY;
+            npc.state = 'working';
+            npc.taskTimer = 700;
+            break;
+          }
+          // No work: wander near home
+          npc.targetX = npc.homeX + (Math.random() - 0.5) * 16;
+          npc.targetY = npc.homeY + (Math.random() - 0.5) * 16;
+          npc.state = 'moving';
+          npc.taskTimer = 150 + Math.random() * 200;
+        } else if (npc.type === 'guard') {
+          npc.state = 'patrolling';
+          const anchor = buildingList.length > 0
+            ? buildingList[Math.floor(Math.random() * Math.min(buildingList.length, 5))]
+            : { x: npc.homeX, y: npc.homeY };
+          npc.targetX = anchor.x + (Math.random() - 0.5) * 14;
+          npc.targetY = anchor.y + (Math.random() - 0.5) * 14;
+          npc.taskTimer = 200 + Math.random() * 300;
+        } else if (npc.type === 'scout') {
+          npc.state = 'moving';
+          npc.targetX = npc.x + (Math.random() - 0.5) * 40;
+          npc.targetY = npc.y + (Math.random() - 0.5) * 40;
+          npc.taskTimer = 200 + Math.random() * 300;
+        } else if (npc.type === 'trader') {
+          npc.state = 'trading';
+          npc.targetX = state.player.x + (Math.random() - 0.5) * 4;
+          npc.targetY = state.player.y + (Math.random() - 0.5) * 4;
+          npc.taskTimer = 200 + Math.random() * 300;
+        } else {
+          npc.state = 'gathering';
+          npc.targetX = npc.homeX + (Math.random() - 0.5) * 20;
+          npc.targetY = npc.homeY + (Math.random() - 0.5) * 20;
+          npc.taskTimer = 200 + Math.random() * 300;
+        }
+        break;
+      }
+
+      case 'moving':
+      case 'patrolling':
+      case 'gathering': {
+        const dx = npc.targetX - npc.x;
+        const dy = npc.targetY - npc.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 0.5) {
+          npc.x += (dx / dist) * npc.speed;
+          npc.y += (dy / dist) * npc.speed;
+        } else {
+          npc.state = 'idle';
+          npc.taskTimer = 40 + Math.random() * 80;
+        }
+        break;
+      }
+
+      case 'working': {
+        // Priority 1: build task
+        const myTask = state.buildQueue.find(q => q.assignedNpcId === npc.id);
+        const freeTask2 = !myTask ? state.buildQueue.find(q => !q.assignedNpcId) : null;
+        const buildTask = myTask || freeTask2;
+        if (buildTask) {
+          if (!myTask) buildTask.assignedNpcId = npc.id;
+          const dx = buildTask.x - npc.x;
+          const dy = buildTask.y - npc.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 0.5) {
+          if (dist > 1.5) {
             npc.x += (dx / dist) * npc.speed;
             npc.y += (dy / dist) * npc.speed;
           } else {
+            buildTask.constructionProgress += 1.2;
+            if (buildTask.constructionProgress >= 100) {
+              placeBuilding(state, buildTask.type, buildTask.x, buildTask.y, buildTask.direction, true);
+              state.buildQueue = state.buildQueue.filter(q => q.id !== buildTask.id);
+              spawnParticle(state, buildTask.x * TILE_SIZE + 16, buildTask.y * TILE_SIZE + 16, 'spark', '#88ffcc');
+              npc.state = 'idle';
+              npc.taskTimer = 30;
+            }
+          }
+          if (npc.taskTimer <= 0) {
+            if (buildTask.assignedNpcId === npc.id) buildTask.assignedNpcId = undefined;
             npc.state = 'idle';
-            npc.taskTimer = 40 + Math.random() * 80;
+            npc.taskTimer = 60;
           }
           break;
         }
 
-        case 'working': {
-          // First priority: check build queue for assigned or unassigned tasks
-          const myTask = state.buildQueue.find(q => q.assignedNpcId === npc.id);
-          const freeTask = !myTask ? state.buildQueue.find(q => !q.assignedNpcId) : null;
-          const task = myTask || freeTask;
-
-          if (task && !myTask) {
-            task.assignedNpcId = npc.id;
-          }
-
-          if (task) {
-            // Walk toward build site
-            const dx = task.x - npc.x;
-            const dy = task.y - npc.y;
+        // Priority 2: supply chain job
+        const sJob = (npc as any)._supplyJob as SupplyJob | undefined;
+        if (sJob) {
+          const phase = (npc as any)._supplyPhase as string;
+          if (phase === 'toSource') {
+            const dx = sJob.srcX - npc.x;
+            const dy = sJob.srcY - npc.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > 1.5) {
               npc.x += (dx / dist) * npc.speed;
               npc.y += (dy / dist) * npc.speed;
             } else {
-              // At build site — construct slowly
-              task.constructionProgress += 1.2; // ~83 ticks to finish
-              if (task.constructionProgress >= 100) {
-                // Place the building (payment already taken when queued)
-                placeBuilding(state, task.type, task.x, task.y, task.direction, true);
-                state.buildQueue = state.buildQueue.filter(q => q.id !== task.id);
-                spawnParticle(state, task.x * TILE_SIZE + 16, task.y * TILE_SIZE + 16, 'spark', '#88ffcc');
+              const src = buildingList.find(b => b.id === sJob.srcId);
+              if (src) {
+                let picked = 0;
+                const outSlot = src.outputInventory.find(s => s.itemId === sJob.itemId);
+                if (outSlot && outSlot.count > 0) {
+                  const take = Math.min(sJob.amount, outSlot.count);
+                  removeItemFromBuildingOutput(src, sJob.itemId, take);
+                  picked = take;
+                } else if (src.type === 'storage') {
+                  const inSlot = src.inventory.find(s => s.itemId === sJob.itemId);
+                  if (inSlot && inSlot.count > 0) {
+                    const take = Math.min(sJob.amount, inSlot.count);
+                    removeItemFromBuilding(src, sJob.itemId, take);
+                    picked = take;
+                  }
+                }
+                if (picked > 0) {
+                  const existNpc = npc.inventory.find(s => s.itemId === sJob.itemId);
+                  if (existNpc) existNpc.count += picked;
+                  else npc.inventory.push({ itemId: sJob.itemId, count: picked });
+                  (npc as any)._supplyPhase = 'toTarget';
+                  npc.targetX = sJob.dstX;
+                  npc.targetY = sJob.dstY;
+                } else {
+                  (npc as any)._supplyJob = null;
+                  npc.state = 'idle';
+                  npc.taskTimer = 30;
+                }
+              } else {
+                (npc as any)._supplyJob = null;
+                npc.state = 'idle';
+                npc.taskTimer = 30;
               }
             }
-            if (npc.taskTimer <= 0) {
-              // Abandon task
-              if (task.assignedNpcId === npc.id) task.assignedNpcId = undefined;
-              npc.state = 'idle';
-              npc.taskTimer = 60;
-            }
-            break;
-          }
-
-          // No build tasks — carry items between buildings (original worker logic)
-          let srcBuilding: Building | null = null;
-          for (const b of buildingList) {
-            const d = Math.sqrt((b.x - npc.x) ** 2 + (b.y - npc.y) ** 2);
-            if (d < 2 && b.outputInventory.length > 0 && b.outputInventory[0].count > 0) {
-              srcBuilding = b;
-              break;
-            }
-          }
-
-          if (srcBuilding) {
-            const item = srcBuilding.outputInventory[0];
-            const pickedItem = item.itemId;
-            removeItemFromBuildingOutput(srcBuilding, pickedItem, 1);
-            const existing = npc.inventory.find((s: { itemId: string; count: number }) => s.itemId === pickedItem);
-            if (existing) existing.count++;
-            else npc.inventory.push({ itemId: pickedItem, count: 1 });
-
-            let dstBuilding: Building | null = null;
-            let dstDist = Infinity;
-            for (const b of buildingList) {
-              if (b === srcBuilding) continue;
-              const accepted = getAcceptedItemTypes(b.type);
-              if (accepted === 'any' || (Array.isArray(accepted) && accepted.includes(pickedItem))) {
-                const d = Math.sqrt((b.x - npc.x) ** 2 + (b.y - npc.y) ** 2);
-                if (d < dstDist) { dstDist = d; dstBuilding = b; }
-              }
-            }
-            if (dstBuilding) {
-              npc.targetX = dstBuilding.x;
-              npc.targetY = dstBuilding.y;
-              (npc as any)._deliverTarget = dstBuilding.id;
-              (npc as any)._deliverItem = pickedItem;
-            } else {
-              addItemToBuildingOutput(srcBuilding, pickedItem, 1);
-              npc.inventory = [];
-              npc.state = 'idle';
-              npc.taskTimer = 60;
-            }
-          } else {
-            const dx = npc.targetX - npc.x;
-            const dy = npc.targetY - npc.y;
+          } else if (phase === 'toTarget') {
+            const dx = sJob.dstX - npc.x;
+            const dy = sJob.dstY - npc.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > 1.0) {
+            if (dist > 1.5) {
               npc.x += (dx / dist) * npc.speed;
               npc.y += (dy / dist) * npc.speed;
             } else {
-              if (npc.inventory.length > 0 && (npc as any)._deliverTarget) {
-                const dstB = buildingList.find(b => b.id === (npc as any)._deliverTarget);
-                if (dstB) {
-                  for (const inv of npc.inventory) {
-                    addItemToBuilding(dstB, inv.itemId, inv.count);
-                  }
+              const dst = buildingList.find(b => b.id === sJob.dstId);
+              if (dst) {
+                for (const inv of npc.inventory) {
+                  addItemToBuilding(dst, inv.itemId, inv.count);
                 }
-                npc.inventory = [];
-                delete (npc as any)._deliverTarget;
-                delete (npc as any)._deliverItem;
               }
+              npc.inventory = [];
+              (npc as any)._supplyJob = null;
               npc.state = 'idle';
-              npc.taskTimer = 30 + Math.random() * 60;
+              npc.taskTimer = 30;
             }
           }
-
           if (npc.taskTimer <= 0) {
             npc.inventory = [];
+            (npc as any)._supplyJob = null;
             npc.state = 'idle';
             npc.taskTimer = 60;
           }
           break;
         }
 
-        case 'trading': {
-          const dx = state.player.x - npc.x;
-          const dy = state.player.y - npc.y;
+        // Nothing to do
+        npc.state = 'idle';
+        npc.taskTimer = 30;
+        break;
+      }
+
+      case 'trading': {
+        const dx = state.player.x - npc.x;
+        const dy = state.player.y - npc.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 4) {
+          npc.x += (dx / dist) * npc.speed;
+          npc.y += (dy / dist) * npc.speed;
+        }
+        if (npc.taskTimer <= 0) {
+          npc.state = 'idle';
+          npc.taskTimer = 60;
+        }
+        break;
+      }
+
+      case 'fleeing': {
+        let nearestEnemy: Enemy | null = null;
+        let nearestDist = Infinity;
+        for (const [, e] of state.enemies) {
+          const d = Math.sqrt((e.x - npc.x) ** 2 + (e.y - npc.y) ** 2);
+          if (d < nearestDist) { nearestDist = d; nearestEnemy = e; }
+        }
+        if (nearestEnemy && nearestDist < 15) {
+          const dx = npc.x - nearestEnemy.x;
+          const dy = npc.y - nearestEnemy.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 4) {
-            npc.x += (dx / dist) * npc.speed;
-            npc.y += (dy / dist) * npc.speed;
+          if (dist > 0) {
+            npc.x += (dx / dist) * npc.speed * 2.2;
+            npc.y += (dy / dist) * npc.speed * 2.2;
           }
-          if (npc.taskTimer <= 0) {
-            npc.state = 'idle';
-            npc.taskTimer = 60;
-          }
-          break;
+        } else {
+          npc.state = 'idle';
+          npc.taskTimer = 60;
         }
-
-        case 'fleeing': {
-          let nearestEnemy: Enemy | null = null;
-          let nearestDist = Infinity;
-          for (const [, e] of state.enemies) {
-            const d = Math.sqrt((e.x - npc.x) ** 2 + (e.y - npc.y) ** 2);
-            if (d < nearestDist) { nearestDist = d; nearestEnemy = e; }
-          }
-          if (nearestEnemy && nearestDist < 15) {
-            const dx = npc.x - nearestEnemy.x;
-            const dy = npc.y - nearestEnemy.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > 0) {
-              npc.x += (dx / dist) * npc.speed * 2.2;
-              npc.y += (dy / dist) * npc.speed * 2.2;
-            }
-          } else {
-            npc.state = 'idle';
-            npc.taskTimer = 60;
-          }
-          break;
-        }
+        break;
       }
     }
   }
