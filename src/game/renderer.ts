@@ -743,6 +743,17 @@ export class GameRenderer {
       ctx.fill();
     }
 
+    // Animated active pulse ring
+    if (building.isActive) {
+      const pulsePhase = (this.frameCount * 0.06) % (Math.PI * 2);
+      const pulseR = 3 + Math.sin(pulsePhase) * 1.5;
+      ctx.strokeStyle = `rgba(80,220,100,${0.3 + Math.sin(pulsePhase) * 0.25})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y + h / 2, pulseR + w * 0.35, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     // Type-specific details
     this.renderBuildingDetails(ctx, building, x, y, w, h);
   }
@@ -1671,6 +1682,25 @@ export class GameRenderer {
       ctx.beginPath();
       ctx.roundRect(x - 11.5, y - 27.5 + bob, 23 * hp, 2.5, 1);
       ctx.fill();
+    }
+
+    // Show carried item as a small colored box
+    if (npc.inventory && npc.inventory.length > 0) {
+      const item = npc.inventory[0];
+      const itemColors: Record<string, string> = {
+        iron: '#8a9ab0', copper: '#c86a2a', coal: '#2a2a30', stone: '#8a8070',
+        iron_plate: '#7090b0', copper_plate: '#c87040', gear: '#707080',
+        circuit: '#20a840', wood: '#7a5028', science_red: '#dd2020',
+        science_green: '#20bb40', science_blue: '#2060dd',
+      };
+      const col = itemColors[item.itemId] || '#aaa';
+      ctx.fillStyle = col;
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.roundRect(x + 4, y - 8 + bob, 7, 7, 1.5);
+      ctx.fill();
+      ctx.stroke();
     }
   }
 

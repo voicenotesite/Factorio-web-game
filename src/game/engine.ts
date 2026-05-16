@@ -178,6 +178,8 @@ export class GameEngine {
       }
     }
     this.lastTime = performance.now();
+    // Pre-spawn some NPCs to make world feel alive from start
+    for (let i = 0; i < 4; i++) spawnNPCs(this.state);
     this.loop();
   }
 

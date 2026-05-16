@@ -198,6 +198,43 @@ export function updateProduction(state: GameState) {
       case 'chemical_plant': updateChemicalPlant(state, building); break;
     }
   }
+
+  // Primitive auto-output: every 60 ticks, buildings with output items push 1 item
+  // to an adjacent building that accepts it (slow manual-free option for new players)
+  if (state.tick % 60 !== 0) return;
+  for (const [, building] of state.buildings) {
+    if (building.outputInventory.length === 0) continue;
+    const item = building.outputInventory[0];
+    if (!item || item.count <= 0) continue;
+
+    // Check 4 adjacent tiles for accepting buildings
+    const neighbors = [
+      { x: building.x - 1, y: building.y },
+      { x: building.x + 1, y: building.y },
+      { x: building.x, y: building.y - 1 },
+      { x: building.x, y: building.y + 1 },
+      // also check offset by building size
+      { x: building.x + (BUILDING_SIZES[building.type]?.w || 1), y: building.y },
+      { x: building.x, y: building.y + (BUILDING_SIZES[building.type]?.h || 1) },
+    ];
+
+    for (const nb of neighbors) {
+      const tile = getTileAt(state, nb.x, nb.y);
+      const nbBuilding = tile?.building;
+      if (!nbBuilding || nbBuilding === building) continue;
+      const accepted = getAcceptedItemTypes(nbBuilding.type);
+      if (accepted === 'any' || (Array.isArray(accepted) && accepted.includes(item.itemId))) {
+        // Check input isn't full
+        const existingSlot = nbBuilding.inventory.find(s => s.itemId === item.itemId);
+        const totalCount = existingSlot?.count ?? 0;
+        if (totalCount < 50) {
+          removeItemFromBuildingOutput(building, item.itemId, 1);
+          addItemToBuilding(nbBuilding, item.itemId, 1);
+          break;
+        }
+      }
+    }
+  }
 }
 
 function updateMiner(state: GameState, building: Building) {
@@ -270,10 +307,17 @@ function updateFurnace(state: GameState, building: Building) {
 
   if (!building.recipe) { building.isActive = false; return; }
 
-  // Check if we have the input items
-  for (const input of building.recipe.inputs) {
-    const slot = building.inventory.find(s => s.itemId === input.itemId);
-    if (!slot || slot.count < input.count) { building.isActive = false; return; }
+  // If recipe set but input items are gone, clear recipe so it can re-detect
+  if (building.recipe) {
+    const hasInput = building.recipe.inputs.every(inp => {
+      const slot = building.inventory.find(s => s.itemId === inp.itemId);
+      return slot && slot.count >= inp.count;
+    });
+    if (!hasInput) {
+      building.recipe = null;
+      building.isActive = false;
+      return;
+    }
   }
 
   // Check if output is full (max 50 items per output type)
@@ -816,19 +860,20 @@ function getAcceptedItemTypes(buildingType: string): string[] | 'any' {
 export function spawnNPCs(state: GameState) {
   if (state.npcs.size >= NPC_MAX) return;
   const buildings = Array.from(state.buildings.values());
-  if (buildings.length < 3) return;
+  // Allow spawning even without buildings — NPCs wander the world
 
   const types: NPC['type'][] = ['worker', 'scout', 'trader', 'guard', 'settler'];
   const type = types[Math.floor(Math.random() * types.length)];
-  const home = buildings[Math.floor(Math.random() * buildings.length)];
+  const home = buildings.length > 0 ? buildings[Math.floor(Math.random() * buildings.length)] : { x: (Math.random() - 0.5) * 20, y: (Math.random() - 0.5) * 20 };
 
   const npc: NPC = {
     id: genId(), type,
-    x: home.x + (Math.random() - 0.5) * 10,
-    y: home.y + (Math.random() - 0.5) * 10,
-    targetX: home.x, targetY: home.y,
+    x: (buildings.length > 0 ? home.x : 0) + (Math.random() - 0.5) * 12,
+    y: (buildings.length > 0 ? home.y : 0) + (Math.random() - 0.5) * 12,
+    targetX: buildings.length > 0 ? home.x : (Math.random() - 0.5) * 20,
+    targetY: buildings.length > 0 ? home.y : (Math.random() - 0.5) * 20,
     health: 100, maxHealth: 100,
-    speed: 0.04 + Math.random() * 0.02,
+    speed: 0.09 + Math.random() * 0.04,
     state: 'idle', inventory: [],
     homeX: home.x, homeY: home.y,
     name: NPC_NAMES[Math.floor(Math.random() * NPC_NAMES.length)],
@@ -840,28 +885,102 @@ export function spawnNPCs(state: GameState) {
 }
 
 export function updateNPCs(state: GameState) {
+  const buildingList = Array.from(state.buildings.values());
+
   for (const [, npc] of state.npcs) {
     npc.taskTimer--;
 
-    // Always check for nearby enemies to flee from
+    // Flee from nearby enemies
     let nearEnemy = false;
     for (const [, enemy] of state.enemies) {
       const d = Math.sqrt((enemy.x - npc.x) ** 2 + (enemy.y - npc.y) ** 2);
       if (d < 10) { nearEnemy = true; npc.state = 'fleeing'; break; }
     }
 
-    if (!nearEnemy) {
+    if (nearEnemy && npc.state !== 'fleeing') {
+      npc.state = 'fleeing';
+    }
+
+    // Guards attack nearby enemies instead of fleeing
+    if (npc.type === 'guard') {
+      let nearestEnemy: Enemy | null = null;
+      let nearestDist = Infinity;
+      for (const [, enemy] of state.enemies) {
+        const d = Math.sqrt((enemy.x - npc.x) ** 2 + (enemy.y - npc.y) ** 2);
+        if (d < nearestDist) { nearestDist = d; nearestEnemy = enemy; }
+      }
+      if (nearestEnemy && nearestDist < 12) {
+        // Move toward enemy
+        const dx = nearestEnemy.x - npc.x;
+        const dy = nearestEnemy.y - npc.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 1.5) {
+          npc.x += (dx / dist) * npc.speed * 1.3;
+          npc.y += (dy / dist) * npc.speed * 1.3;
+        } else {
+          // Attack — deal 5 damage every 30 ticks
+          if (state.tick % 30 === 0) {
+            nearestEnemy.health -= 5;
+            spawnParticle(state, nearestEnemy.x * TILE_SIZE, nearestEnemy.y * TILE_SIZE, 'spark', '#ff4444');
+            if (nearestEnemy.health <= 0) {
+              state.enemies.delete(nearestEnemy.id);
+              state.statistics.enemiesKilled++;
+              grantXPToPlayer(state, 5);
+              spawnParticle(state, nearestEnemy.x * TILE_SIZE, nearestEnemy.y * TILE_SIZE, 'explosion', '#ff6600');
+            }
+          }
+        }
+        continue; // skip normal state machine for guards in combat
+      }
+    }
+
+    if (!nearEnemy || npc.type === 'guard') {
       switch (npc.state) {
         case 'idle':
           if (npc.taskTimer <= 0) {
-            if (npc.type === 'worker') npc.state = 'working';
-            else if (npc.type === 'guard') npc.state = 'patrolling';
-            else if (npc.type === 'scout') npc.state = 'moving';
-            else if (npc.type === 'trader') npc.state = 'trading';
-            else npc.state = 'gathering';
-            npc.targetX = npc.homeX + (Math.random() - 0.5) * 20;
-            npc.targetY = npc.homeY + (Math.random() - 0.5) * 20;
-            npc.taskTimer = 300 + Math.random() * 300;
+            // Pick a behavior based on type
+            if (npc.type === 'worker') {
+              npc.state = 'working';
+              // Find a building with output items
+              let bestTarget: Building | null = null;
+              let bestScore = -1;
+              for (const b of buildingList) {
+                if (b.outputInventory.length > 0 && b.outputInventory[0].count > 0) {
+                  const score = b.outputInventory[0].count;
+                  if (score > bestScore) { bestScore = score; bestTarget = b; }
+                }
+              }
+              if (bestTarget) {
+                npc.targetX = bestTarget.x;
+                npc.targetY = bestTarget.y;
+              } else {
+                // Wander near home
+                npc.targetX = npc.homeX + (Math.random() - 0.5) * 16;
+                npc.targetY = npc.homeY + (Math.random() - 0.5) * 16;
+              }
+            } else if (npc.type === 'guard') {
+              npc.state = 'patrolling';
+              // Patrol around nearest building or home
+              const anchor = buildingList.length > 0
+                ? buildingList[Math.floor(Math.random() * Math.min(buildingList.length, 5))]
+                : { x: npc.homeX, y: npc.homeY };
+              npc.targetX = anchor.x + (Math.random() - 0.5) * 14;
+              npc.targetY = anchor.y + (Math.random() - 0.5) * 14;
+            } else if (npc.type === 'scout') {
+              npc.state = 'moving';
+              npc.targetX = npc.x + (Math.random() - 0.5) * 40;
+              npc.targetY = npc.y + (Math.random() - 0.5) * 40;
+            } else if (npc.type === 'trader') {
+              npc.state = 'trading';
+              // Head toward player
+              npc.targetX = state.player.x + (Math.random() - 0.5) * 4;
+              npc.targetY = state.player.y + (Math.random() - 0.5) * 4;
+            } else {
+              npc.state = 'gathering';
+              npc.targetX = npc.homeX + (Math.random() - 0.5) * 20;
+              npc.targetY = npc.homeY + (Math.random() - 0.5) * 20;
+            }
+            npc.taskTimer = 200 + Math.random() * 300;
           }
           break;
 
@@ -876,59 +995,102 @@ export function updateNPCs(state: GameState) {
             npc.y += (dy / dist) * npc.speed;
           } else {
             npc.state = 'idle';
-            npc.taskTimer = 60 + Math.random() * 120;
+            npc.taskTimer = 40 + Math.random() * 80;
           }
           break;
         }
 
         case 'working': {
-          // Find nearest building that needs work
-          let target: Building | null = null;
-          let minDist = Infinity;
-          for (const [, b] of state.buildings) {
+          // Worker: carry item from building output to nearest accepting building
+          let srcBuilding: Building | null = null;
+          for (const b of buildingList) {
             const d = Math.sqrt((b.x - npc.x) ** 2 + (b.y - npc.y) ** 2);
-            if (d < minDist) { minDist = d; target = b; }
+            if (d < 2 && b.outputInventory.length > 0 && b.outputInventory[0].count > 0) {
+              srcBuilding = b;
+              break;
+            }
           }
-          if (target) {
-            const dx = target.x - npc.x;
-            const dy = target.y - npc.y;
+
+          if (srcBuilding) {
+            // Arrived at source — pick up item and move to destination
+            const item = srcBuilding.outputInventory[0];
+            const pickedItem = item.itemId;
+            removeItemFromBuildingOutput(srcBuilding, pickedItem, 1);
+            // Add to NPC inventory for display
+            const existing = npc.inventory.find((s: { itemId: string; count: number }) => s.itemId === pickedItem);
+            if (existing) existing.count++;
+            else npc.inventory.push({ itemId: pickedItem, count: 1 });
+
+            // Find a building that accepts this item type
+            let dstBuilding: Building | null = null;
+            let dstDist = Infinity;
+            for (const b of buildingList) {
+              if (b === srcBuilding) continue;
+              const accepted = getAcceptedItemTypes(b.type);
+              if (accepted === 'any' || (Array.isArray(accepted) && accepted.includes(pickedItem))) {
+                const d = Math.sqrt((b.x - npc.x) ** 2 + (b.y - npc.y) ** 2);
+                if (d < dstDist) { dstDist = d; dstBuilding = b; }
+              }
+            }
+            if (dstBuilding) {
+              npc.targetX = dstBuilding.x;
+              npc.targetY = dstBuilding.y;
+              // Store destination
+              (npc as any)._deliverTarget = dstBuilding.id;
+              (npc as any)._deliverItem = pickedItem;
+            } else {
+              // No destination, drop back to output
+              addItemToBuildingOutput(srcBuilding, pickedItem, 1);
+              npc.inventory = [];
+              npc.state = 'idle';
+              npc.taskTimer = 60;
+            }
+          } else {
+            // Move toward target
+            const dx = npc.targetX - npc.x;
+            const dy = npc.targetY - npc.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > 1.5) {
+            if (dist > 1.0) {
               npc.x += (dx / dist) * npc.speed;
               npc.y += (dy / dist) * npc.speed;
             } else {
-              // Actually boost the building
-              target.progress += 1;
-              // Workers also move items from output to nearby storage
-              if (state.tick % 60 === 0 && target.outputInventory.length > 0) {
-                const item = target.outputInventory[0];
-                if (item && item.count > 0) {
-                  // Find nearby storage or conveyor
-                  for (const [, b] of state.buildings) {
-                    if (b.type === 'storage' && Math.abs(b.x - target.x) <= 3 && Math.abs(b.y - target.y) <= 3) {
-                      addItemToBuilding(b, item.itemId, 1);
-                      removeItemFromBuildingOutput(target, item.itemId, 1);
-                      break;
-                    }
+              // Check if we have something to deliver
+              if (npc.inventory.length > 0 && (npc as any)._deliverTarget) {
+                const dstB = buildingList.find(b => b.id === (npc as any)._deliverTarget);
+                if (dstB) {
+                  for (const inv of npc.inventory) {
+                    addItemToBuilding(dstB, inv.itemId, inv.count);
                   }
                 }
+                npc.inventory = [];
+                delete (npc as any)._deliverTarget;
+                delete (npc as any)._deliverItem;
               }
+              npc.state = 'idle';
+              npc.taskTimer = 30 + Math.random() * 60;
             }
           }
-          if (npc.taskTimer <= 0) { npc.state = 'idle'; npc.taskTimer = 60 + Math.random() * 120; }
+
+          if (npc.taskTimer <= 0) {
+            npc.inventory = [];
+            npc.state = 'idle';
+            npc.taskTimer = 60;
+          }
           break;
         }
 
         case 'trading': {
-          // Move toward player
           const dx = state.player.x - npc.x;
           const dy = state.player.y - npc.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 3) {
+          if (dist > 4) {
             npc.x += (dx / dist) * npc.speed;
             npc.y += (dy / dist) * npc.speed;
           }
-          if (npc.taskTimer <= 0) { npc.state = 'idle'; npc.taskTimer = 60; }
+          if (npc.taskTimer <= 0) {
+            npc.state = 'idle';
+            npc.taskTimer = 60;
+          }
           break;
         }
 
@@ -939,13 +1101,13 @@ export function updateNPCs(state: GameState) {
             const d = Math.sqrt((e.x - npc.x) ** 2 + (e.y - npc.y) ** 2);
             if (d < nearestDist) { nearestDist = d; nearestEnemy = e; }
           }
-          if (nearestEnemy) {
+          if (nearestEnemy && nearestDist < 15) {
             const dx = npc.x - nearestEnemy.x;
             const dy = npc.y - nearestEnemy.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > 0) {
-              npc.x += (dx / dist) * npc.speed * 2;
-              npc.y += (dy / dist) * npc.speed * 2;
+              npc.x += (dx / dist) * npc.speed * 2.2;
+              npc.y += (dy / dist) * npc.speed * 2.2;
             }
           } else {
             npc.state = 'idle';
