@@ -2,7 +2,7 @@ export const TILE_SIZE = 32;
 export const CHUNK_SIZE = 32;
 export const RENDER_DISTANCE = 4;
 export const MAX_PARTICLES = 2000;
-export const NPC_MAX = 50;
+export const NPC_MAX = 8;
 export const ENEMY_MAX = 200;
 export const SPAWNER_MAX = 20;
 

@@ -178,8 +178,8 @@ export class GameEngine {
       }
     }
     this.lastTime = performance.now();
-    // Pre-spawn some NPCs to make world feel alive from start
-    for (let i = 0; i < 4; i++) spawnNPCs(this.state);
+    // Pre-spawn a couple NPCs to make world feel alive from start
+    for (let i = 0; i < 2; i++) spawnNPCs(this.state);
     this.loop();
   }
 
@@ -232,7 +232,7 @@ export class GameEngine {
     updateWeather(state);
     updateVisibility(state);
 
-    if (state.tick % 300 === 0) spawnNPCs(state);
+    if (state.tick % 900 === 0) spawnNPCs(state);
     if (state.tick % 60 === 0) spawnEnemies(state);
     if (state.tick % 1800 === 0) updateWorldEvents(state);
     if (state.tick % 120 === 0) checkAchievements(state);
