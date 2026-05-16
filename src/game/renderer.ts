@@ -23,6 +23,7 @@ export class GameRenderer {
   private frameCount = 0;
   private lightCanvas: HTMLCanvasElement;
   private lightCtx: CanvasRenderingContext2D;
+  isPlayerMoving = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -180,93 +181,149 @@ export class GameRenderer {
     const x = tile.x * TILE_SIZE;
     const y = tile.y * TILE_SIZE;
 
-    // Base terrain with subtle variation
-    const baseColor = getTileColor(tile, dayFactor);
-    ctx.fillStyle = baseColor;
-    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    // Water handled by renderResource
+    if (tile.resource !== 'water') {
+      // Biome base RGB
+      const biomeRGB: Record<string, [number, number, number]> = {
+        grass:    [54,  88, 46],
+        forest:   [28,  60, 16],
+        desert:   [158, 128, 84],
+        snow:     [176, 180, 184],
+        swamp:    [30,  52, 32],
+        volcanic: [50,  18,  8],
+      };
+      const base = biomeRGB[tile.biome] || biomeRGB.grass;
 
-    // Terrain texture variation
-    const hash = ((tile.x * 7919 + tile.y * 104729) & 0xFFFF) / 65535;
-    const hash2 = ((tile.x * 104729 + tile.y * 7919) & 0xFFFF) / 65535;
-    if (hash > 0.85) {
-      ctx.fillStyle = `rgba(255,255,255,${0.03 + hash * 0.03})`;
+      // Multi-scale terrain variation — gives big visible patches + micro noise
+      const px = tile.x >> 3; // 8-tile macro patches
+      const py = tile.y >> 3;
+      const macroH = ((px * 374761393 + py * 1013904223) & 0x7FFFF) / 524287.0;
+
+      const mx = tile.x >> 2; // 4-tile medium patches
+      const my = tile.y >> 2;
+      const midH = ((mx * 2654435761 + my * 2246822519) & 0x7FFFF) / 524287.0;
+
+      const microH = ((tile.x * 7919 + tile.y * 104729) & 0xFFFF) / 65535.0;
+
+      const variation = 1.0
+        + (macroH - 0.5) * 0.44   // ±22% — large visible patches
+        + (midH   - 0.5) * 0.18   // ±9%  — medium variation
+        + (microH - 0.5) * 0.08;  // ±4%  — per-tile noise
+
+      const dayF = 0.45 + dayFactor * 0.55;
+      const f = Math.max(0.05, Math.min(1.6, dayF * variation));
+
+      ctx.fillStyle = `rgb(${Math.min(255, base[0] * f | 0)},${Math.min(255, base[1] * f | 0)},${Math.min(255, base[2] * f | 0)})`;
       ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-    } else if (hash < 0.15) {
-      ctx.fillStyle = `rgba(0,0,0,0.05)`;
-      ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+
+      const hash  = microH;
+      const hash2 = ((tile.x * 104729 + tile.y * 7919) & 0xFFFF) / 65535.0;
+
+      // Biome-specific detail layer
+      switch (tile.biome) {
+        case 'volcanic': {
+          if (hash > 0.6) {
+            ctx.strokeStyle = `rgba(200,80,0,${(hash - 0.6) * 0.7})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            const crackX = x + hash2 * TILE_SIZE;
+            ctx.moveTo(crackX, y);
+            ctx.lineTo(crackX + (hash - 0.5) * 12, y + TILE_SIZE);
+            ctx.stroke();
+          }
+          if (hash < 0.2) {
+            ctx.fillStyle = `rgba(255,60,0,${(0.2 - hash) * 0.22})`;
+            ctx.beginPath();
+            ctx.ellipse(x + hash2 * TILE_SIZE, y + hash * TILE_SIZE + 8, 5, 3, hash * 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
+        }
+        case 'desert': {
+          if (hash > 0.55) {
+            ctx.strokeStyle = `rgba(255,230,150,${(hash - 0.55) * 0.14})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.arc(x + hash2 * TILE_SIZE, y + TILE_SIZE, (hash - 0.5) * 28, Math.PI * 1.1, Math.PI * 1.9);
+            ctx.stroke();
+          }
+          // Small pebbles
+          if (hash > 0.82) {
+            ctx.fillStyle = `rgba(120,100,70,${(hash - 0.82) * 0.8})`;
+            ctx.beginPath();
+            ctx.ellipse(x + hash2 * 26 + 3, y + hash * 26 + 3, 2, 1.2, hash * 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
+        }
+        case 'snow': {
+          if (hash > 0.72) {
+            ctx.fillStyle = `rgba(255,255,255,${(hash - 0.72) * 0.65 * dayFactor})`;
+            ctx.beginPath();
+            ctx.arc(x + hash2 * (TILE_SIZE - 4) + 2, y + hash * (TILE_SIZE - 4) + 2, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          // Subtle shadow patches (footprint-like depressions)
+          if (hash < 0.12) {
+            ctx.fillStyle = `rgba(140,160,180,${(0.12 - hash) * 0.3})`;
+            ctx.fillRect(x + hash2 * 20 + 4, y + hash2 * 20 + 4, 8, 5);
+          }
+          break;
+        }
+        case 'swamp': {
+          if (hash > 0.68 && (this.frameCount % 80 < 6)) {
+            ctx.fillStyle = `rgba(0,0,0,0.18)`;
+            ctx.beginPath();
+            ctx.arc(x + hash2 * 22 + 5, y + hash * 22 + 5, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          // Murky water puddles
+          if (hash < 0.14) {
+            ctx.fillStyle = `rgba(10,30,15,0.25)`;
+            ctx.beginPath();
+            ctx.ellipse(x + hash2 * 20 + 6, y + hash * 20 + 6, 6, 3.5, hash * 5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
+        }
+        case 'grass': {
+          // Small dirt patches (natural ground variation)
+          if (hash < 0.1) {
+            ctx.fillStyle = `rgba(60,40,20,${(0.1 - hash) * 0.4})`;
+            ctx.beginPath();
+            ctx.ellipse(x + hash2 * 24 + 4, y + (1 - hash2) * 24 + 4, 5, 3.5, hash * 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          // Occasional small rock
+          if (hash > 0.9) {
+            ctx.fillStyle = `rgba(100,90,75,${(hash - 0.9) * 1.2})`;
+            ctx.beginPath();
+            ctx.ellipse(x + hash2 * 24 + 4, y + hash * 24 + 4, 2.5, 1.8, hash2 * 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
+        }
+        case 'forest': {
+          // Leaf litter on ground
+          if (hash > 0.78) {
+            ctx.fillStyle = `rgba(15,35,10,${(hash - 0.78) * 0.5})`;
+            ctx.beginPath();
+            ctx.ellipse(x + hash2 * 24 + 4, y + hash * 24 + 4, 3, 1.8, hash * 5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
+        }
+      }
+
+      // Grid lines only when very zoomed in
+      if (state.camera.zoom > 2.5) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+      }
     }
 
-    // Biome-specific detail layer
-    switch (tile.biome) {
-      case 'volcanic': {
-        // Orange lava crack lines
-        if (hash > 0.6) {
-          ctx.strokeStyle = `rgba(200,80,0,${(hash - 0.6) * 0.6})`;
-          ctx.lineWidth = 0.5;
-          ctx.beginPath();
-          const crackX = x + hash2 * TILE_SIZE;
-          ctx.moveTo(crackX, y);
-          ctx.lineTo(crackX + (hash - 0.5) * 10, y + TILE_SIZE);
-          ctx.stroke();
-        }
-        if (hash < 0.25) {
-          // Lava glow pools
-          ctx.fillStyle = `rgba(255,60,0,${(0.25 - hash) * 0.18})`;
-          ctx.beginPath();
-          ctx.ellipse(x + hash2 * TILE_SIZE, y + hash * TILE_SIZE + 8, 4, 3, hash * 3, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        break;
-      }
-      case 'desert': {
-        // Sand ripple arcs
-        if (hash > 0.55) {
-          ctx.strokeStyle = `rgba(255,230,150,${(hash - 0.55) * 0.12})`;
-          ctx.lineWidth = 0.5;
-          ctx.beginPath();
-          ctx.arc(x + hash2 * TILE_SIZE, y + TILE_SIZE, (hash - 0.5) * 30, Math.PI * 1.1, Math.PI * 1.9);
-          ctx.stroke();
-        }
-        break;
-      }
-      case 'snow': {
-        // Sparkle dots
-        if (hash > 0.75) {
-          ctx.fillStyle = `rgba(255,255,255,${(hash - 0.75) * 0.7 * dayFactor})`;
-          ctx.beginPath();
-          ctx.arc(x + hash2 * (TILE_SIZE - 4) + 2, y + hash * (TILE_SIZE - 4) + 2, 1, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        break;
-      }
-      case 'swamp': {
-        // Murky bubble spots
-        if (hash > 0.7 && (this.frameCount % 90 < 5)) {
-          ctx.fillStyle = `rgba(0,0,0,0.15)`;
-          ctx.beginPath();
-          ctx.arc(x + hash2 * 24 + 4, y + hash * 24 + 4, 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        break;
-      }
-      case 'grass': {
-        // Tiny grass tufts
-        if (hash > 0.8) {
-          ctx.fillStyle = `rgba(30,80,15,${(hash - 0.8) * 0.5})`;
-          ctx.fillRect(x + Math.floor(hash2 * 28) + 1, y + Math.floor(hash * 28) + 1, 2, 4);
-        }
-        break;
-      }
-    }
-
-    // Grid lines (very subtle at high zoom)
-    if (state.camera.zoom > 2) {
-      ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-      ctx.lineWidth = 0.5;
-      ctx.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
-    }
-
-    // Trees with depth
+    // Trees
     if (hasTreeAt(tile.x, tile.y, tile.biome) && !tile.building) {
       this.renderTree(ctx, x, y, tile.biome, dayFactor);
     }
@@ -286,33 +343,52 @@ export class GameRenderer {
 
   private renderTree(ctx: CanvasRenderingContext2D, x: number, y: number, biome: string, dayFactor: number) {
     const cx = x + TILE_SIZE / 2;
-    const treeBase = y + TILE_SIZE / 2 + 2;
+    const treeBase = y + TILE_SIZE / 2 + 4;
+    const h = ((Math.floor(x / TILE_SIZE) * 7919 + Math.floor(y / TILE_SIZE) * 104729) & 0xFFFF) / 65535;
+    const scale = 0.82 + h * 0.36; // size variation
+
+    // Ground shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath();
+    ctx.ellipse(cx + 2, treeBase + 4, 10 * scale, 4 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
 
     // Trunk
-    ctx.fillStyle = biome === 'forest' ? '#2a1a0a' : '#3a2510';
-    ctx.fillRect(cx - 2, treeBase, 4, 8);
+    const trunkH = 10 * scale;
+    ctx.fillStyle = biome === 'forest' ? '#1e1008' : '#2e1c08';
+    ctx.fillRect(cx - 2, treeBase - trunkH, 4, trunkH + 2);
+    // Trunk highlight
+    ctx.fillStyle = 'rgba(255,200,120,0.08)';
+    ctx.fillRect(cx - 1, treeBase - trunkH, 1, trunkH);
 
-    // Canopy layers
-    const sway = Math.sin(this.frameCount * 0.02 + x * 0.1) * 1.5;
-    const darkGreen = biome === 'forest' ? '#0f3a0a' : '#1a5a12';
-    const lightGreen = biome === 'forest' ? '#1a5a12' : '#2d7a1e';
+    // Sway animation
+    const sway = Math.sin(this.frameCount * 0.018 + x * 0.07 + y * 0.05) * 1.8 * scale;
 
-    // Shadow canopy
-    ctx.fillStyle = darkGreen;
+    // Canopy dark base (shadow layer)
+    const dark = biome === 'forest' ? '#0a2808' : '#112a08';
+    ctx.fillStyle = dark;
     ctx.beginPath();
-    ctx.ellipse(cx + sway, treeBase - 6, 10, 7, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + sway * 0.3, treeBase - trunkH - 4 * scale, 11 * scale, 8 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Light canopy
-    ctx.fillStyle = lightGreen;
+    // Mid canopy
+    const mid = biome === 'forest' ? '#163d0c' : '#1e5010';
+    ctx.fillStyle = mid;
     ctx.beginPath();
-    ctx.ellipse(cx + sway * 0.7, treeBase - 8, 7, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + sway * 0.7, treeBase - trunkH - 6 * scale, 9 * scale, 6.5 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Highlight
-    ctx.fillStyle = `rgba(255,255,200,${0.05 * dayFactor})`;
+    // Light canopy top
+    const light = biome === 'forest' ? '#1f5212' : '#2a6a18';
+    ctx.fillStyle = light;
     ctx.beginPath();
-    ctx.ellipse(cx + sway * 0.5 - 2, treeBase - 10, 3, 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + sway, treeBase - trunkH - 9 * scale, 6.5 * scale, 5 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Sunlit highlight
+    ctx.fillStyle = `rgba(160,220,80,${0.12 * dayFactor})`;
+    ctx.beginPath();
+    ctx.ellipse(cx + sway - 2 * scale, treeBase - trunkH - 11 * scale, 3.5 * scale, 2.5 * scale, -0.4, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -1302,77 +1378,110 @@ export class GameRenderer {
     const { player } = state;
     const x = player.x * TILE_SIZE;
     const y = player.y * TILE_SIZE;
-    const bob = Math.sin(this.frameCount * 0.08) * 1;
-    const isMoving = this.keysPressed(state);
+    const bob = Math.sin(this.frameCount * 0.12) * 1.2;
+    const isMoving = this.isPlayerMoving;
 
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    // Ground shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
-    ctx.ellipse(x, y + 11, 9, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y + 13, 8, 3.5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Body
-    const bodyGrad = ctx.createLinearGradient(x - 9, y - 4, x + 9, y + 8);
-    bodyGrad.addColorStop(0, '#3388ee');
-    bodyGrad.addColorStop(1, '#1a55aa');
+    const bY = isMoving ? bob : 0;
+
+    // Legs (dark cargo pants)
+    ctx.fillStyle = '#1e2818';
+    ctx.fillRect(x - 5, y + 4 + bY, 4, 7);
+    ctx.fillRect(x + 1, y + 4 + bY, 4, 7);
+    // Boot tips
+    ctx.fillStyle = '#111';
+    ctx.fillRect(x - 5, y + 10 + bY, 5, 2);
+    ctx.fillRect(x + 1, y + 10 + bY, 5, 2);
+
+    // Body — dark grey work jacket
+    const bodyGrad = ctx.createLinearGradient(x - 7, y - 4, x + 7, y + 6);
+    bodyGrad.addColorStop(0, '#3a3c38');
+    bodyGrad.addColorStop(1, '#222420');
     ctx.fillStyle = bodyGrad;
     ctx.beginPath();
-    ctx.ellipse(x, y - 1 + (isMoving ? bob : 0), 9, 10, 0, 0, Math.PI * 2);
+    ctx.roundRect(x - 7, y - 4 + bY, 14, 10, 2);
     ctx.fill();
+
+    // Hi-vis orange vest stripe
+    ctx.fillStyle = 'rgba(200,100,20,0.75)';
+    ctx.fillRect(x - 7, y - 1 + bY, 14, 2);
+    ctx.fillRect(x - 1, y - 4 + bY, 2, 10); // vertical stripe
 
     // Belt
-    ctx.fillStyle = '#daa520';
-    ctx.fillRect(x - 8, y + 2 + (isMoving ? bob : 0), 16, 2);
+    ctx.fillStyle = '#3a2808';
+    ctx.fillRect(x - 7, y + 4 + bY, 14, 2);
+    ctx.fillStyle = '#c89040';
+    ctx.fillRect(x - 1.5, y + 4 + bY, 3, 2); // buckle
 
     // Head
-    ctx.fillStyle = '#f0c878';
+    ctx.fillStyle = '#e0b890';
     ctx.beginPath();
-    ctx.arc(x, y - 12 + (isMoving ? bob : 0), 6.5, 0, Math.PI * 2);
+    ctx.arc(x, y - 12 + bY, 6, 0, Math.PI * 2);
     ctx.fill();
 
-    // Hair
-    ctx.fillStyle = '#3a2a1a';
-    ctx.beginPath();
-    ctx.arc(x, y - 14 + (isMoving ? bob : 0), 6.5, Math.PI * 0.9, Math.PI * 2.1);
-    ctx.fill();
-
-    // Eyes
+    // Hard hat
     const dir = DIR_OFFSETS[player.direction];
-    const eyeOffX = dir ? dir.dx * 1.5 : 0;
-    const eyeOffY = dir ? dir.dy * 1 : 0;
-    ctx.fillStyle = '#222';
+    ctx.fillStyle = '#d88010';
     ctx.beginPath();
-    ctx.arc(x - 2.5 + eyeOffX, y - 12 + (isMoving ? bob : 0) + eyeOffY, 1.5, 0, Math.PI * 2);
-    ctx.arc(x + 2.5 + eyeOffX, y - 12 + (isMoving ? bob : 0) + eyeOffY, 1.5, 0, Math.PI * 2);
+    ctx.ellipse(x, y - 15.5 + bY, 7.5, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f0a020';
+    ctx.beginPath();
+    ctx.ellipse(x, y - 17 + bY, 6, 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Hat brim
+    ctx.fillStyle = '#c07010';
+    ctx.beginPath();
+    ctx.ellipse(x, y - 14 + bY, 8.5, 2, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Direction indicator (weapon/tool)
+    // Face / eyes
+    const eyeOffX = dir ? dir.dx * 1.8 : 0;
+    const eyeOffY = dir ? dir.dy * 1.2 : 0;
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(x - 2.2 + eyeOffX, y - 12.5 + bY + eyeOffY, 1.3, 0, Math.PI * 2);
+    ctx.arc(x + 2.2 + eyeOffX, y - 12.5 + bY + eyeOffY, 1.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Arm + tool
     if (dir) {
-      ctx.fillStyle = '#ccc';
+      ctx.fillStyle = '#3a3c38';
       ctx.save();
-      ctx.translate(x + dir.dx * 12, y - 2 + dir.dy * 12 + (isMoving ? bob : 0));
+      ctx.translate(x + dir.dx * 10, y - 2 + dir.dy * 10 + bY);
       ctx.rotate(Math.atan2(dir.dy, dir.dx));
-      ctx.fillRect(-6, -1.5, 12, 3);
+      // Arm
+      ctx.fillRect(-8, -2, 8, 3);
+      // Tool head (pickaxe/wrench)
+      ctx.fillStyle = '#999';
+      ctx.fillRect(1, -3.5, 6, 5);
+      ctx.fillStyle = '#c89040';
+      ctx.fillRect(1, -2, 6, 2);
       ctx.restore();
     }
 
     // Health bar
     const hp = player.health / player.maxHealth;
     const barW = 28;
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
     ctx.beginPath();
-    ctx.roundRect(x - barW / 2, y - 22 + (isMoving ? bob : 0), barW, 5, 2);
+    ctx.roundRect(x - barW / 2, y - 23 + bY, barW, 4, 1.5);
     ctx.fill();
     const hpColor = hp > 0.5 ? '#22c55e' : hp > 0.25 ? '#f59e0b' : '#ef4444';
     ctx.fillStyle = hpColor;
     ctx.beginPath();
-    ctx.roundRect(x - barW / 2 + 0.5, y - 21.5 + (isMoving ? bob : 0), (barW - 1) * hp, 4, 1.5);
+    ctx.roundRect(x - barW / 2 + 0.5, y - 22.5 + bY, (barW - 1) * hp, 3, 1);
     ctx.fill();
 
     // Reach circle
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
     ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
+    ctx.setLineDash([4, 6]);
     ctx.beginPath();
     ctx.arc(x, y, player.reach * TILE_SIZE, 0, Math.PI * 2);
     ctx.stroke();

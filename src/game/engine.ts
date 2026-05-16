@@ -238,6 +238,7 @@ export class GameEngine {
     if (this.keys.has('d') || this.keys.has('arrowright')) dx += 1;
 
     this.isPlayerMoving = dx !== 0 || dy !== 0;
+    this.renderer.isPlayerMoving = this.isPlayerMoving;
 
     if (this.isPlayerMoving) {
       const len = Math.sqrt(dx * dx + dy * dy);

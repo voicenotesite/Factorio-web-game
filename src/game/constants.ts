@@ -43,12 +43,12 @@ export const RESOURCE_COLORS: Record<string, string> = {
 };
 
 export const BIOME_COLORS: Record<string, string> = {
-  grass: '#4a7c3f',
-  desert: '#c2b280',
-  snow: '#e8e8e8',
-  forest: '#2d5a1e',
-  swamp: '#3a5a3a',
-  volcanic: '#4a2a2a',
+  grass: '#36582e',
+  desert: '#9e8054',
+  snow: '#b0b4b8',
+  forest: '#1c3c10',
+  swamp: '#1e3420',
+  volcanic: '#321208',
 };
 
 export const BUILDING_COLORS: Record<string, string> = {
