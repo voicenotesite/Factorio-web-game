@@ -65,9 +65,9 @@ function getResource(x: number, y: number, biome: BiomeType): { resource: Resour
     return { resource: 'iron', amount: Math.floor((300 + v1 * 500) * yieldMult), yield: yieldTier };
   }
 
-  // Copper deposits
-  if (v1 > 0.50 && v2 < -0.42) {
-    return { resource: 'copper', amount: Math.floor((250 + v1 * 400) * yieldMult), yield: yieldTier };
+  // Copper deposits — more common than iron
+  if (v1 > 0.40 && v2 < -0.30) {
+    return { resource: 'copper', amount: Math.floor((300 + v1 * 500) * yieldMult), yield: yieldTier };
   }
 
   // Coal deposits

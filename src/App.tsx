@@ -10,8 +10,11 @@ import ShopMenu from './components/ShopMenu';
 import BuildingInfo from './components/BuildingInfo';
 import SaveLoad from './components/SaveLoad';
 import StartScreen from './components/StartScreen';
+import AuthScreen from './components/AuthScreen';
 import { GameEngine } from './game/engine';
 import { GameState } from './game/types';
+import { getCurrentUser, logout } from './lib/auth';
+import { saveGame, loadGame, hasSave } from './lib/saveSystem';
 
 function App() {
   const engineRef = useRef<GameEngine | null>(null);
@@ -24,7 +27,9 @@ function App() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showSaveLoad, setShowSaveLoad] = useState(false);
-  const [notifications, setNotifications] = useState<{ text: string; timer: number }[]>([]);
+  const [notifications, setNotifications] = useState<{ text: string; timer: number; type?: string }[]>([]);
+  const [currentUser, setCurrentUser] = useState<string | null>(getCurrentUser);
+  const [hasSaveData, setHasSaveData] = useState(false);
 
   const handleEngineReady = useCallback((engine: GameEngine) => {
     engineRef.current = engine;
@@ -35,6 +40,11 @@ function App() {
       if (engine.keys.has('r')) { setShowResearch(prev => !prev); engine.keys.delete('r'); }
       if (engine.keys.has('i')) { setShowInventory(prev => !prev); engine.keys.delete('i'); }
     };
+  }, []);
+
+  const handleAuth = useCallback((username: string, hasSaveDataArg: boolean) => {
+    setCurrentUser(username);
+    setHasSaveData(hasSaveDataArg);
   }, []);
 
   useEffect(() => {
@@ -53,17 +63,43 @@ function App() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [started]);
 
+  useEffect(() => {
+    if (!started || !currentUser || !engineRef.current) return;
+    const interval = setInterval(() => {
+      if (engineRef.current && currentUser) {
+        saveGame(currentUser, engineRef.current.state);
+        engineRef.current.addNotification('Auto-saved', 'info');
+      }
+    }, 120000);
+    return () => clearInterval(interval);
+  }, [started, currentUser]);
+
+  useEffect(() => {
+    if (started && hasSaveData && currentUser && engineRef.current) {
+      const save = loadGame(currentUser);
+      if (save) {
+        setTimeout(() => {
+          if (engineRef.current) {
+            engineRef.current.loadFromSave(save);
+          }
+        }, 500);
+      }
+      setHasSaveData(false);
+    }
+  }, [started, hasSaveData, currentUser]);
+
   const engine = engineRef.current;
 
   return (
     <div className="w-screen h-screen overflow-hidden select-none font-exo" style={{ background: 'var(--bg)' }}>
-      {!started && <StartScreen onStart={() => setStarted(true)} />}
-      {started && <GameCanvas engineRef={engineRef} onEngineReady={handleEngineReady} />}
-      {started && gameState && <HUD state={gameState} notifications={notifications} />}
-      {started && gameState && engine && <BuildingInfo engine={engine} state={gameState} />}
+      {!currentUser && <AuthScreen onAuth={handleAuth} />}
+      {currentUser && !started && <StartScreen onStart={() => setStarted(true)} />}
+      {currentUser && started && <GameCanvas engineRef={engineRef} onEngineReady={handleEngineReady} />}
+      {currentUser && started && gameState && <HUD state={gameState} notifications={notifications} />}
+      {currentUser && started && gameState && engine && <BuildingInfo engine={engine} state={gameState} />}
 
       {/* Bottom action bar */}
-      {started && (
+      {currentUser && started && (
         <div
           className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 animate-slide-up"
           style={{
@@ -91,11 +127,27 @@ function App() {
           <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
           <ActionBarBtn label="Save" shortcut="" onClick={() => setShowSaveLoad(true)} active={showSaveLoad}
             icon={<SaveIcon />} color="#94a3b8" />
+          <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
+          <button
+            onClick={() => { logout(); setCurrentUser(null); setStarted(false); }}
+            className="btn-factory flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all"
+            style={{ background: 'transparent', border: '1px solid transparent' }}
+            title={`Logout (${currentUser})`}
+          >
+            <span style={{ color: 'rgba(255,255,255,0.3)' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </span>
+            <span className="text-[9px] font-orbitron tracking-wider" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              {currentUser?.substring(0, 6) || 'OUT'}
+            </span>
+          </button>
         </div>
       )}
 
       {/* Placing indicator */}
-      {engine?.selectedBuilding && (
+      {currentUser && engine?.selectedBuilding && (
         <div
           className="fixed bottom-20 left-1/2 -translate-x-1/2 z-20 text-sm px-5 py-2.5 rounded-xl font-exo animate-fade-in"
           style={{

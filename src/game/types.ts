@@ -208,6 +208,6 @@ export interface GameState {
     buildingsPlaced: number;
     timePlayed: number;
   };
-  notifications: { text: string; timer: number }[];
+  notifications: { text: string; timer: number; type?: 'info' | 'error' | 'success' | 'build' }[];
   buildQueue: BuildQueueItem[];
 }

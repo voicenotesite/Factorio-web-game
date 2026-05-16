@@ -1,5 +1,5 @@
-import { GameState } from './types';
-import { CHUNK_SIZE, TILE_SIZE, RESEARCH_TREE, DAY_LENGTH, RECIPES, MAX_PARTICLES } from './constants';
+import { GameState, Building } from './types';
+import { CHUNK_SIZE, TILE_SIZE, RESEARCH_TREE, DAY_LENGTH, RECIPES, MAX_PARTICLES, BUILDING_SIZES } from './constants';
 import { generateChunk, getChunkKey } from './world';
 import { GameRenderer } from './renderer';
 import {
@@ -25,7 +25,7 @@ export class GameEngine {
   tickAccumulator = 0;
   onStateChange?: (state: GameState) => void;
   hoveredTile: { x: number; y: number } | null = null;
-  notifications: { text: string; timer: number }[] = [];
+  notifications: { text: string; timer: number; type?: string }[] = [];
   isPlayerMoving = false;
   private targetZoom = 1.5;
   private miningCooldown = 0;
@@ -330,10 +330,10 @@ export class GameEngine {
     if (this.mouse.down) {
       if (this.selectedBuilding) {
         if (!canAffordBuilding(this.state, this.selectedBuilding)) {
-          this.addNotification('Not enough resources!');
+          this.addNotification('Not enough resources!', 'error');
           // Don't clear selection so player can see what they need
         } else if (placeBuilding(this.state, this.selectedBuilding, x, y, this.selectedDirection)) {
-          this.addNotification(`Placed ${this.selectedBuilding.replace(/_/g, ' ')}`);
+          this.addNotification(`Placed ${this.selectedBuilding.replace(/_/g, ' ')}`, 'success');
           // Keep selected to allow placing multiple (Shift+click or just click again)
         }
       } else {
@@ -380,9 +380,9 @@ export class GameEngine {
             this.state.buildQueue.push(queueItem);
             // Reserve the materials from player inventory immediately
             payBuildingCost(this.state, this.selectedBuilding);
-            this.addNotification(`Queued ${this.selectedBuilding.replace(/_/g, ' ')} for worker`);
+            this.addNotification(`Queued ${this.selectedBuilding.replace(/_/g, ' ')} for worker`, 'build');
           } else if (!canAffordBuilding(this.state, this.selectedBuilding)) {
-            this.addNotification('Not enough resources to queue build!');
+            this.addNotification('Not enough resources to queue build!', 'error');
           }
         }
       }
@@ -414,8 +414,8 @@ export class GameEngine {
   getSelectedDirection() { return this.selectedDirection; }
   canAffordSelected() { return this.selectedBuilding ? canAffordBuilding(this.state, this.selectedBuilding) : false; }
 
-  addNotification(text: string) {
-    this.notifications.push({ text, timer: 180 });
+  addNotification(text: string, type: 'info' | 'error' | 'success' | 'build' = 'info') {
+    this.notifications.push({ text, timer: 180, type });
   }
 
   grantXP(amount: number) {
@@ -461,5 +461,64 @@ export class GameEngine {
       buildings: Array.from(state.buildings.entries()),
       research: Array.from(state.research.entries()).map(([k, v]) => [k, { ...v }]),
     };
+  }
+
+  loadFromSave(save: import('../lib/saveSystem').SaveData): void {
+    this.state.tick = save.tick;
+    this.state.pollution = save.pollution;
+    this.state.evolution = save.evolution;
+    this.state.dayTime = save.dayTime;
+    this.state.weather = save.weather as GameState['weather'];
+    this.state.statistics = { ...save.statistics };
+    this.state.buildQueue = save.buildQueue || [];
+    Object.assign(this.state.player, save.player);
+
+    this.state.buildings.clear();
+    for (const [key, b] of (save.buildings || [])) {
+      this.state.buildings.set(key as string, b as any);
+    }
+
+    this.state.conveyors.clear();
+    for (const [key, c] of (save.conveyors || [])) {
+      this.state.conveyors.set(key as string, c as any);
+    }
+
+    for (const [key, val] of (save.research || [])) {
+      const r = this.state.research.get(key as string);
+      if (r) Object.assign(r, val as any);
+    }
+
+    this.state.npcs.clear();
+    for (const [key, n] of (save.npcs || [])) {
+      this.state.npcs.set(key as string, n as any);
+    }
+
+    // Clear building refs from tiles, then re-stamp
+    for (const [, chunk] of this.state.chunks) {
+      for (const row of chunk) {
+        for (const tile of row) {
+          tile.building = null;
+        }
+      }
+    }
+    for (const [, building] of this.state.buildings) {
+      const size = BUILDING_SIZES[(building as Building).type as string] || { w: 1, h: 1 };
+      for (let dy = 0; dy < size.h; dy++) {
+        for (let dx = 0; dx < size.w; dx++) {
+          const tx = (building as any).x + dx;
+          const ty = (building as any).y + dy;
+          const cx = Math.floor(tx / CHUNK_SIZE);
+          const cy = Math.floor(ty / CHUNK_SIZE);
+          const chunk = this.state.chunks.get(`${cx},${cy}`);
+          if (chunk) {
+            const lx = ((tx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+            const ly = ((ty % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+            chunk[ly][lx].building = building as any;
+          }
+        }
+      }
+    }
+
+    this.addNotification('Game loaded!', 'success');
   }
 }

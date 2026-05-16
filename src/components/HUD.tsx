@@ -4,7 +4,7 @@ import { BUILDING_COLORS, RESOURCE_COLORS } from '../game/constants';
 
 interface Props {
   state: GameState;
-  notifications: { text: string; timer: number }[];
+  notifications: { text: string; timer: number; type?: string }[];
 }
 
 const RESOURCE_ICONS: Record<string, string> = {
@@ -131,25 +131,34 @@ export default function HUD({ state, notifications }: Props) {
 
       {/* Notifications */}
       <div className="absolute top-14 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 pointer-events-none" style={{ minWidth: 260 }}>
-        {notifications.map((n, i) => (
-          <div
-            key={i}
-            className="px-5 py-2 text-sm font-exo rounded-lg notify-enter"
-            style={{
-              background: 'linear-gradient(180deg, #111820 0%, #0c1016 100%)',
-              border: '1px solid rgba(216,128,16,0.2)',
-              boxShadow: 'inset 0 1px 0 rgba(216,128,16,0.06), 0 4px 20px rgba(0,0,0,0.7)',
-              color: 'rgba(205,197,178,0.9)',
-              opacity: Math.min(1, n.timer / 30),
-              backdropFilter: 'blur(10px)',
-              transform: `translateX(-50%)`,
-              position: 'relative',
-              left: '50%',
-            }}
-          >
-            <span className="text-amber-400/70 mr-2" style={{ color: 'rgba(216,128,16,0.7)' }}>▶</span>{n.text}
-          </div>
-        ))}
+        {notifications.map((n, i) => {
+          const notifColor = n.type === 'error'
+            ? { border: '1px solid rgba(239,68,68,0.3)', text: '#f87171', icon: '✕' }
+            : n.type === 'success'
+            ? { border: '1px solid rgba(34,197,94,0.3)', text: '#4ade80', icon: '✓' }
+            : n.type === 'build'
+            ? { border: '1px solid rgba(56,189,248,0.3)', text: '#38bdf8', icon: '🔨' }
+            : { border: '1px solid rgba(216,128,16,0.2)', text: 'rgba(205,197,178,0.9)', icon: '▶' };
+          return (
+            <div
+              key={i}
+              className="px-5 py-2 text-sm font-exo rounded-lg notify-enter"
+              style={{
+                background: 'linear-gradient(180deg, #111820 0%, #0c1016 100%)',
+                border: notifColor.border,
+                boxShadow: 'inset 0 1px 0 rgba(216,128,16,0.06), 0 4px 20px rgba(0,0,0,0.7)',
+                color: notifColor.text,
+                opacity: Math.min(1, n.timer / 30),
+                backdropFilter: 'blur(10px)',
+                transform: `translateX(-50%)`,
+                position: 'relative',
+                left: '50%',
+              }}
+            >
+              <span className="mr-2" style={{ color: notifColor.text }}>{notifColor.icon}</span>{n.text}
+            </div>
+          );
+        })}
       </div>
 
       {/* Minimap */}
