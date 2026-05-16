@@ -191,7 +191,7 @@ export default function StartScreen({ onStart }: Props) {
             letterSpacing: '-0.02em',
             color: '#e8dcc8',
             textShadow: '0 0 60px rgba(216,128,16,0.45), 0 0 120px rgba(216,128,16,0.15), 4px 4px 0 rgba(0,0,0,0.95), 2px 2px 0 rgba(0,0,0,0.7)',
-          }}>FACTORY</h1>
+          }}>NOVACTORIO</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '6px' }}>
             <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, transparent, rgba(216,128,16,0.55))' }} />
             <h2 className="font-orbitron font-light" style={{
@@ -199,7 +199,7 @@ export default function StartScreen({ onStart }: Props) {
               letterSpacing: '0.65em',
               color: 'rgba(216,128,16,0.85)',
               textShadow: '0 0 25px rgba(216,128,16,0.35)',
-            }}>WORLD</h2>
+            }}>INDUSTRIAL</h2>
             <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(216,128,16,0.55))' }} />
           </div>
         </div>

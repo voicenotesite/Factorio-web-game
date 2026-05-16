@@ -162,7 +162,7 @@ export default function AuthScreen({ onAuth }: Props) {
                 border: '1px solid rgba(216,128,16,0.4)',
               }}
             >
-              {loading ? '...' : mode === 'login' ? '▶ ENTER FACTORY' : '+ CREATE ACCOUNT'}
+              {loading ? '...' : mode === 'login' ? '▶ ENTER NOVACTORIO' : '+ CREATE ACCOUNT'}
             </button>
           </form>
 
