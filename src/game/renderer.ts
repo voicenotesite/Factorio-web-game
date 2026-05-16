@@ -39,12 +39,40 @@ export class GameRenderer {
     const dayFactor = Math.max(0.25, Math.sin(dayPhase * Math.PI * 2) * 0.5 + 0.5);
     const isNight = dayFactor < 0.5;
 
-    // Sky gradient based on time
-    const skyR = Math.floor(10 + dayFactor * 15);
-    const skyG = Math.floor(10 + dayFactor * 20);
-    const skyB = Math.floor(25 + dayFactor * 30);
-    ctx.fillStyle = `rgb(${skyR},${skyG},${skyB})`;
+    // Sky — atmospheric industrial backdrop
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    const isDawnDusk = dayFactor > 0.38 && dayFactor < 0.62;
+    if (isDawnDusk) {
+      // Dawn / dusk: warm amber horizon glow
+      const t = 1 - Math.abs(dayFactor - 0.5) / 0.12;
+      skyGrad.addColorStop(0, `rgb(${Math.floor(8 + dayFactor * 12)},${Math.floor(8 + dayFactor * 12)},${Math.floor(18 + dayFactor * 20)})`);
+      skyGrad.addColorStop(0.6, `rgb(${Math.floor(30 + t * 80)},${Math.floor(15 + t * 35)},${Math.floor(5 + t * 10)})`);
+      skyGrad.addColorStop(1, `rgb(${Math.floor(20 + t * 60)},${Math.floor(10 + t * 25)},${Math.floor(3 + t * 8)})`);
+    } else if (dayFactor < 0.4) {
+      // Night
+      skyGrad.addColorStop(0, 'rgb(3,4,10)');
+      skyGrad.addColorStop(1, 'rgb(6,6,14)');
+    } else {
+      // Day
+      skyGrad.addColorStop(0, `rgb(${Math.floor(8 + dayFactor * 14)},${Math.floor(10 + dayFactor * 18)},${Math.floor(18 + dayFactor * 22)})`);
+      skyGrad.addColorStop(1, `rgb(${Math.floor(12 + dayFactor * 18)},${Math.floor(14 + dayFactor * 22)},${Math.floor(24 + dayFactor * 28)})`);
+    }
+    ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Stars at night
+    if (dayFactor < 0.45) {
+      const starAlpha = Math.max(0, (0.45 - dayFactor) / 0.2);
+      ctx.fillStyle = `rgba(255,255,255,${starAlpha * 0.7})`;
+      for (let i = 0; i < 120; i++) {
+        const sx = ((i * 7919 + 13) % canvas.width);
+        const sy = ((i * 3571 + 29) % (canvas.height * 0.65));
+        const twinkle = Math.sin(this.frameCount * 0.02 + i) * 0.3 + 0.7;
+        ctx.globalAlpha = starAlpha * twinkle * 0.6;
+        ctx.fillRect(sx, sy, 1.5, 1.5);
+      }
+      ctx.globalAlpha = 1;
+    }
 
     ctx.save();
     ctx.translate(canvas.width / 2, canvas.height / 2);
@@ -159,12 +187,76 @@ export class GameRenderer {
 
     // Terrain texture variation
     const hash = ((tile.x * 7919 + tile.y * 104729) & 0xFFFF) / 65535;
+    const hash2 = ((tile.x * 104729 + tile.y * 7919) & 0xFFFF) / 65535;
     if (hash > 0.85) {
-      ctx.fillStyle = `rgba(255,255,255,${0.02 + hash * 0.02})`;
+      ctx.fillStyle = `rgba(255,255,255,${0.03 + hash * 0.03})`;
       ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
     } else if (hash < 0.15) {
-      ctx.fillStyle = `rgba(0,0,0,0.03)`;
+      ctx.fillStyle = `rgba(0,0,0,0.05)`;
       ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    }
+
+    // Biome-specific detail layer
+    switch (tile.biome) {
+      case 'volcanic': {
+        // Orange lava crack lines
+        if (hash > 0.6) {
+          ctx.strokeStyle = `rgba(200,80,0,${(hash - 0.6) * 0.6})`;
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          const crackX = x + hash2 * TILE_SIZE;
+          ctx.moveTo(crackX, y);
+          ctx.lineTo(crackX + (hash - 0.5) * 10, y + TILE_SIZE);
+          ctx.stroke();
+        }
+        if (hash < 0.25) {
+          // Lava glow pools
+          ctx.fillStyle = `rgba(255,60,0,${(0.25 - hash) * 0.18})`;
+          ctx.beginPath();
+          ctx.ellipse(x + hash2 * TILE_SIZE, y + hash * TILE_SIZE + 8, 4, 3, hash * 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case 'desert': {
+        // Sand ripple arcs
+        if (hash > 0.55) {
+          ctx.strokeStyle = `rgba(255,230,150,${(hash - 0.55) * 0.12})`;
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.arc(x + hash2 * TILE_SIZE, y + TILE_SIZE, (hash - 0.5) * 30, Math.PI * 1.1, Math.PI * 1.9);
+          ctx.stroke();
+        }
+        break;
+      }
+      case 'snow': {
+        // Sparkle dots
+        if (hash > 0.75) {
+          ctx.fillStyle = `rgba(255,255,255,${(hash - 0.75) * 0.7 * dayFactor})`;
+          ctx.beginPath();
+          ctx.arc(x + hash2 * (TILE_SIZE - 4) + 2, y + hash * (TILE_SIZE - 4) + 2, 1, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case 'swamp': {
+        // Murky bubble spots
+        if (hash > 0.7 && (this.frameCount % 90 < 5)) {
+          ctx.fillStyle = `rgba(0,0,0,0.15)`;
+          ctx.beginPath();
+          ctx.arc(x + hash2 * 24 + 4, y + hash * 24 + 4, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case 'grass': {
+        // Tiny grass tufts
+        if (hash > 0.8) {
+          ctx.fillStyle = `rgba(30,80,15,${(hash - 0.8) * 0.5})`;
+          ctx.fillRect(x + Math.floor(hash2 * 28) + 1, y + Math.floor(hash * 28) + 1, 2, 4);
+        }
+        break;
+      }
     }
 
     // Grid lines (very subtle at high zoom)
@@ -316,25 +408,67 @@ export class GameRenderer {
     ctx.roundRect(x + shadowOff, y + shadowOff, w, h, 2);
     ctx.fill();
 
-    // Building body with gradient
-    const grad = ctx.createLinearGradient(x, y, x, y + h);
-    grad.addColorStop(0, lightenColor(color, 20));
-    grad.addColorStop(1, darkenColor(color, 15));
+    // Building body with gradient (dark industrial look, lit from above-left)
+    const grad = ctx.createLinearGradient(x, y, x + w * 0.3, y + h);
+    grad.addColorStop(0, lightenColor(color, 28));
+    grad.addColorStop(0.4, lightenColor(color, 8));
+    grad.addColorStop(1, darkenColor(color, 20));
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.roundRect(x, y, w, h, 2);
     ctx.fill();
 
-    // Top edge highlight
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    ctx.fillRect(x + 1, y + 1, w - 2, 2);
+    // Top edge highlight (metal sheen)
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fillRect(x + 2, y + 1, w - 4, 2);
+    // Left edge highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fillRect(x + 1, y + 2, 2, h - 4);
 
     // Border
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.roundRect(x + 0.5, y + 0.5, w - 1, h - 1, 2);
     ctx.stroke();
+
+    // Outer rim highlight (metal edge)
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.roundRect(x + 1.5, y + 1.5, w - 3, h - 3, 1.5);
+    ctx.stroke();
+
+    // Industrial panel dividers
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth = 0.5;
+    if (h >= TILE_SIZE * 2) {
+      ctx.beginPath();
+      ctx.moveTo(x + 3, y + h / 2);
+      ctx.lineTo(x + w - 3, y + h / 2);
+      ctx.stroke();
+    }
+    if (w >= TILE_SIZE * 3) {
+      ctx.beginPath();
+      ctx.moveTo(x + w / 3, y + 3);
+      ctx.lineTo(x + w / 3, y + h - 3);
+      ctx.moveTo(x + w * 2 / 3, y + 3);
+      ctx.lineTo(x + w * 2 / 3, y + h - 3);
+      ctx.stroke();
+    }
+
+    // Corner rivets
+    const rivetInset = 4;
+    const rivetPositions = [
+      [x + rivetInset, y + rivetInset], [x + w - rivetInset, y + rivetInset],
+      [x + rivetInset, y + h - rivetInset], [x + w - rivetInset, y + h - rivetInset],
+    ];
+    for (const [rx, ry] of rivetPositions) {
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.beginPath(); ctx.arc(rx, ry, 1.8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.beginPath(); ctx.arc(rx - 0.5, ry - 0.5, 0.8, 0, Math.PI * 2); ctx.fill();
+    }
 
     // Direction arrow
     const dir = DIR_OFFSETS[building.direction];
@@ -404,33 +538,68 @@ export class GameRenderer {
     switch (building.type) {
       case 'furnace': {
         if (building.isActive) {
-          const flicker = Math.sin(this.frameCount * 0.15) * 4 + 12;
+          const flicker = Math.sin(this.frameCount * 0.15) * 5 + 18;
           const glow = ctx.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, flicker);
-          glow.addColorStop(0, 'rgba(255,120,20,0.3)');
-          glow.addColorStop(1, 'rgba(255,60,0,0)');
+          glow.addColorStop(0, 'rgba(255,100,10,0.4)');
+          glow.addColorStop(0.5, 'rgba(255,50,0,0.15)');
+          glow.addColorStop(1, 'rgba(200,30,0,0)');
           ctx.fillStyle = glow;
-          ctx.fillRect(x - 10, y - 10, w + 20, h + 20);
+          ctx.fillRect(x - 15, y - 15, w + 30, h + 30);
         }
         break;
       }
       case 'lab': {
         if (building.isActive) {
-          const pulse = Math.sin(this.frameCount * 0.05) * 0.1 + 0.15;
-          const glow = ctx.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, 20);
-          glow.addColorStop(0, `rgba(0,200,255,${pulse})`);
-          glow.addColorStop(1, 'rgba(0,100,255,0)');
+          const pulse = Math.sin(this.frameCount * 0.05) * 0.1 + 0.18;
+          const glow = ctx.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, 24);
+          glow.addColorStop(0, `rgba(0,180,255,${pulse})`);
+          glow.addColorStop(1, 'rgba(0,80,200,0)');
           ctx.fillStyle = glow;
-          ctx.fillRect(x - 10, y - 10, w + 20, h + 20);
+          ctx.fillRect(x - 12, y - 12, w + 24, h + 24);
         }
         break;
       }
       case 'boiler': {
         if (building.isActive) {
-          const glow = ctx.createRadialGradient(x + w / 2, y, 0, x + w / 2, y, 15);
-          glow.addColorStop(0, 'rgba(200,200,200,0.1)');
-          glow.addColorStop(1, 'rgba(150,150,150,0)');
+          const flicker2 = Math.sin(this.frameCount * 0.1) * 4 + 14;
+          const glow = ctx.createRadialGradient(x + w / 2, y + h * 0.3, 0, x + w / 2, y + h * 0.3, flicker2);
+          glow.addColorStop(0, 'rgba(255,80,0,0.2)');
+          glow.addColorStop(1, 'rgba(200,50,0,0)');
           ctx.fillStyle = glow;
-          ctx.fillRect(x - 5, y - 15, w + 10, h + 10);
+          ctx.fillRect(x - 8, y - 12, w + 16, h + 16);
+        }
+        break;
+      }
+      case 'steam_engine': {
+        if (building.isActive) {
+          const pulse2 = Math.sin(this.frameCount * 0.08) * 0.08 + 0.1;
+          const glow = ctx.createRadialGradient(x + w * 0.72, y + h * 0.5, 0, x + w * 0.72, y + h * 0.5, 22);
+          glow.addColorStop(0, `rgba(180,220,255,${pulse2})`);
+          glow.addColorStop(1, 'rgba(100,160,220,0)');
+          ctx.fillStyle = glow;
+          ctx.fillRect(x - 8, y - 8, w + 16, h + 16);
+        }
+        break;
+      }
+      case 'assembler': {
+        if (building.isActive) {
+          const p = Math.sin(this.frameCount * 0.06) * 0.05 + 0.08;
+          const glow = ctx.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, 18);
+          glow.addColorStop(0, `rgba(74,176,255,${p})`);
+          glow.addColorStop(1, 'rgba(20,100,200,0)');
+          ctx.fillStyle = glow;
+          ctx.fillRect(x - 6, y - 6, w + 12, h + 12);
+        }
+        break;
+      }
+      case 'radar': {
+        if (building.isActive) {
+          const pulse3 = Math.sin(this.frameCount * 0.05) * 0.08 + 0.12;
+          const glow = ctx.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, 20);
+          glow.addColorStop(0, `rgba(0,200,80,${pulse3})`);
+          glow.addColorStop(1, 'rgba(0,100,40,0)');
+          ctx.fillStyle = glow;
+          ctx.fillRect(x - 8, y - 8, w + 16, h + 16);
         }
         break;
       }
@@ -440,74 +609,137 @@ export class GameRenderer {
   private renderBuildingDetails(ctx: CanvasRenderingContext2D, building: Building, x: number, y: number, w: number, h: number) {
     switch (building.type) {
       case 'miner': {
-        const angle = this.frameCount * 0.12;
+        // Drill derrick A-frame
+        const dcx = x + w / 2;
+        const dtip = y + 4;
+        ctx.strokeStyle = '#4a4a42';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(dcx, dtip);
+        ctx.lineTo(x + 5, y + h - 4);
+        ctx.moveTo(dcx, dtip);
+        ctx.lineTo(x + w - 5, y + h - 4);
+        ctx.stroke();
+        // Cross brace
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + 8, y + h * 0.55);
+        ctx.lineTo(x + w - 8, y + h * 0.55);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+        // Rotating drill bit head
+        const angle = (building.isActive ? this.frameCount * 0.18 : 0);
         ctx.save();
-        ctx.translate(x + w / 2, y + h / 2);
+        ctx.translate(dcx, y + h / 2 + 2);
         ctx.rotate(angle);
-        ctx.fillStyle = '#555';
-        ctx.fillRect(-10, -2.5, 20, 5);
-        ctx.fillRect(-2.5, -10, 5, 20);
-        ctx.fillStyle = '#777';
+        ctx.fillStyle = '#6a6a60';
+        ctx.fillRect(-8, -2, 16, 4);
+        ctx.fillRect(-2, -8, 4, 16);
+        ctx.fillStyle = '#888880';
         ctx.beginPath();
         ctx.arc(0, 0, 4, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-        // Dust particles when active
+        // Dust cloud when active
         if (building.isActive && this.frameCount % 8 === 0) {
-          ctx.fillStyle = 'rgba(150,130,100,0.3)';
+          ctx.fillStyle = 'rgba(140,120,90,0.25)';
           for (let i = 0; i < 3; i++) {
-            const dx = (Math.random() - 0.5) * w;
-            const dy = -Math.random() * 8;
+            const ddx = (Math.random() - 0.5) * w;
+            const ddy = -Math.random() * 10;
             ctx.beginPath();
-            ctx.arc(x + w / 2 + dx, y + dy, 2 + Math.random() * 2, 0, Math.PI * 2);
+            ctx.arc(dcx + ddx, y + h * 0.6 + ddy, 2 + Math.random() * 3, 0, Math.PI * 2);
             ctx.fill();
           }
         }
         break;
       }
       case 'furnace': {
+        // Brick chimney stack above
+        ctx.fillStyle = '#1a0a04';
+        ctx.fillRect(x + w / 2 - 3, y - 12, 6, 14);
+        ctx.fillStyle = '#2a1208';
+        ctx.fillRect(x + w / 2 - 4, y - 13, 8, 3);
+        // Chimney bricks
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x + w / 2 - 3, y - 7);
+        ctx.lineTo(x + w / 2 + 3, y - 7);
+        ctx.stroke();
+        // Smoke from chimney
+        if (building.isActive) {
+          const smokeT = (this.frameCount * 0.4) % 40;
+          const smokeAlpha = Math.max(0, 0.4 - smokeT * 0.01);
+          ctx.fillStyle = `rgba(80,70,60,${smokeAlpha})`;
+          ctx.beginPath();
+          ctx.arc(x + w / 2 + Math.sin(this.frameCount * 0.05) * 2, y - 14 - smokeT * 0.3, 3 + smokeT * 0.1, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Fire core with flicker
         const flicker = Math.sin(this.frameCount * 0.2) * 2;
-        // Fire core
-        ctx.fillStyle = `rgba(255,${120 + flicker * 15},20,0.8)`;
+        ctx.fillStyle = `rgba(255,${100 + flicker * 12},10,0.9)`;
         ctx.beginPath();
         ctx.ellipse(x + w / 2, y + h / 2, 5 + flicker, 7, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Inner flame
-        ctx.fillStyle = `rgba(255,${200 + flicker * 10},80,0.6)`;
+        ctx.fillStyle = `rgba(255,${190 + flicker * 10},70,0.6)`;
         ctx.beginPath();
         ctx.ellipse(x + w / 2, y + h / 2 - 2, 3, 4, 0, 0, Math.PI * 2);
         ctx.fill();
+        // Fire aperture (dark surround)
+        ctx.strokeStyle = '#0a0a0a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x + w / 2, y + h / 2, 8, 0, Math.PI * 2);
+        ctx.stroke();
         break;
       }
       case 'assembler': {
-        const angle = this.frameCount * 0.04;
-        ctx.save();
-        ctx.translate(x + w / 2, y + h / 2);
-        // Outer gear
-        ctx.rotate(angle);
-        ctx.strokeStyle = '#aaa';
-        ctx.lineWidth = 2.5;
+        const speed = building.isActive ? 0.05 : 0.008;
+        const angle = this.frameCount * speed;
+        const cx2 = x + w / 2;
+        const cy2 = y + h / 2;
+        // Central hub
+        ctx.fillStyle = '#1a2a3a';
         ctx.beginPath();
-        ctx.arc(0, 0, 10, 0, Math.PI * 2);
+        ctx.arc(cx2, cy2, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#3a5a7a';
+        ctx.lineWidth = 2;
         ctx.stroke();
-        for (let i = 0; i < 8; i++) {
-          const a = (i / 8) * Math.PI * 2;
-          ctx.fillStyle = '#999';
-          ctx.fillRect(Math.cos(a) * 10 - 2.5, Math.sin(a) * 10 - 2.5, 5, 5);
+        // 3 robotic arms
+        for (let i = 0; i < 3; i++) {
+          const a = angle + (i / 3) * Math.PI * 2;
+          const armEndX = cx2 + Math.cos(a) * 12;
+          const armEndY = cy2 + Math.sin(a) * 12;
+          ctx.strokeStyle = '#5a7a9a';
+          ctx.lineWidth = 2.5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(cx2, cy2);
+          ctx.lineTo(armEndX, armEndY);
+          ctx.stroke();
+          // Claw tip
+          ctx.fillStyle = '#8aaac0';
+          ctx.beginPath();
+          ctx.arc(armEndX, armEndY, 2.5, 0, Math.PI * 2);
+          ctx.fill();
         }
-        // Inner gear (counter-rotate)
-        ctx.rotate(-angle * 2);
-        ctx.strokeStyle = '#bbb';
-        ctx.lineWidth = 1.5;
+        ctx.lineCap = 'butt';
+        // Center core
+        ctx.fillStyle = building.isActive ? '#4ab0ff' : '#2a4a6a';
         ctx.beginPath();
-        ctx.arc(0, 0, 5, 0, Math.PI * 2);
-        ctx.stroke();
-        for (let i = 0; i < 6; i++) {
-          const a = (i / 6) * Math.PI * 2;
-          ctx.fillStyle = '#aaa';
-          ctx.fillRect(Math.cos(a) * 5 - 1.5, Math.sin(a) * 5 - 1.5, 3, 3);
+        ctx.arc(cx2, cy2, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Activity ring
+        if (building.recipe && building.progress > 0) {
+          const prog = building.progress / building.recipe.craftTime;
+          ctx.strokeStyle = 'rgba(74,176,255,0.5)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(cx2, cy2, 14, -Math.PI / 2, -Math.PI / 2 + prog * Math.PI * 2);
+          ctx.stroke();
         }
-        ctx.restore();
         break;
       }
       case 'lab': {
@@ -611,6 +843,123 @@ export class GameRenderer {
         ctx.beginPath();
         ctx.arc(x + w / 2, y + h / 2, 3, 0, Math.PI * 2);
         ctx.fill();
+        break;
+      }
+      case 'pumpjack': {
+        // Base platform
+        ctx.fillStyle = '#141008';
+        ctx.fillRect(x + 3, y + h - 7, w - 6, 7);
+        // A-frame derrick
+        const pcx = x + w / 2;
+        const ptip = y + 5;
+        ctx.strokeStyle = '#3a3428';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(pcx, ptip);
+        ctx.lineTo(x + 6, y + h - 7);
+        ctx.moveTo(pcx, ptip);
+        ctx.lineTo(x + w - 6, y + h - 7);
+        ctx.stroke();
+        // Cross brace
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + 9, y + h * 0.55);
+        ctx.lineTo(x + w - 9, y + h * 0.55);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+        // Walking beam (rocking animation)
+        const beamRock = Math.sin(this.frameCount * (building.isActive ? 0.07 : 0.01)) * 0.4;
+        const beamLen = w * 0.45;
+        const frontX = pcx + Math.cos(beamRock) * beamLen * 0.55;
+        const frontY = ptip + Math.sin(beamRock) * beamLen * 0.55;
+        const backX = pcx - Math.cos(beamRock) * beamLen * 0.4;
+        const backY = ptip - Math.sin(beamRock) * beamLen * 0.4;
+        ctx.strokeStyle = '#6a6050';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(frontX, frontY);
+        ctx.lineTo(backX, backY);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+        // Horsehead
+        ctx.fillStyle = '#4a4038';
+        ctx.fillRect(frontX - 4, frontY - 3, 8, 6);
+        // Pump rod
+        ctx.strokeStyle = '#8a8070';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(frontX, frontY + 3);
+        ctx.lineTo(frontX, y + h - 7);
+        ctx.stroke();
+        // Counterweight
+        ctx.fillStyle = '#2a2820';
+        ctx.beginPath();
+        ctx.arc(backX, backY, 5, 0, Math.PI * 2);
+        ctx.fill();
+        // Oil drip when active
+        if (building.isActive) {
+          const dripY = y + h - 7 + ((this.frameCount * 0.5) % 10);
+          ctx.fillStyle = 'rgba(15,10,5,0.7)';
+          ctx.beginPath();
+          ctx.arc(frontX, dripY, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case 'steam_engine': {
+        const seSpeed = building.isActive ? 0.09 : 0.006;
+        const crankAngle = this.frameCount * seSpeed;
+        const swCx = x + w * 0.72;
+        const swCy = y + h * 0.5;
+        const wheelR = Math.min(w, h) * 0.28;
+        // Engine cylinder block
+        ctx.fillStyle = '#101820';
+        ctx.fillRect(x + 3, y + 4, w * 0.48, h - 8);
+        ctx.fillStyle = '#1a2838';
+        ctx.fillRect(x + w * 0.38, y + h * 0.3, w * 0.22, h * 0.4);
+        // Flywheel outer ring
+        ctx.strokeStyle = '#3a5060';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(swCx, swCy, wheelR, 0, Math.PI * 2);
+        ctx.stroke();
+        // Spokes
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#2a3a48';
+        for (let i = 0; i < 4; i++) {
+          const a = crankAngle + i * Math.PI / 2;
+          ctx.beginPath();
+          ctx.moveTo(swCx, swCy);
+          ctx.lineTo(swCx + Math.cos(a) * wheelR, swCy + Math.sin(a) * wheelR);
+          ctx.stroke();
+        }
+        // Crank pin
+        const crankPinX = swCx + Math.cos(crankAngle) * wheelR * 0.65;
+        const crankPinY = swCy + Math.sin(crankAngle) * wheelR * 0.65;
+        // Connecting rod to piston
+        ctx.strokeStyle = '#6a8090';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(crankPinX, crankPinY);
+        ctx.lineTo(x + w * 0.42, swCy);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+        // Flywheel hub
+        ctx.fillStyle = '#4a6070';
+        ctx.beginPath();
+        ctx.arc(swCx, swCy, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // Steam vent (top)
+        if (building.isActive) {
+          const steamY = y + 2 - ((this.frameCount * 0.4) % 14);
+          ctx.fillStyle = `rgba(180,180,180,${Math.max(0, 0.4 - ((this.frameCount * 0.4) % 14) * 0.03)})`;
+          ctx.beginPath();
+          ctx.arc(x + w * 0.25, steamY, 3 + ((this.frameCount * 0.4) % 14) * 0.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
         break;
       }
       case 'wall': {
@@ -1073,46 +1422,48 @@ export class GameRenderer {
     lightCanvas.width = canvas.width;
     lightCanvas.height = canvas.height;
 
-    // Dark overlay
-    const darkness = (1 - dayFactor) * 0.7;
-    lightCtx.fillStyle = `rgba(5,5,20,${darkness})`;
+    // Dark overlay — warm dark (not cold blue)
+    const darkness = (1 - dayFactor) * 0.72;
+    lightCtx.fillStyle = `rgba(8,5,2,${darkness})`;
     lightCtx.fillRect(0, 0, lightCanvas.width, lightCanvas.height);
 
     // Cut out light sources
     lightCtx.globalCompositeOperation = 'destination-out';
 
-    // Player light
+    // Player torch light (warm, personal radius)
     const px = canvas.width / 2;
     const py = canvas.height / 2;
-    const playerLight = lightCtx.createRadialGradient(px, py, 0, px, py, 120 * state.camera.zoom);
-    playerLight.addColorStop(0, 'rgba(0,0,0,0.9)');
-    playerLight.addColorStop(0.5, 'rgba(0,0,0,0.5)');
+    const playerLight = lightCtx.createRadialGradient(px, py, 0, px, py, 130 * state.camera.zoom);
+    playerLight.addColorStop(0, 'rgba(0,0,0,0.95)');
+    playerLight.addColorStop(0.4, 'rgba(0,0,0,0.7)');
+    playerLight.addColorStop(0.8, 'rgba(0,0,0,0.2)');
     playerLight.addColorStop(1, 'rgba(0,0,0,0)');
     lightCtx.fillStyle = playerLight;
     lightCtx.fillRect(0, 0, lightCanvas.width, lightCanvas.height);
 
-    // Building lights
+    // Building lights — more sources, larger radius
     for (const [, building] of state.buildings) {
-      if (building.type === 'furnace' || building.type === 'boiler' || building.type === 'lab' || building.type === 'radar') {
-        if (!building.isActive) continue;
-        const bx = (building.x * TILE_SIZE - state.camera.x) * state.camera.zoom + canvas.width / 2;
-        const by = (building.y * TILE_SIZE - state.camera.y) * state.camera.zoom + canvas.height / 2;
-        if (bx < -100 || bx > canvas.width + 100 || by < -100 || by > canvas.height + 100) continue;
-        const radius = (building.type === 'furnace' ? 80 : 60) * state.camera.zoom;
-        const light = lightCtx.createRadialGradient(bx, by, 0, bx, by, radius);
-        const color = building.type === 'furnace' ? 'rgba(0,0,0,0.7)' : building.type === 'lab' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.4)';
-        light.addColorStop(0, color);
-        light.addColorStop(1, 'rgba(0,0,0,0)');
-        lightCtx.fillStyle = light;
-        lightCtx.fillRect(bx - radius, by - radius, radius * 2, radius * 2);
-      }
+      const litTypes = ['furnace', 'boiler', 'lab', 'radar', 'steam_engine', 'assembler', 'refinery', 'chemical_plant'];
+      if (!litTypes.includes(building.type)) continue;
+      if (!building.isActive) continue;
+      const bx = (building.x * TILE_SIZE - state.camera.x) * state.camera.zoom + canvas.width / 2;
+      const by = (building.y * TILE_SIZE - state.camera.y) * state.camera.zoom + canvas.height / 2;
+      if (bx < -150 || bx > canvas.width + 150 || by < -150 || by > canvas.height + 150) continue;
+      const radius = (building.type === 'furnace' ? 100 : building.type === 'steam_engine' ? 90 : 65) * state.camera.zoom;
+      const light = lightCtx.createRadialGradient(bx, by, 0, bx, by, radius);
+      const alpha = building.type === 'furnace' ? '0.75' : building.type === 'lab' ? '0.6' : '0.55';
+      light.addColorStop(0, `rgba(0,0,0,${alpha})`);
+      light.addColorStop(0.5, `rgba(0,0,0,${parseFloat(alpha) * 0.4})`);
+      light.addColorStop(1, 'rgba(0,0,0,0)');
+      lightCtx.fillStyle = light;
+      lightCtx.fillRect(bx - radius, by - radius, radius * 2, radius * 2);
     }
 
     lightCtx.globalCompositeOperation = 'source-over';
 
-    // Warm tint for light areas
+    // Amber tint for illuminated areas
     lightCtx.globalCompositeOperation = 'source-atop';
-    lightCtx.fillStyle = 'rgba(255,200,100,0.05)';
+    lightCtx.fillStyle = 'rgba(255,140,30,0.07)';
     lightCtx.fillRect(0, 0, lightCanvas.width, lightCanvas.height);
     lightCtx.globalCompositeOperation = 'source-over';
 
@@ -1163,10 +1514,18 @@ export class GameRenderer {
   private renderVignette(ctx: CanvasRenderingContext2D) {
     const w = this.canvas.width;
     const h = this.canvas.height;
-    const grad = ctx.createRadialGradient(w / 2, h / 2, w * 0.3, w / 2, h / 2, w * 0.7);
+    // Corner-focused vignette
+    const grad = ctx.createRadialGradient(w / 2, h / 2, w * 0.25, w / 2, h / 2, w * 0.75);
     grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.35)');
+    grad.addColorStop(0.7, 'rgba(0,0,0,0.15)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.55)');
     ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    // Subtle amber pollution haze at bottom
+    const hazeGrad = ctx.createLinearGradient(0, h * 0.75, 0, h);
+    hazeGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    hazeGrad.addColorStop(1, 'rgba(30,15,0,0.12)');
+    ctx.fillStyle = hazeGrad;
     ctx.fillRect(0, 0, w, h);
   }
 }
