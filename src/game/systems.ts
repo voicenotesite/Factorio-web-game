@@ -172,7 +172,7 @@ function getChunkAt(state: GameState, tx: number, ty: number) {
   return chunk;
 }
 
-function getTileAt(state: GameState, tx: number, ty: number) {
+export function getTileAt(state: GameState, tx: number, ty: number) {
   const chunk = getChunkAt(state, tx, ty);
   const lx = ((tx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
   const ly = ((ty % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
@@ -211,12 +211,13 @@ function updateMiner(state: GameState, building: Building) {
         building.progress += state.player.miningSpeed;
         if (building.progress >= 40) {
           building.progress = 0;
+          const minedResource = tile.resource!;
           tile.resourceAmount -= 1;
           if (tile.resourceAmount <= 0) tile.resource = null;
           // Output to outputInventory (for inserters to pick up)
-          addItemToBuildingOutput(building, tile.resource!, 1);
-          state.statistics.itemsProduced[tile.resource!] = (state.statistics.itemsProduced[tile.resource!] || 0) + 1;
-          spawnParticle(state, building.x * TILE_SIZE + 16, building.y * TILE_SIZE + 16, 'resource', RESOURCE_COLORS[tile.resource!] || '#fff');
+          addItemToBuildingOutput(building, minedResource, 1);
+          state.statistics.itemsProduced[minedResource] = (state.statistics.itemsProduced[minedResource] || 0) + 1;
+          spawnParticle(state, building.x * TILE_SIZE + 16, building.y * TILE_SIZE + 16, 'resource', RESOURCE_COLORS[minedResource] || '#fff');
         }
         building.isActive = true;
         return;
@@ -586,7 +587,7 @@ function updatePowerGrid(state: GameState) {
     if (building.type !== 'steam_engine') continue;
     let hasPower = false;
     for (const [, other] of state.buildings) {
-      if (other.type === 'boiler' && other.energy > 0 && Math.abs(other.x - building.x) <= 3 && Math.abs(other.y - building.y) <= 3) {
+      if (other.type === 'boiler' && other.energy > 0 && Math.abs(other.x - building.x) <= 10 && Math.abs(other.y - building.y) <= 10) {
         other.energy -= 0.2;
         building.energy = Math.min(building.maxEnergy, building.energy + 0.3);
         hasPower = true;
@@ -611,8 +612,8 @@ export function updateConveyors(state: GameState) {
     const dstX = inserter.x + dir.dx;
     const dstY = inserter.y + dir.dy;
 
-    const srcBuilding = state.buildings.get(`${srcX},${srcY}`);
-    const dstBuilding = state.buildings.get(`${dstX},${dstY}`);
+    const srcBuilding = getTileAt(state, srcX, srcY).building || null;
+    const dstBuilding = getTileAt(state, dstX, dstY).building || null;
     const dstConveyor = state.conveyors.get(`${dstX},${dstY}`);
 
     // Try to pick from source output inventory
@@ -672,7 +673,7 @@ export function updateConveyors(state: GameState) {
         const ny = building.y + dir.dy;
         const nextKey = `${nx},${ny}`;
         const nextConveyor = state.conveyors.get(nextKey);
-        const nextBuilding = state.buildings.get(nextKey);
+        const nextBuilding = state.buildings.get(nextKey) || getTileAt(state, nx, ny).building || null;
 
         let transferred = false;
 
@@ -1233,10 +1234,11 @@ export function upgradeBuilding(state: GameState, x: number, y: number): boolean
 export function playerMine(state: GameState, tx: number, ty: number) {
   const tile = getTileAt(state, tx, ty);
   if (tile.resource && tile.resourceAmount > 0 && tile.resource !== 'water') {
+    const minedResource = tile.resource;
     tile.resourceAmount -= 1;
     if (tile.resourceAmount <= 0) tile.resource = null;
-    addItemToPlayer(state, tile.resource!, 1);
-    spawnParticle(state, tx * TILE_SIZE + 16, ty * TILE_SIZE + 16, 'resource', RESOURCE_COLORS[tile.resource!] || '#fff');
+    addItemToPlayer(state, minedResource, 1);
+    spawnParticle(state, tx * TILE_SIZE + 16, ty * TILE_SIZE + 16, 'resource', RESOURCE_COLORS[minedResource] || '#fff');
     grantXPToPlayer(state, 5);
     return true;
   }

@@ -7,7 +7,7 @@ import {
   spawnNPCs, updateNPCs, spawnEnemies, updateEnemies,
   updatePollution, updateParticles, updateWorldEvents, updateWeather,
   updateVisibility, playerMine, addItemToPlayer, spawnParticle,
-  canAffordBuilding, grantXPToPlayer,
+  canAffordBuilding, grantXPToPlayer, getTileAt,
 } from './systems';
 
 export class GameEngine {
@@ -45,15 +45,19 @@ export class GameEngine {
         x: 0, y: 0,
         health: 100, maxHealth: 100,
         inventory: [
-          { itemId: 'iron', count: 10 },
-          { itemId: 'copper', count: 5 },
-          { itemId: 'coal', count: 10 },
-          { itemId: 'stone', count: 20 },
-          { itemId: 'wood', count: 10 },
+          { itemId: 'iron', count: 50 },
+          { itemId: 'copper', count: 30 },
+          { itemId: 'coal', count: 50 },
+          { itemId: 'stone', count: 50 },
+          { itemId: 'wood', count: 20 },
+          { itemId: 'iron_plate', count: 20 },
+          { itemId: 'copper_plate', count: 10 },
+          { itemId: 'gear', count: 10 },
+          { itemId: 'circuit', count: 5 },
         ],
         selectedSlot: 0,
         direction: 'right',
-        speed: 0.08,
+        speed: 0.13,
         reach: 6,
         miningSpeed: 1,
         craftingSpeed: 1,
@@ -293,7 +297,7 @@ export class GameEngine {
           this.selectedBuilding = null;
         } else if (placeBuilding(this.state, this.selectedBuilding, x, y, this.selectedDirection)) {
           this.addNotification(`Placed ${this.selectedBuilding.replace(/_/g, ' ')}`);
-          this.selectedBuilding = null;
+          // Keep selected to allow placing multiple (Shift+click or just click again)
         }
       } else {
         const dist = Math.sqrt((x - this.state.player.x) ** 2 + (y - this.state.player.y) ** 2);
@@ -304,13 +308,12 @@ export class GameEngine {
     }
 
     if (this.mouse.rightDown) {
-      const key = `${x},${y}`;
-      const building = this.state.buildings.get(key);
+      const building = getTileAt(this.state, x, y)?.building;
       if (building) {
         for (const item of [...building.inventory, ...building.outputInventory]) {
           addItemToPlayer(this.state, item.itemId, item.count);
         }
-        if (removeBuilding(this.state, x, y)) {
+        if (removeBuilding(this.state, building.x, building.y)) {
           this.addNotification('Removed ' + building.type.replace(/_/g, ' '));
         }
       }
