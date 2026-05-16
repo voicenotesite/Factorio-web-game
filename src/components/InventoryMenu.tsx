@@ -54,7 +54,7 @@ export default function InventoryMenu({ engine, state, onClose }: Props) {
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(34,197,94,0.15)' }}>
+        <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(216,128,16,0.18)' }}>
           <div>
             <h2 className="font-orbitron font-bold text-lg text-white tracking-wider">INVENTORY <span className="text-white/30 font-light">& CRAFTING</span></h2>
             <p className="text-xs text-white/30 mt-1">Manage items and craft components</p>
@@ -66,8 +66,8 @@ export default function InventoryMenu({ engine, state, onClose }: Props) {
           {/* Inventory */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-2 h-2 rounded-full bg-green-400" style={{ boxShadow: '0 0 6px #22c55e' }} />
-              <span className="text-[10px] font-orbitron tracking-[0.2em] text-green-400/60 uppercase">Inventory</span>
+              <div className="w-2 h-2 rounded-full" style={{ background: '#d88010', boxShadow: '0 0 6px #d88010' }} />
+              <span className="text-[10px] font-orbitron tracking-[0.2em] uppercase" style={{ color: 'rgba(216,128,16,0.6)' }}>Inventory</span>
             </div>
             <div className="grid grid-cols-5 gap-1.5">
               {player.inventory.map((slot, i) => (
@@ -153,9 +153,9 @@ export default function InventoryMenu({ engine, state, onClose }: Props) {
                                 onClick={() => handleCraft(recipe.id)}
                                 className="btn-shine px-3 py-1 text-[11px] font-semibold rounded-lg transition-all hover:opacity-90 active:scale-95 flex-shrink-0"
                                 style={{
-                                  background: 'linear-gradient(135deg, #15803d, #22c55e)',
-                                  color: 'white',
-                                  boxShadow: '0 0 10px rgba(34,197,94,0.2)',
+                                   background: 'linear-gradient(180deg, #1e1408 0%, #120e06 100%)',
+                                   color: '#f0c060',
+                                   boxShadow: '0 0 10px rgba(216,128,16,0.2)',
                                 }}
                               >
                                 Craft

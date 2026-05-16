@@ -56,7 +56,7 @@ function App() {
   const engine = engineRef.current;
 
   return (
-    <div className="w-screen h-screen overflow-hidden select-none font-exo" style={{ background: 'var(--factory-bg)' }}>
+    <div className="w-screen h-screen overflow-hidden select-none font-exo" style={{ background: 'var(--bg)' }}>
       {!started && <StartScreen onStart={() => setStarted(true)} />}
       {started && <GameCanvas engineRef={engineRef} onEngineReady={handleEngineReady} />}
       {started && gameState && <HUD state={gameState} notifications={notifications} />}
@@ -67,12 +67,13 @@ function App() {
         <div
           className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 animate-slide-up"
           style={{
-            background: 'linear-gradient(180deg, #0f1418 0%, #0a0d11 100%)',
+            background: 'linear-gradient(180deg, #111820 0%, #0c1016 100%)',
             backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(42,54,66,0.9)',
-            borderRadius: '4px',
+            border: '1px solid rgba(216,128,16,0.18)',
+            borderTop: '1px solid rgba(216,128,16,0.35)',
+            borderRadius: '3px',
             padding: '6px 10px',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.6), 0 8px 32px rgba(0,0,0,0.7)',
+            boxShadow: 'inset 0 1px 0 rgba(216,128,16,0.08), 0 0 0 1px rgba(0,0,0,0.7), 0 -8px 40px rgba(0,0,0,0.9), 0 0 40px rgba(216,128,16,0.04)',
           }}
         >
           <ActionBarBtn label="Build" shortcut="B" onClick={() => setShowBuild(true)} active={showBuild}
@@ -136,8 +137,8 @@ function ActionBarBtn({ label, shortcut, onClick, icon, color, active }: {
         boxShadow: active ? `0 0 15px ${color}20` : 'none',
       }}
       onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.background = `rgba(42,54,66,0.5)`;
-        (e.currentTarget as HTMLElement).style.border = `1px solid rgba(42,54,66,0.9)`;
+        (e.currentTarget as HTMLElement).style.background = `rgba(216,128,16,0.08)`;
+        (e.currentTarget as HTMLElement).style.border = `1px solid rgba(216,128,16,0.25)`;
       }}
       onMouseLeave={e => {
         (e.currentTarget as HTMLElement).style.background = active ? `${color}14` : 'transparent';

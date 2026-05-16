@@ -3,20 +3,36 @@
 @tailwind utilities;
 
 :root {
-  --factory-bg: #06080a;
-  --factory-panel: #0c1014;
+  --bg: #07090b;
+  --panel: #0c1016;
+  --panel-raised: #111820;
+  --amber: #d88010;
+  --amber-bright: #f0a020;
+  --amber-glow: rgba(216,128,16,0.4);
+  --amber-faint: rgba(216,128,16,0.07);
+  --green: #1e6040;
+  --blue: #1a4870;
+  --red: #802020;
+  --text: #cdc5b2;
+  --text-dim: rgba(205,197,178,0.4);
+  --border: rgba(216,128,16,0.18);
+  --border-top: rgba(216,128,16,0.40);
+  --border-steel: rgba(42,54,66,0.8);
+  /* legacy aliases */
+  --factory-bg: #07090b;
+  --factory-panel: #0c1016;
   --factory-panel-2: #111820;
-  --factory-amber: #c8890a;
-  --factory-amber-bright: #e8a020;
-  --factory-green: #1a5c36;
-  --factory-blue: #1a4a6e;
-  --factory-red: #8b2020;
+  --factory-amber: #d88010;
+  --factory-amber-bright: #f0a020;
+  --factory-green: #1e6040;
+  --factory-blue: #1a4870;
+  --factory-red: #802020;
   --factory-steel: #2a3440;
   --factory-rust: #7a3820;
-  --factory-text: #b0bac4;
-  --factory-border: rgba(42, 54, 66, 0.9);
-  --factory-border-light: rgba(55, 68, 82, 0.6);
-  --factory-border-amber: rgba(200, 137, 10, 0.3);
+  --factory-text: #cdc5b2;
+  --factory-border: rgba(216,128,16,0.18);
+  --factory-border-light: rgba(216,128,16,0.12);
+  --factory-border-amber: rgba(216,128,16,0.3);
   --metal-sheen: linear-gradient(180deg, rgba(255,255,255,0.035) 0%, transparent 50%);
 }
 
@@ -30,9 +46,9 @@ html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--factory-bg);
+  background: var(--bg);
   font-family: 'Exo 2', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  color: var(--factory-text);
+  color: var(--text);
 }
 
 canvas {
@@ -44,32 +60,34 @@ canvas {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: rgba(0,0,0,0.5); }
 ::-webkit-scrollbar-thumb {
-  background: rgba(42,54,66,0.9);
+  background: rgba(216,128,16,0.3);
   border-radius: 1px;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(200,137,10,0.35); }
+::-webkit-scrollbar-thumb:hover { background: rgba(216,128,16,0.55); }
 
 /* ─── Panels ──────────────────────────────────────────────── */
-/* Heavy machined-metal panel */
+/* The amber top border makes it look like panels lit by factory light */
 .panel-glass {
-  background: linear-gradient(180deg, #0f1418 0%, #0a0d11 100%);
-  border: 1px solid var(--factory-border);
+  background: linear-gradient(180deg, #111820 0%, #0c1016 100%);
+  border: 1px solid var(--border);
+  border-top-color: var(--border-top);
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.04),
+    inset 0 1px 0 rgba(216,128,16,0.10),
     inset 0 -1px 0 rgba(0,0,0,0.5),
-    0 0 0 1px rgba(0,0,0,0.6),
-    0 8px 40px rgba(0,0,0,0.7);
-  backdrop-filter: blur(12px);
+    0 0 0 1px rgba(0,0,0,0.7),
+    0 16px 48px rgba(0,0,0,0.85),
+    0 0 100px rgba(216,128,16,0.03);
+  backdrop-filter: blur(10px);
 }
 
 .panel-glass-hover:hover {
-  border-color: var(--factory-border-amber);
+  border-top-color: rgba(216,128,16,0.65);
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.04),
+    inset 0 1px 0 rgba(216,128,16,0.18),
     inset 0 -1px 0 rgba(0,0,0,0.5),
-    0 0 0 1px rgba(0,0,0,0.6),
-    0 0 20px rgba(200,137,10,0.08),
-    0 8px 40px rgba(0,0,0,0.7);
+    0 0 0 1px rgba(0,0,0,0.7),
+    0 0 30px rgba(216,128,16,0.08),
+    0 16px 48px rgba(0,0,0,0.85);
 }
 
 /* Metal inset panel (dark recess) */
@@ -85,8 +103,8 @@ canvas {
     45deg,
     transparent,
     transparent 7px,
-    rgba(200,137,10,0.10) 7px,
-    rgba(200,137,10,0.10) 14px
+    rgba(216,128,16,0.10) 7px,
+    rgba(216,128,16,0.10) 14px
   );
 }
 
@@ -110,25 +128,24 @@ canvas {
 
 /* ─── Text ─────────────────────────────────────────────────── */
 .text-glow-amber {
-  text-shadow: 0 0 12px rgba(200,137,10,0.5), 0 0 30px rgba(200,137,10,0.15);
+  text-shadow: 0 0 12px rgba(216,128,16,0.6), 0 0 30px rgba(216,128,16,0.2);
 }
 .text-glow-green {
-  text-shadow: 0 0 10px rgba(26,92,54,0.6);
+  text-shadow: 0 0 10px rgba(30,160,80,0.4);
 }
 
 /* ─── Progress bars ────────────────────────────────────────── */
-.bar-glow-green {
-  box-shadow: 0 0 5px rgba(26,160,80,0.4);
+.hud-bar {
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(0,0,0,0.8);
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.7);
 }
-.bar-glow-amber {
-  box-shadow: 0 0 5px rgba(200,137,10,0.4);
-}
-.bar-glow-blue {
-  box-shadow: 0 0 5px rgba(60,100,160,0.4);
-}
-.bar-glow-red {
-  box-shadow: 0 0 5px rgba(180,40,40,0.4);
-}
+.bar-glow-green  { box-shadow: 0 0 6px rgba(30,160,80,0.5); }
+.bar-glow-amber  { box-shadow: 0 0 6px rgba(216,128,16,0.5); }
+.bar-glow-blue   { box-shadow: 0 0 5px rgba(60,120,200,0.4); }
+.bar-glow-red    { box-shadow: 0 0 5px rgba(180,40,40,0.5); }
 
 /* ─── Buttons ──────────────────────────────────────────────── */
 .btn-factory {
@@ -140,40 +157,35 @@ canvas {
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--metal-sheen);
+  background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%);
   opacity: 0;
   transition: opacity 0.15s;
 }
 .btn-factory:hover::after { opacity: 1; }
 
-/* Industrial action button (replaces btn-shine) */
+/* Industrial primary button */
 .btn-shine {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(180deg, #1a1e26 0%, #0e1116 100%);
-  border: 1px solid rgba(200,137,10,0.45);
+  background: linear-gradient(180deg, #1e1408 0%, #120e06 100%);
+  border: 1px solid rgba(216,128,16,0.45);
+  border-top-color: rgba(216,128,16,0.65);
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.06),
-    inset 0 -1px 0 rgba(0,0,0,0.4),
-    0 0 16px rgba(200,137,10,0.12),
-    0 4px 16px rgba(0,0,0,0.6);
+    inset 0 1px 0 rgba(255,200,80,0.08),
+    inset 0 -1px 0 rgba(0,0,0,0.5),
+    0 0 20px rgba(216,128,16,0.12),
+    0 4px 16px rgba(0,0,0,0.7);
+  color: #e8c060;
 }
-.btn-shine::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(200,137,10,0.3), transparent);
+.btn-shine:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255,200,80,0.12),
+    inset 0 -1px 0 rgba(0,0,0,0.5),
+    0 0 30px rgba(216,128,16,0.25),
+    0 4px 16px rgba(0,0,0,0.7);
 }
 
 /* ─── HUD bar container ────────────────────────────────────── */
-.hud-bar {
-  background: rgba(0,0,0,0.6);
-  border: 1px solid rgba(20,26,32,0.9);
-  border-radius: 2px;
-  overflow: hidden;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.6);
-}
 
 /* ─── Category badge ───────────────────────────────────────── */
 .category-badge {
@@ -183,9 +195,9 @@ canvas {
   text-transform: uppercase;
   padding: 2px 8px;
   border-radius: 2px;
-  background: rgba(200,137,10,0.08);
-  border: 1px solid rgba(200,137,10,0.2);
-  color: rgba(200,137,10,0.6);
+  background: rgba(216,128,16,0.08);
+  border: 1px solid rgba(216,128,16,0.2);
+  color: rgba(216,128,16,0.65);
 }
 
 /* ─── Animations ───────────────────────────────────────────── */
@@ -202,10 +214,10 @@ canvas {
 .animate-slide-up { animation: slide-up 0.3s ease-out; }
 
 @keyframes pulse-glow-amber {
-  0%, 100% { box-shadow: 0 0 6px rgba(200,137,10,0.15); }
-  50%       { box-shadow: 0 0 14px rgba(200,137,10,0.35); }
+  0%, 100% { box-shadow: 0 0 6px rgba(216,128,16,0.2); }
+  50%       { box-shadow: 0 0 18px rgba(216,128,16,0.45); }
 }
-.animate-pulse-amber { animation: pulse-glow-amber 3s ease-in-out infinite; }
+.animate-pulse-amber { animation: pulse-glow-amber 2.5s ease-in-out infinite; }
 
 @keyframes notify-in {
   from { opacity: 0; transform: translateY(-8px) translateX(-50%) scale(0.97); }
@@ -213,12 +225,12 @@ canvas {
 }
 .notify-enter { animation: notify-in 0.2s ease-out forwards; }
 
-/* ─── Grid (blueprint style, static) ─────────────────────── */
+/* ─── Grid (blueprint style, amber-tinted) ─────────────────── */
 .bg-factory-grid {
   background-image:
-    linear-gradient(rgba(42,54,66,0.25) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(42,54,66,0.25) 1px, transparent 1px),
-    linear-gradient(rgba(42,54,66,0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(42,54,66,0.08) 1px, transparent 1px);
+    linear-gradient(rgba(216,128,16,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(216,128,16,0.07) 1px, transparent 1px),
+    linear-gradient(rgba(216,128,16,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(216,128,16,0.025) 1px, transparent 1px);
   background-size: 128px 128px, 128px 128px, 32px 32px, 32px 32px;
 }

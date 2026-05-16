@@ -34,7 +34,7 @@ export default function HUD({ state, notifications }: Props) {
       <div
         className="flex items-center justify-between px-4 py-2.5"
         style={{
-          background: 'linear-gradient(to bottom, rgba(6,8,10,0.95) 0%, rgba(6,8,10,0.6) 70%, transparent 100%)',
+          background: 'linear-gradient(to bottom, rgba(7,9,11,0.96) 0%, rgba(7,9,11,0.6) 70%, transparent 100%)',
           borderBottom: 'none',
         }}
       >
@@ -73,7 +73,7 @@ export default function HUD({ state, notifications }: Props) {
           </div>
 
           {/* Premium */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md" style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.15)' }}>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md" style={{ background: 'rgba(216,128,16,0.06)', border: '1px solid rgba(216,128,16,0.15)' }}>
             <span className="text-cyan-400 text-xs" style={{ filter: 'drop-shadow(0 0 4px #06b6d4)' }}>◆</span>
             <span className="text-[11px] text-cyan-300/80 font-mono tabular-nums">{state.player.premiumCurrency}</span>
           </div>
@@ -136,10 +136,10 @@ export default function HUD({ state, notifications }: Props) {
             key={i}
             className="px-5 py-2 text-sm font-exo rounded-lg notify-enter"
             style={{
-              background: 'linear-gradient(180deg, #0f1418 0%, #0a0d11 100%)',
-              border: '1px solid rgba(42,54,66,0.9)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 4px 20px rgba(0,0,0,0.7)',
-              color: 'rgba(176,186,196,0.9)',
+              background: 'linear-gradient(180deg, #111820 0%, #0c1016 100%)',
+              border: '1px solid rgba(216,128,16,0.2)',
+              boxShadow: 'inset 0 1px 0 rgba(216,128,16,0.06), 0 4px 20px rgba(0,0,0,0.7)',
+              color: 'rgba(205,197,178,0.9)',
               opacity: Math.min(1, n.timer / 30),
               backdropFilter: 'blur(10px)',
               transform: `translateX(-50%)`,
@@ -147,7 +147,7 @@ export default function HUD({ state, notifications }: Props) {
               left: '50%',
             }}
           >
-            <span className="text-amber-400/70 mr-2">⚡</span>{n.text}
+            <span className="text-amber-400/70 mr-2" style={{ color: 'rgba(216,128,16,0.7)' }}>▶</span>{n.text}
           </div>
         ))}
       </div>
@@ -156,9 +156,10 @@ export default function HUD({ state, notifications }: Props) {
       <div
         className="absolute top-14 right-4 w-44 h-44 rounded-xl overflow-hidden shadow-2xl"
         style={{
-          background: 'linear-gradient(180deg, #0f1418 0%, #0a0d11 100%)',
-          border: '1px solid rgba(42,54,66,0.9)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 0 0 1px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.7)',
+          background: 'linear-gradient(180deg, #111820 0%, #0c1016 100%)',
+          border: '1px solid rgba(216,128,16,0.18)',
+          borderTop: '1px solid rgba(216,128,16,0.35)',
+          boxShadow: 'inset 0 1px 0 rgba(216,128,16,0.06), 0 0 0 1px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.7)',
           backdropFilter: 'blur(8px)',
         }}
       >

@@ -23,9 +23,9 @@ export default function ResearchMenu({ engine, state, onClose }: Props) {
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(56,189,248,0.15)' }}>
+        <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(216,128,16,0.18)' }}>
           <div>
-            <h2 className="font-orbitron font-bold text-lg tracking-wider" style={{ color: '#38bdf8' }}>RESEARCH TREE</h2>
+            <h2 className="font-orbitron font-bold text-lg tracking-wider" style={{ color: 'rgba(216,128,16,0.85)' }}>RESEARCH TREE</h2>
             <p className="text-xs text-white/30 mt-1">Unlock technologies to advance your factory</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-all text-sm font-orbitron">✕</button>
@@ -45,39 +45,39 @@ export default function ResearchMenu({ engine, state, onClose }: Props) {
                 className="p-4 rounded-xl transition-all duration-200"
                 style={{
                   background: unlocked
-                    ? 'rgba(34,197,94,0.06)'
+                    ? 'rgba(216,128,16,0.05)'
                     : inProgress
-                    ? 'rgba(56,189,248,0.06)'
+                    ? 'rgba(216,128,16,0.08)'
                     : available
                     ? 'rgba(255,255,255,0.02)'
                     : 'rgba(255,255,255,0.005)',
                   border: unlocked
-                    ? '1px solid rgba(34,197,94,0.25)'
+                    ? '1px solid rgba(216,128,16,0.25)'
                     : inProgress
-                    ? '1px solid rgba(56,189,248,0.25)'
+                    ? '1px solid rgba(216,128,16,0.35)'
                     : available
                     ? '1px solid rgba(255,255,255,0.08)'
                     : '1px solid rgba(255,255,255,0.03)',
                   opacity: available || unlocked || inProgress ? 1 : 0.45,
-                  boxShadow: unlocked ? '0 0 15px rgba(34,197,94,0.08)' : inProgress ? '0 0 15px rgba(56,189,248,0.1)' : 'none',
+                  boxShadow: unlocked ? '0 0 15px rgba(216,128,16,0.08)' : inProgress ? '0 0 15px rgba(216,128,16,0.12)' : 'none',
                 }}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0 pr-2">
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-sm" style={{
-                        color: unlocked ? '#4ade80' : inProgress ? '#38bdf8' : available ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.35)',
+                        color: unlocked ? '#e8c060' : inProgress ? '#d88010' : available ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.35)',
                       }}>
                         {r.name}
                       </h3>
                       {unlocked && (
-                        <span className="text-[9px] font-orbitron px-2 py-0.5 rounded-full" style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.3)' }}>DONE</span>
+                        <span className="text-[9px] font-orbitron px-2 py-0.5 rounded-full" style={{ background: 'rgba(216,128,16,0.15)', color: '#e8c060', border: '1px solid rgba(216,128,16,0.3)' }}>DONE</span>
                       )}
                     </div>
                     <p className="text-[11px] text-white/30 mt-0.5 leading-tight">{r.description}</p>
                   </div>
                   {inProgress && (
-                    <span className="text-blue-400 text-sm font-orbitron font-bold tabular-nums">
+                    <span className="text-amber-400 text-sm font-orbitron font-bold tabular-nums" style={{ color: '#d88010' }}>
                       {progressPct.toFixed(0)}%
                     </span>
                   )}
@@ -90,8 +90,8 @@ export default function ResearchMenu({ engine, state, onClose }: Props) {
                       className="h-full rounded-full transition-all duration-300"
                       style={{
                         width: `${progressPct}%`,
-                        background: 'linear-gradient(90deg, #3b82f6, #38bdf8)',
-                        boxShadow: '0 0 8px rgba(56,189,248,0.5)',
+                        background: 'linear-gradient(90deg, #a06010, #d88010)',
+                        boxShadow: '0 0 8px rgba(216,128,16,0.5)',
                       }}
                     />
                   </div>
@@ -126,9 +126,9 @@ export default function ResearchMenu({ engine, state, onClose }: Props) {
                     onClick={() => engine.startResearch(r.id)}
                     className="btn-shine w-full py-1.5 text-xs font-semibold font-exo rounded-lg transition-all hover:opacity-90 active:scale-95"
                     style={{
-                      background: 'linear-gradient(135deg, #1d4ed8, #0ea5e9)',
-                      color: 'white',
-                      boxShadow: '0 0 15px rgba(56,189,248,0.2)',
+                      background: 'linear-gradient(180deg, #1e1408 0%, #120e06 100%)',
+                      color: '#f0c060',
+                      boxShadow: '0 0 15px rgba(216,128,16,0.2)',
                     }}
                   >
                     Start Research

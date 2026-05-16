@@ -1,301 +1,263 @@
 import { useState, useEffect, useRef } from 'react';
 
-interface Props {
-  onStart: () => void;
+interface Props { onStart: () => void; }
+
+interface Spark {
+  x: number; y: number;
+  vx: number; vy: number;
+  life: number; maxLife: number;
+  size: number;
 }
 
+const BUILDINGS = [
+  { x: 0.00, y: 0.72, w: 0.14, h: 0.28, chimneys: [0.04, 0.11] },
+  { x: 0.12, y: 0.62, w: 0.12, h: 0.38, chimneys: [0.17] },
+  { x: 0.22, y: 0.69, w: 0.18, h: 0.31, chimneys: [0.27, 0.35] },
+  { x: 0.38, y: 0.58, w: 0.14, h: 0.42, chimneys: [0.43, 0.48] },
+  { x: 0.50, y: 0.67, w: 0.16, h: 0.33, chimneys: [0.55, 0.61] },
+  { x: 0.64, y: 0.61, w: 0.14, h: 0.39, chimneys: [0.69, 0.75] },
+  { x: 0.76, y: 0.70, w: 0.12, h: 0.30, chimneys: [0.80] },
+  { x: 0.86, y: 0.64, w: 0.16, h: 0.36, chimneys: [0.90, 0.97] },
+];
+
 export default function StartScreen({ onStart }: Props) {
-  const [opacity, setOpacity] = useState(0);
-  const [contentVisible, setContentVisible] = useState(false);
-  const [btnVisible, setBtnVisible] = useState(false);
+  const [phase, setPhase] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sparksRef = useRef<Spark[]>([]);
 
   useEffect(() => {
-    requestAnimationFrame(() => setOpacity(1));
-    setTimeout(() => setContentVisible(true), 300);
-    setTimeout(() => setBtnVisible(true), 700);
+    const t1 = setTimeout(() => setPhase(1), 100);
+    const t2 = setTimeout(() => setPhase(2), 500);
+    const t3 = setTimeout(() => setPhase(3), 950);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
-  // Industrial background: solid metal gears + pipes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    let frame = 0;
     let raf: number;
 
-    const drawGear = (x: number, y: number, r: number, teeth: number, angle: number, alpha: number) => {
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.translate(x, y);
-      ctx.rotate(angle);
-
-      ctx.beginPath();
-      for (let i = 0; i < teeth; i++) {
-        const a1 = (i / teeth) * Math.PI * 2;
-        const a2 = ((i + 0.35) / teeth) * Math.PI * 2;
-        const a3 = ((i + 0.5) / teeth) * Math.PI * 2;
-        const a4 = ((i + 0.85) / teeth) * Math.PI * 2;
-        if (i === 0) ctx.moveTo(Math.cos(a1) * r, Math.sin(a1) * r);
-        else ctx.lineTo(Math.cos(a1) * r, Math.sin(a1) * r);
-        ctx.lineTo(Math.cos(a1) * (r + 10), Math.sin(a1) * (r + 10));
-        ctx.lineTo(Math.cos(a2) * (r + 10), Math.sin(a2) * (r + 10));
-        ctx.lineTo(Math.cos(a3) * r, Math.sin(a3) * r);
-        ctx.lineTo(Math.cos(a4) * r, Math.sin(a4) * r);
+    const emit = (W: number, H: number) => {
+      for (const b of BUILDINGS) {
+        for (const cx of b.chimneys) {
+          if (Math.random() < 0.06) {
+            sparksRef.current.push({
+              x: cx * W + (Math.random() - 0.5) * 10,
+              y: b.y * H - 4,
+              vx: (Math.random() - 0.5) * 1.4,
+              vy: -(1.0 + Math.random() * 2.8),
+              life: 0,
+              maxLife: 80 + Math.random() * 90,
+              size: 0.8 + Math.random() * 2.2,
+            });
+          }
+        }
       }
-      ctx.closePath();
-
-      const grad = ctx.createRadialGradient(0, -r * 0.3, 0, 0, 0, r + 12);
-      grad.addColorStop(0, 'rgba(48,58,70,0.9)');
-      grad.addColorStop(1, 'rgba(18,22,28,0.9)');
-      ctx.fillStyle = grad;
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(70,88,105,0.5)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 0.35, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(6,8,10,0.9)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(70,88,105,0.4)';
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 0.1, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(110,130,155,0.6)';
-      ctx.fill();
-
-      ctx.restore();
+      if (sparksRef.current.length > 200) sparksRef.current = sparksRef.current.slice(-200);
     };
 
-    const drawPipe = (x1: number, y1: number, x2: number, y2: number, w: number, alpha: number) => {
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      const angle = Math.atan2(y2 - y1, x2 - x1);
-      const len = Math.hypot(x2 - x1, y2 - y1);
-      ctx.translate(x1, y1);
-      ctx.rotate(angle);
+    const draw = () => {
+      const W = canvas.width = canvas.offsetWidth;
+      const H = canvas.height = canvas.offsetHeight;
+      ctx.clearRect(0, 0, W, H);
 
-      const g = ctx.createLinearGradient(0, -w, 0, w);
-      g.addColorStop(0, 'rgba(60,74,88,0.8)');
-      g.addColorStop(0.4, 'rgba(35,44,55,0.8)');
-      g.addColorStop(1, 'rgba(12,16,20,0.8)');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, -w, len, w * 2);
+      // Warm atmospheric glow from factory base
+      const atm = ctx.createRadialGradient(W / 2, H * 1.1, 0, W / 2, H * 0.4, H);
+      atm.addColorStop(0, 'rgba(180,90,8,0.20)');
+      atm.addColorStop(0.3, 'rgba(140,65,5,0.10)');
+      atm.addColorStop(0.6, 'rgba(80,35,3,0.04)');
+      atm.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = atm;
+      ctx.fillRect(0, 0, W, H);
 
-      ctx.fillStyle = 'rgba(70,88,105,0.4)';
-      ctx.fillRect(0, -w, len, 1);
+      // Factory silhouettes
+      for (const b of BUILDINGS) {
+        const bx = b.x * W, by = b.y * H, bw = b.w * W, bh = b.h * H;
+        ctx.fillStyle = '#06080a';
+        ctx.fillRect(bx, by, bw, bh);
+        const bg = ctx.createLinearGradient(bx, by, bx, by + bh * 0.3);
+        bg.addColorStop(0, 'rgba(180,90,8,0.06)');
+        bg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = bg;
+        ctx.fillRect(bx, by, bw, bh * 0.3);
+        for (const cx of b.chimneys) {
+          const ch = H * 0.10;
+          ctx.fillStyle = '#05070a';
+          ctx.fillRect(cx * W - 5, by - ch, 10, ch + 2);
+        }
+        const cols = Math.floor(bw / 18);
+        for (let row = 0; row < 3; row++) {
+          for (let col = 0; col < cols; col++) {
+            if ((Math.sin(bx + col * 7 + row * 13) + 1) * 0.5 > 0.45) {
+              const alpha = 0.08 + (Math.sin(bx + col + row + Date.now() * 0.0002) + 1) * 0.04;
+              ctx.fillStyle = `rgba(200,140,20,${alpha})`;
+              ctx.fillRect(bx + col * 18 + 5, by + row * 16 + 10, 8, 7);
+            }
+          }
+        }
+        ctx.fillStyle = 'rgba(216,128,16,0.04)';
+        ctx.fillRect(bx, by, 1, bh);
+        ctx.fillRect(bx + bw - 1, by, 1, bh);
+      }
 
-      ctx.restore();
+      // Ground ambient
+      const gnd = ctx.createLinearGradient(0, H * 0.90, 0, H);
+      gnd.addColorStop(0, 'rgba(180,90,8,0.12)');
+      gnd.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = gnd;
+      ctx.fillRect(0, H * 0.90, W, H * 0.10);
+
+      // Sparks / embers
+      emit(W, H);
+      const alive: Spark[] = [];
+      for (const s of sparksRef.current) {
+        const p = s.life / s.maxLife;
+        const alpha = p < 0.15 ? p / 0.15 : (1 - p);
+        if (alpha > 0.01) {
+          ctx.save();
+          ctx.globalAlpha = alpha * 0.85;
+          const r = 255;
+          const g = Math.round(180 * (1 - p * 0.8) + 20 * p);
+          const bl = Math.round(15 * (1 - p));
+          ctx.fillStyle = `rgb(${r},${g},${bl})`;
+          ctx.shadowColor = `rgb(${r},${g},${bl})`;
+          ctx.shadowBlur = 3;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.size * (1 - p * 0.5), 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+        s.x += s.vx; s.vx *= 0.99;
+        s.y += s.vy; s.vy += 0.025;
+        s.life++;
+        if (s.life < s.maxLife) alive.push(s);
+      }
+      sparksRef.current = alive;
+
+      raf = requestAnimationFrame(draw);
     };
 
-    const render = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const t = frame * 0.003;
-      const W = canvas.width;
-      const H = canvas.height;
-
-      drawPipe(0, H * 0.28, W * 0.22, H * 0.28, 9, 0.4);
-      drawPipe(W * 0.78, H * 0.72, W, H * 0.72, 9, 0.4);
-      drawPipe(W * 0.12, 0, W * 0.12, H * 0.32, 7, 0.3);
-      drawPipe(W * 0.88, H * 0.68, W * 0.88, H, 7, 0.3);
-      drawPipe(W * 0.2, H * 0.85, W * 0.55, H * 0.85, 5, 0.2);
-
-      drawGear(72, H - 92, 56, 12, t, 0.55);
-      drawGear(170, H - 52, 31, 8, -t * 1.82, 0.5);
-      drawGear(W - 88, 88, 66, 14, -t * 0.72, 0.5);
-      drawGear(W - 198, 48, 28, 7, t * 1.95, 0.45);
-      drawGear(W * 0.5, H * 0.8, 42, 10, t * 0.48, 0.3);
-
-      frame++;
-      raf = requestAnimationFrame(render);
-    };
-
-    render();
+    draw();
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  const vis = (n: number, delay = 0): React.CSSProperties => ({
+    opacity: phase >= n ? 1 : 0,
+    transform: phase >= n ? 'none' : 'translateY(12px)',
+    transition: `opacity 0.6s ease ${delay}s, transform 0.6s ease ${delay}s`,
+  });
+
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center transition-opacity duration-700"
-      style={{
-        opacity,
-        background: 'linear-gradient(160deg, #090c0f 0%, #06080a 55%, #080a0d 100%)',
-      }}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+      style={{ background: '#07090b', opacity: phase >= 1 ? 1 : 0, transition: 'opacity 0.8s ease' }}
     >
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
-
-      {/* Blueprint grid */}
       <div className="absolute inset-0 bg-factory-grid pointer-events-none" />
 
-      {/* CRT scanlines */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px)',
-        }}
-      />
+      {/* Top & bottom hazard bars */}
+      {(['top-0', 'bottom-0'] as const).map(pos => (
+        <div key={pos} className={`absolute ${pos} left-0 right-0 h-[3px] pointer-events-none`}
+          style={{ background: 'repeating-linear-gradient(90deg, #d88010 0, #d88010 18px, transparent 18px, transparent 36px)' }} />
+      ))}
 
-      {/* Top hazard stripe */}
-      <div
-        className="absolute top-0 left-0 right-0 h-1 pointer-events-none"
-        style={{ background: 'repeating-linear-gradient(90deg, #c8890a 0px, #c8890a 18px, #06080a 18px, #06080a 36px)' }}
-      />
-      {/* Bottom hazard stripe */}
-      <div
-        className="absolute bottom-0 left-0 right-0 h-1 pointer-events-none"
-        style={{ background: 'repeating-linear-gradient(90deg, #c8890a 0px, #c8890a 18px, #06080a 18px, #06080a 36px)' }}
-      />
+      {/* Corner brackets */}
+      {([
+        ['top-3 left-3',   'border-t-2 border-l-2'],
+        ['top-3 right-3',  'border-t-2 border-r-2'],
+        ['bottom-3 left-3',  'border-b-2 border-l-2'],
+        ['bottom-3 right-3', 'border-b-2 border-r-2'],
+      ] as const).map(([pos, border], i) => (
+        <div key={i} className={`absolute w-8 h-8 ${pos} ${border}`}
+          style={{ borderColor: 'rgba(216,128,16,0.4)' }} />
+      ))}
 
-      {/* Main content */}
-      <div className="relative z-10 text-center px-8 select-none">
+      {/* Content */}
+      <div className="relative z-10 text-center px-8">
 
-        {/* System status */}
-        <div className={`mb-8 transition-all duration-500 ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}>
-          <div
-            className="inline-flex items-center gap-2.5 px-4 py-1.5"
-            style={{
-              background: 'rgba(200,137,10,0.08)',
-              border: '1px solid rgba(200,137,10,0.25)',
-              borderRadius: '2px',
-            }}
-          >
-            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" style={{ boxShadow: '0 0 6px #c8890a' }} />
-            <span className="font-orbitron text-[9px] tracking-[0.45em]" style={{ color: 'rgba(200,137,10,0.75)' }}>
-              SYSTEM ONLINE
-            </span>
+        {/* Status badge */}
+        <div style={{ ...vis(2), marginBottom: '28px', display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '6px 16px', background: 'rgba(216,128,16,0.08)', border: '1px solid rgba(216,128,16,0.25)', borderRadius: '2px' }}>
+          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#d88010', boxShadow: '0 0 8px #d88010' }} />
+          <span className="font-orbitron" style={{ fontSize: '8px', letterSpacing: '0.55em', color: 'rgba(216,128,16,0.8)' }}>SYSTEM ONLINE</span>
+        </div>
+
+        {/* Main title */}
+        <div style={vis(2, 0.1)}>
+          <h1 className="font-orbitron font-black" style={{
+            fontSize: 'clamp(4.5rem, 11vw, 7.5rem)',
+            lineHeight: 1,
+            letterSpacing: '-0.02em',
+            color: '#e8dcc8',
+            textShadow: '0 0 60px rgba(216,128,16,0.45), 0 0 120px rgba(216,128,16,0.15), 4px 4px 0 rgba(0,0,0,0.95), 2px 2px 0 rgba(0,0,0,0.7)',
+          }}>FACTORY</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '6px' }}>
+            <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, transparent, rgba(216,128,16,0.55))' }} />
+            <h2 className="font-orbitron font-light" style={{
+              fontSize: 'clamp(1.4rem, 3.5vw, 2.2rem)',
+              letterSpacing: '0.65em',
+              color: 'rgba(216,128,16,0.85)',
+              textShadow: '0 0 25px rgba(216,128,16,0.35)',
+            }}>WORLD</h2>
+            <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(216,128,16,0.55))' }} />
           </div>
         </div>
 
-        {/* Title */}
-        <div className={`transition-all duration-600 ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
-          <h1
-            className="font-orbitron font-black leading-none tracking-tight"
-            style={{
-              fontSize: 'clamp(4rem, 10vw, 6.5rem)',
-              color: '#d8dde4',
-              textShadow: '0 0 40px rgba(200,137,10,0.25), 3px 3px 0px rgba(0,0,0,0.95), 1px 1px 0px rgba(0,0,0,0.8)',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            FACTORY
-          </h1>
-          <h2
-            className="font-orbitron font-light tracking-[0.55em] mt-2"
-            style={{
-              fontSize: 'clamp(1.4rem, 3vw, 2rem)',
-              color: 'rgba(200,137,10,0.75)',
-              textShadow: '0 0 20px rgba(200,137,10,0.2)',
-            }}
-          >
-            WORLD
-          </h2>
-        </div>
-
-        {/* Rule */}
-        <div className={`flex items-center gap-4 my-7 transition-all duration-500 ${contentVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <div
-            className="flex-1 h-px"
-            style={{ background: 'linear-gradient(to right, transparent, rgba(42,54,66,0.9))' }}
-          />
-          <span
-            className="font-orbitron"
-            style={{ fontSize: '8px', letterSpacing: '0.45em', color: 'rgba(200,137,10,0.35)' }}
-          >
+        {/* Tagline */}
+        <div style={{ ...vis(2, 0.25), marginTop: '18px', marginBottom: '32px' }}>
+          <span className="font-orbitron" style={{ fontSize: '9px', letterSpacing: '0.55em', color: 'rgba(205,197,178,0.25)' }}>
             BUILD · AUTOMATE · SURVIVE
           </span>
-          <div
-            className="flex-1 h-px"
-            style={{ background: 'linear-gradient(to left, transparent, rgba(42,54,66,0.9))' }}
-          />
         </div>
 
-        {/* Start button */}
-        <div className={`transition-all duration-500 ${btnVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}>
+        {/* CTA button */}
+        <div style={vis(3)}>
           <button
             onClick={onStart}
-            className="btn-shine group px-16 py-4 font-orbitron font-bold tracking-widest transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+            className="font-orbitron font-bold tracking-widest"
             style={{
+              padding: '14px 64px',
               fontSize: '13px',
-              color: '#d4a030',
-              borderRadius: '3px',
-              clipPath: 'polygon(7px 0%, calc(100% - 7px) 0%, 100% 7px, 100% calc(100% - 7px), calc(100% - 7px) 100%, 7px 100%, 0% calc(100% - 7px), 0% 7px)',
+              color: '#f0c060',
+              background: 'linear-gradient(180deg, #1e1408 0%, #120e06 100%)',
+              border: '1px solid rgba(216,128,16,0.45)',
+              borderTop: '1px solid rgba(216,128,16,0.70)',
+              borderRadius: '2px',
+              cursor: 'pointer',
+              clipPath: 'polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0% calc(100% - 8px), 0% 8px)',
+              boxShadow: 'inset 0 1px 0 rgba(255,200,80,0.08), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 30px rgba(216,128,16,0.18), 0 4px 20px rgba(0,0,0,0.8)',
+              transition: 'all 0.15s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.boxShadow = 'inset 0 1px 0 rgba(255,200,80,0.12), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 45px rgba(216,128,16,0.35), 0 4px 20px rgba(0,0,0,0.8)';
+              (e.currentTarget as HTMLElement).style.transform = 'scale(1.02)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.boxShadow = 'inset 0 1px 0 rgba(255,200,80,0.08), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 30px rgba(216,128,16,0.18), 0 4px 20px rgba(0,0,0,0.8)';
+              (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
             }}
           >
-            <span className="flex items-center gap-3">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5,3 19,12 5,21" />
-              </svg>
-              INITIALIZE
-            </span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
+            INITIALIZE
           </button>
-
-          <p
-            className="font-exo mt-4"
-            style={{ fontSize: '11px', color: 'rgba(255,255,255,0.12)', letterSpacing: '0.08em' }}
-          >
-            Press{' '}
-            <kbd
-              style={{
-                padding: '2px 7px',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '2px',
-                color: 'rgba(255,255,255,0.25)',
-                fontSize: '10px',
-                fontFamily: 'Orbitron, sans-serif',
-              }}
-            >
-              ENTER
-            </kbd>{' '}
-            to begin
+          <p style={{ marginTop: '14px', color: 'rgba(205,197,178,0.15)', fontSize: '11px', fontFamily: 'Exo 2, sans-serif', letterSpacing: '0.08em' }}>
+            Press <kbd style={{ padding: '2px 6px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '2px', color: 'rgba(205,197,178,0.3)', fontSize: '9px', fontFamily: 'Orbitron, sans-serif' }}>ENTER</kbd> to begin
           </p>
         </div>
 
-        {/* Controls reference */}
-        <div className={`mt-10 transition-all duration-500 ${btnVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <div
-            className="inline-block p-4"
-            style={{
-              background: 'rgba(8,10,13,0.85)',
-              border: '1px solid rgba(40,52,64,0.7)',
-              borderRadius: '3px',
-            }}
-          >
-            <div
-              className="font-orbitron mb-3"
-              style={{ fontSize: '8px', letterSpacing: '0.35em', color: 'rgba(200,137,10,0.35)' }}
-            >
-              CONTROL REFERENCE
-            </div>
-            <div className="grid grid-cols-4 gap-x-8 gap-y-1.5 font-exo text-xs">
-              {[
-                ['WASD', 'Move'], ['B', 'Build'], ['R', 'Research'], ['I', 'Inventory'],
-                ['Q', 'Rotate'], ['LMB', 'Mine/Place'], ['RMB', 'Remove'], ['Scroll', 'Zoom'],
-              ].map(([key, action]) => (
-                <div key={key} className="flex items-center gap-2">
-                  <kbd
-                    style={{
-                      padding: '1px 6px',
-                      background: 'rgba(200,137,10,0.07)',
-                      border: '1px solid rgba(200,137,10,0.18)',
-                      borderRadius: '2px',
-                      color: 'rgba(200,137,10,0.55)',
-                      fontSize: '8px',
-                      fontFamily: 'Orbitron, sans-serif',
-                      minWidth: '26px',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {key}
-                  </kbd>
-                  <span style={{ color: 'rgba(176,186,196,0.3)' }}>{action}</span>
+        {/* Controls */}
+        <div style={{ ...vis(3, 0.2), marginTop: '32px' }}>
+          <div style={{ display: 'inline-block', padding: '14px 20px', background: 'rgba(7,9,11,0.92)', border: '1px solid rgba(42,54,66,0.8)', borderRadius: '2px' }}>
+            <div className="font-orbitron" style={{ fontSize: '8px', letterSpacing: '0.4em', color: 'rgba(216,128,16,0.35)', marginBottom: '10px' }}>CONTROL REFERENCE</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, auto)', gap: '6px 28px' }}>
+              {[['WASD','Move'],['B','Build'],['R','Research'],['I','Inventory'],['Q','Rotate'],['LMB','Mine/Place'],['RMB','Remove'],['Scroll','Zoom']].map(([k,a]) => (
+                <div key={k} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <kbd style={{ padding: '1px 5px', background: 'rgba(216,128,16,0.07)', border: '1px solid rgba(216,128,16,0.18)', borderRadius: '2px', color: 'rgba(216,128,16,0.55)', fontSize: '8px', fontFamily: 'Orbitron, sans-serif', minWidth: '24px', textAlign: 'center' as const, display: 'inline-block' }}>{k}</kbd>
+                  <span style={{ fontSize: '11px', color: 'rgba(205,197,178,0.22)', fontFamily: 'Exo 2, sans-serif' }}>{a}</span>
                 </div>
               ))}
             </div>
@@ -305,4 +267,3 @@ export default function StartScreen({ onStart }: Props) {
     </div>
   );
 }
-
