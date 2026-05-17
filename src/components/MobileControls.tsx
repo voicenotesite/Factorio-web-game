@@ -28,8 +28,7 @@ export default function MobileControls({ engine, onBuild, onCraft, onResearch, o
         if (Math.abs(x) > 0.05 || Math.abs(y) > 0.05) {
           engine.state.player.x += x * speed;
           engine.state.player.y += y * speed;
-          engine.state.camera.x = engine.state.player.x;
-          engine.state.camera.y = engine.state.player.y;
+          // camera is handled by engine.updateCamera() — do NOT set it here
         }
       }
       animFrameRef.current = requestAnimationFrame(tick);

@@ -296,8 +296,9 @@ export class GameEngine {
     const state = this.state;
     const targetCamX = state.player.x * TILE_SIZE;
     const targetCamY = state.player.y * TILE_SIZE;
-    state.camera.x += (targetCamX - state.camera.x) * 0.08;
-    state.camera.y += (targetCamY - state.camera.y) * 0.08;
+    const lerpSpeed = 0.15;
+    state.camera.x += (targetCamX - state.camera.x) * lerpSpeed;
+    state.camera.y += (targetCamY - state.camera.y) * lerpSpeed;
     state.camera.zoom += (this.targetZoom - state.camera.zoom) * 0.12;
   }
 
