@@ -56,9 +56,9 @@ export default function BuildMenu({ engine, state, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 backdrop-blur-md" onClick={onClose}>
+    <div className="fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md" onClick={onClose}>
       <div
-        className="panel-glass rounded-2xl p-5 max-w-2xl w-full mx-4 max-h-[82vh] overflow-y-auto animate-slide-up font-exo"
+        className="panel-glass rounded-t-2xl sm:rounded-2xl p-4 sm:p-5 w-full sm:max-w-2xl sm:mx-4 max-h-[85vh] overflow-y-auto animate-slide-up font-exo"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

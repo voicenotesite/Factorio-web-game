@@ -118,6 +118,8 @@ function App() {
           onBuild={() => setShowBuild(true)}
           onCraft={() => setShowInventory(true)}
           onResearch={() => setShowResearch(true)}
+          onStats={() => setShowStats(true)}
+          onSave={() => setShowSaveLoad(true)}
         />
       )}
 
@@ -125,7 +127,7 @@ function App() {
       {currentUser && started && <ChatPanel />}
 
       {/* Bottom action bar */}
-      {currentUser && started && (
+      {currentUser && started && !isMobile && (
         <div
           className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 animate-slide-up"
           style={{

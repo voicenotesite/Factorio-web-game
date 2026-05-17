@@ -234,3 +234,10 @@ canvas {
     linear-gradient(90deg, rgba(216,128,16,0.025) 1px, transparent 1px);
   background-size: 128px 128px, 128px 128px, 32px 32px, 32px 32px;
 }
+
+/* ─── Mobile touch improvements ────────────────────────────── */
+@media (max-width: 767px) {
+  button { min-height: 36px; }
+  * { -webkit-tap-highlight-color: transparent; }
+  .overflow-y-auto { -webkit-overflow-scrolling: touch; }
+}

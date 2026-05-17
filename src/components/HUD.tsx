@@ -28,6 +28,68 @@ export default function HUD({ state, notifications }: Props) {
 
   const hpGlow = hpPct > 50 ? 'bar-glow-green' : hpPct > 25 ? 'bar-glow-amber' : 'bar-glow-red';
 
+  const isMobile = window.innerWidth < 768;
+
+  if (isMobile) {
+    return (
+      <div className="fixed top-0 left-0 right-0 pointer-events-none z-10 font-exo">
+        <div className="flex items-center justify-between px-3 py-2" style={{
+          background: 'linear-gradient(to bottom, rgba(7,9,11,0.92) 0%, transparent 100%)',
+        }}>
+          {/* Left: HP + XP */}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                <div className={`h-full rounded-full bg-gradient-to-r ${hpColor} transition-all`} style={{ width: `${hpPct}%` }} />
+              </div>
+              <span className="text-[9px] text-white/40 font-mono">{Math.ceil(state.player.health)}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-20 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-400 transition-all" style={{ width: `${xpPct}%` }} />
+              </div>
+              <span className="text-[9px] text-violet-400/80 font-mono">Lv{state.player.level}</span>
+            </div>
+          </div>
+
+          {/* Right: Top resources */}
+          <div className="flex items-center gap-1 flex-wrap justify-end max-w-[60vw]">
+            {state.player.inventory.slice(0, 6).map((slot, i) => (
+              <div key={i} className="flex items-center gap-1 px-1.5 py-0.5 rounded" style={{
+                background: 'rgba(6,10,18,0.8)',
+                border: `1px solid ${RESOURCE_COLORS[slot.itemId] || '#888'}33`,
+              }}>
+                <div className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{
+                  backgroundColor: RESOURCE_COLORS[slot.itemId] || '#888',
+                }} />
+                <span className="text-[9px] text-white/70 font-mono tabular-nums">{slot.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Notifications - centered */}
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 w-full px-4">
+          {notifications.slice(0, 2).map((n, i) => {
+            const notifColor = n.type === 'error' ? '#f87171' : n.type === 'success' ? '#4ade80' : n.type === 'build' ? '#38bdf8' : 'rgba(205,197,178,0.9)';
+            return (
+              <div key={i} className="px-3 py-1.5 text-xs font-exo rounded-lg text-center w-full max-w-xs"
+                style={{
+                  background: 'rgba(10,14,20,0.9)',
+                  border: '1px solid rgba(216,128,16,0.2)',
+                  color: notifColor,
+                  opacity: Math.min(1, n.timer / 30),
+                }}
+              >
+                {n.text}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed top-0 left-0 right-0 pointer-events-none z-10 font-exo">
       {/* Top bar */}

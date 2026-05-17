@@ -25,6 +25,7 @@ export default function ChatPanel({ onClose }: Props) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const minimizedRef = useRef(false);
   const username = getCurrentUser();
+  const isMobile = window.innerWidth < 768;
 
   // Keep ref in sync so the channel callback doesn't capture stale state
   useEffect(() => { minimizedRef.current = minimized; }, [minimized]);
@@ -96,7 +97,8 @@ export default function ChatPanel({ onClose }: Props) {
   if (minimized) {
     return (
       <div
-        className="fixed bottom-24 right-4 z-25 cursor-pointer"
+        className="fixed z-25 cursor-pointer"
+        style={{ bottom: isMobile ? '160px' : '96px', right: isMobile ? '8px' : '16px' }}
         onClick={() => { setMinimized(false); setUnread(0); }}
       >
         <div
@@ -115,13 +117,26 @@ export default function ChatPanel({ onClose }: Props) {
 
   return (
     <div
-      className="fixed bottom-24 right-4 z-25 w-72 flex flex-col rounded-2xl overflow-hidden font-exo"
+      className="fixed z-25 flex flex-col overflow-hidden font-exo"
       style={{
         background: 'linear-gradient(180deg, rgba(10,14,20,0.97) 0%, rgba(6,8,12,0.97) 100%)',
         border: '1px solid rgba(216,128,16,0.2)',
         borderTop: '1px solid rgba(216,128,16,0.4)',
         boxShadow: '0 0 40px rgba(0,0,0,0.8)',
-        height: '280px',
+        ...(isMobile ? {
+          bottom: 0,
+          right: 0,
+          left: 0,
+          width: '100%',
+          height: '45vh',
+          borderRadius: '20px 20px 0 0',
+        } : {
+          bottom: '96px',
+          right: '16px',
+          width: '288px',
+          height: '280px',
+          borderRadius: '16px',
+        }),
       }}
     >
       <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>

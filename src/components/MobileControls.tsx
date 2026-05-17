@@ -6,9 +6,11 @@ interface Props {
   onBuild: () => void;
   onCraft: () => void;
   onResearch: () => void;
+  onStats: () => void;
+  onSave: () => void;
 }
 
-export default function MobileControls({ engine, onBuild, onCraft, onResearch }: Props) {
+export default function MobileControls({ engine, onBuild, onCraft, onResearch, onStats, onSave }: Props) {
   const joystickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
   const [joystickActive, setJoystickActive] = useState(false);
@@ -118,6 +120,8 @@ export default function MobileControls({ engine, onBuild, onCraft, onResearch }:
         <MobileBtn label="BUILD" color="#f59e0b" onClick={onBuild} icon="🔨" />
         <MobileBtn label="CRAFT" color="#22c55e" onClick={onCraft} icon="⚙️" />
         <MobileBtn label="TECH" color="#38bdf8" onClick={onResearch} icon="🔬" />
+        <MobileBtn label="STATS" color="#a78bfa" onClick={onStats} icon="📊" />
+        <MobileBtn label="SAVE" color="#94a3b8" onClick={onSave} icon="💾" />
       </div>
 
       {/* Attack/interact button - bottom right center */}
