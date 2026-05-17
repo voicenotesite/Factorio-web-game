@@ -435,7 +435,20 @@ export class GameEngine {
 
     if (this.mouse.rightDown) {
       const tile = getTileAt(this.state, x, y);
-      const building = tile?.building;
+      // Look up building from state.buildings directly (authoritative) — tile.building
+      // can be null on freshly-generated chunks that haven't been re-stamped yet.
+      let building = tile?.building ?? this.state.buildings.get(`${x},${y}`) ?? null;
+      // For multi-tile buildings, the mouse might be on a non-anchor tile — scan nearby
+      if (!building) {
+        for (const [, b] of this.state.buildings) {
+          const size = BUILDING_SIZES[(b as Building).type as string] || { w: 1, h: 1 };
+          const bx = (b as Building).x, by = (b as Building).y;
+          if (x >= bx && x < bx + size.w && y >= by && y < by + size.h) {
+            building = b as Building;
+            break;
+          }
+        }
+      }
       if (building) {
         // Right-click existing building = remove and refund
         for (const item of [...building.inventory, ...building.outputInventory]) {

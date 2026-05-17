@@ -147,11 +147,11 @@ export function removeBuilding(state: GameState, x: number, y: number): boolean 
     }
   }
 
-  // Refund half the cost
+  // Refund full build cost
   const cost = BUILDING_COSTS[building.type];
   if (cost) {
     for (const c of cost) {
-      addItemToPlayer(state, c.itemId, Math.ceil(c.count / 2));
+      addItemToPlayer(state, c.itemId, c.count);
     }
   }
 
@@ -170,6 +170,21 @@ function getChunkAt(state: GameState, tx: number, ty: number) {
   if (!chunk) {
     chunk = generateChunk(cx, cy);
     state.chunks.set(key, chunk);
+    // Re-stamp any buildings that belong to this newly generated chunk
+    for (const [, building] of state.buildings) {
+      const b = building as import('./types').Building;
+      const size = BUILDING_SIZES[b.type as string] || { w: 1, h: 1 };
+      for (let dy = 0; dy < size.h; dy++) {
+        for (let dx = 0; dx < size.w; dx++) {
+          const bx = b.x + dx, by = b.y + dy;
+          if (Math.floor(bx / CHUNK_SIZE) === cx && Math.floor(by / CHUNK_SIZE) === cy) {
+            const lx = ((bx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+            const ly = ((by % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+            chunk[ly][lx].building = b;
+          }
+        }
+      }
+    }
   }
   return chunk;
 }
