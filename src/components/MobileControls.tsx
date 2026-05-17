@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { GameEngine } from '../game/engine';
 import { GameState } from '../game/types';
 import { BUILDING_COLORS, RESOURCE_COLORS } from '../game/constants';
+import LangSelector from './LangSelector';
 
 interface Props {
   engine: GameEngine;
@@ -14,11 +15,12 @@ interface Props {
   onSave: () => void;
   onFriends: () => void;
   onAdmin: () => void;
+  onGuide: () => void;
   onLogout: () => void;
 }
 
 export default function MobileControls({
-  engine, gameState, currentUser, onBuild, onCraft, onResearch, onStats, onSave, onFriends, onAdmin, onLogout,
+  engine, gameState, currentUser, onBuild, onCraft, onResearch, onStats, onSave, onFriends, onAdmin, onGuide, onLogout,
 }: Props) {
   const joystickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
@@ -107,6 +109,7 @@ export default function MobileControls({
         <TopBtn label="TECH" icon="🔬" color="#38bdf8" onClick={onResearch} />
         <TopBtn label="STATS" icon="📊" color="#a78bfa" onClick={onStats} />
         <TopBtn label="FRIENDS" icon="👥" color="#f472b6" onClick={onFriends} />
+        <TopBtn label="GUIDE" icon="📖" color="#22d3ee" onClick={onGuide} />
         {isAdmin && (
           <TopBtn label="ADMIN" icon="🛡️" color="#ef4444" onClick={onAdmin} />
         )}
@@ -211,6 +214,7 @@ export default function MobileControls({
         className="absolute pointer-events-auto flex flex-col gap-2"
         style={{ bottom: '160px', right: '20px' }}
       >
+        <LangSelector />
         <DemolishBtn engine={engine} />
         <SideBtn icon="💾" color="#94a3b8" onClick={onSave} label="SAVE" />
       </div>

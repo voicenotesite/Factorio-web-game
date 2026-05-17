@@ -17,11 +17,14 @@ import VisitWorldView from './components/VisitWorldView';
 import MobileControls from './components/MobileControls';
 import PremiumPopup from './components/PremiumPopup';
 import AdminPanel from './components/AdminPanel';
+import GuideMenu from './components/GuideMenu';
+import LangSelector from './components/LangSelector';
 import { GameEngine } from './game/engine';
 import { GameState } from './game/types';
 import { getCurrentUser, logout, getCurrentUserId } from './lib/auth';
 import { saveGame, loadGame, hasSave } from './lib/saveSystem';
 import { supabase } from './lib/supabase';
+import { t } from './lib/i18n';
 
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
 
@@ -45,6 +48,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState<string | null>(getCurrentUser);
   const [hasSaveData, setHasSaveData] = useState(false);
   const [showPremiumPopup, setShowPremiumPopup] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   const engine = engineRef.current;
 
@@ -180,6 +184,7 @@ function App() {
           onSave={() => setShowSaveLoad(true)}
           onFriends={() => setShowFriends(true)}
           onAdmin={() => setShowAdmin(true)}
+          onGuide={() => setShowGuide(true)}
           onLogout={() => { logout(); setCurrentUser(null); setStarted(false); }}
         />
       )}
@@ -223,6 +228,9 @@ function App() {
             </>
           )}
           <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
+          <ActionBarBtn label={t('guide')} shortcut="" onClick={() => setShowGuide(true)} active={showGuide}
+            icon={<span>📖</span>} color="#22d3ee" />
+          <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
           <ActionBarBtn label="Save" shortcut="" onClick={() => setShowSaveLoad(true)} active={showSaveLoad}
             icon={<SaveIcon />} color="#94a3b8" />
           <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
@@ -241,6 +249,8 @@ function App() {
               {currentUser?.substring(0, 6) || 'OUT'}
             </span>
           </button>
+          <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
+          <LangSelector />
         </div>
       )}
 
@@ -273,6 +283,7 @@ function App() {
       {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} />}
       {showAdmin && engine && gameState && <AdminPanel engine={engine} state={gameState} onClose={() => setShowAdmin(false)} />}
       {visitingWorld && <VisitWorldView friendId={visitingWorld.id} friendName={visitingWorld.name} onClose={() => setVisitingWorld(null)} />}
+      {showGuide && <GuideMenu onClose={() => setShowGuide(false)} />}
       {showPremiumPopup && (
         <PremiumPopup
           onClose={() => setShowPremiumPopup(false)}
