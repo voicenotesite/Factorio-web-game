@@ -233,6 +233,34 @@ export class GameEngine {
     }
   }
 
+  attackNearestEnemy(): boolean {
+    const { player } = this.state;
+    const range = 5;
+    let nearest: { id: string; health: number; x: number; y: number } | null = null;
+    let nearestDist = Infinity;
+    for (const [, enemy] of this.state.enemies) {
+      const d = Math.sqrt((enemy.x - player.x) ** 2 + (enemy.y - player.y) ** 2);
+      if (d < range && d < nearestDist) { nearestDist = d; nearest = enemy as any; }
+    }
+    if (!nearest) return false;
+    const milBonus = this.state.research.get('military')?.unlocked
+      ? (this.state.research.get('military')!.effects.turretDamage || 1) : 1;
+    const damage = 25 * milBonus;
+    (nearest as any).health -= damage;
+    spawnParticle(this.state, nearest.x * TILE_SIZE, nearest.y * TILE_SIZE, 'spark', '#ffaa00');
+    if ((nearest as any).health <= 0) {
+      this.state.enemies.delete((nearest as any).id);
+      this.state.statistics.enemiesKilled++;
+      grantXPToPlayer(this.state, 8);
+      spawnParticle(this.state, nearest.x * TILE_SIZE, nearest.y * TILE_SIZE, 'explosion', '#ff6600');
+    }
+    return true;
+  }
+
+  cancelBuilding() {
+    this.selectedBuilding = null;
+  }
+
   start() {
     this.running = true;
     // Apply per-player world seed before generating any chunks

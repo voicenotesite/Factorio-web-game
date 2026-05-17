@@ -38,43 +38,52 @@ export default function HUD({ state, notifications }: Props) {
   if (isMobile) {
     return (
       <div className="fixed top-0 left-0 right-0 pointer-events-none z-10 font-exo">
+        {/* Top status bar */}
         <div className="flex items-center justify-between px-3 py-2" style={{
-          background: 'linear-gradient(to bottom, rgba(7,9,11,0.92) 0%, transparent 100%)',
+          background: 'linear-gradient(to bottom, rgba(7,9,11,0.94) 0%, transparent 100%)',
         }}>
           {/* Left: HP + XP */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-1.5">
-              <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+              <span className="text-[9px]" style={{ color: hpPct > 50 ? '#22c55e' : hpPct > 25 ? '#f59e0b' : '#ef4444' }}>❤</span>
+              <div className="w-24 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
                 <div className={`h-full rounded-full bg-gradient-to-r ${hpColor} transition-all`} style={{ width: `${hpPct}%` }} />
               </div>
               <span className="text-[9px] text-white/40 font-mono">{Math.ceil(state.player.health)}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-20 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+              <span className="text-[9px] text-indigo-400">⚡</span>
+              <div className="w-24 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
                 <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-400 transition-all" style={{ width: `${xpPct}%` }} />
               </div>
               <span className="text-[9px] text-violet-400/80 font-mono">Lv{state.player.level}</span>
             </div>
           </div>
 
-          {/* Right: Top resources */}
-          <div className="flex items-center gap-1 flex-wrap justify-end max-w-[60vw]">
-            {state.player.inventory.slice(0, 6).map((slot, i) => (
+          {/* Center: Day/Evol */}
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-[9px] font-orbitron" style={{ color: isDay ? '#fbbf24' : '#818cf8' }}>
+              {isDay ? '☀ DAY' : '🌙 NIGHT'}
+            </span>
+            <span className="text-[8px] text-orange-400/70 font-mono">EVOL {(state.evolution * 100).toFixed(1)}%</span>
+          </div>
+
+          {/* Right: Resources (top 5) */}
+          <div className="flex flex-col gap-0.5 items-end">
+            {state.player.inventory.slice(0, 5).map((slot, i) => (
               <div key={i} className="flex items-center gap-1 px-1.5 py-0.5 rounded" style={{
                 background: 'rgba(6,10,18,0.8)',
                 border: `1px solid ${RESOURCE_COLORS[slot.itemId] || '#888'}33`,
               }}>
-                <div className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{
-                  backgroundColor: RESOURCE_COLORS[slot.itemId] || '#888',
-                }} />
+                <div className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{ backgroundColor: RESOURCE_COLORS[slot.itemId] || '#888' }} />
                 <span className="text-[9px] text-white/70 font-mono tabular-nums">{slot.count.toLocaleString()}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Notifications - centered */}
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 w-full px-4">
+        {/* Notifications */}
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 w-full px-4">
           {notifications.slice(0, 2).map((n, i) => {
             const notifColor = n.type === 'error' ? '#f87171' : n.type === 'success' ? '#4ade80' : n.type === 'build' ? '#38bdf8' : 'rgba(205,197,178,0.9)';
             return (
@@ -90,6 +99,24 @@ export default function HUD({ state, notifications }: Props) {
               </div>
             );
           })}
+        </div>
+
+        {/* Minimap — bottom left corner above joystick */}
+        <div
+          className="absolute rounded-xl overflow-hidden"
+          style={{
+            bottom: '150px',
+            left: '16px',
+            width: '80px',
+            height: '80px',
+            background: 'linear-gradient(180deg, #111820, #0c1016)',
+            border: '1px solid rgba(216,128,16,0.25)',
+            boxShadow: '0 0 12px rgba(0,0,0,0.7)',
+            opacity: 0.85,
+          }}
+        >
+          <div className="absolute top-0.5 left-1.5 text-[6px] font-orbitron text-white/25 z-10 tracking-widest">MAP</div>
+          <Minimap state={state} size={80} />
         </div>
       </div>
     );
@@ -271,7 +298,7 @@ function MetricBadge({ label, value, color, glow }: { label: string; value: stri
   );
 }
 
-function Minimap({ state }: { state: GameState }) {
+function Minimap({ state, size = 176 }: { state: GameState; size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -281,9 +308,11 @@ function Minimap({ state }: { state: GameState }) {
     if (!ctx) return;
 
     ctx.fillStyle = '#06080a';
-    ctx.fillRect(0, 0, 176, 176);
+    ctx.fillRect(0, 0, size, size);
 
-    const scale = 2;
+    const scale = size <= 80 ? 1.5 : 2;
+    const cx = size / 2;
+    const cy = size / 2;
     const px = state.player.x;
     const py = state.player.y;
 
@@ -292,9 +321,9 @@ function Minimap({ state }: { state: GameState }) {
         for (let x = 0; x < chunk[y].length; x++) {
           const tile = chunk[y][x];
           if (tile.visibility < 0.5) continue;
-          const mx = (tile.x - px) * scale + 88;
-          const my = (tile.y - py) * scale + 88;
-          if (mx < -2 || mx > 178 || my < -2 || my > 178) continue;
+          const mx = (tile.x - px) * scale + cx;
+          const my = (tile.y - py) * scale + cy;
+          if (mx < -2 || mx > size + 2 || my < -2 || my > size + 2) continue;
 
           if (tile.building) {
             const MINIMAP_BUILDING_COLORS: Record<string, string> = {
@@ -322,25 +351,25 @@ function Minimap({ state }: { state: GameState }) {
     }
 
     // Player glow
-    const gradient = ctx.createRadialGradient(88, 88, 0, 88, 88, 8);
+    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, 8);
     gradient.addColorStop(0, 'rgba(56,189,248,0.8)');
     gradient.addColorStop(1, 'rgba(56,189,248,0)');
     ctx.fillStyle = gradient;
-    ctx.fillRect(80, 80, 16, 16);
+    ctx.fillRect(cx - 8, cy - 8, 16, 16);
 
     ctx.fillStyle = '#38bdf8';
     ctx.shadowColor = '#38bdf8';
     ctx.shadowBlur = 6;
     ctx.beginPath();
-    ctx.arc(88, 88, 3, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
 
     // Enemies
     for (const [, enemy] of state.enemies) {
-      const ex = (enemy.x - px) * scale + 88;
-      const ey = (enemy.y - py) * scale + 88;
-      if (ex < 0 || ex > 176 || ey < 0 || ey > 176) continue;
+      const ex = (enemy.x - px) * scale + cx;
+      const ey = (enemy.y - py) * scale + cy;
+      if (ex < 0 || ex > size || ey < 0 || ey > size) continue;
       ctx.fillStyle = '#ef4444';
       ctx.shadowColor = '#ef4444';
       ctx.shadowBlur = 3;
@@ -350,14 +379,14 @@ function Minimap({ state }: { state: GameState }) {
 
     // NPCs
     for (const [, npc] of state.npcs) {
-      const nx = (npc.x - px) * scale + 88;
-      const ny = (npc.y - py) * scale + 88;
-      if (nx < 0 || nx > 176 || ny < 0 || ny > 176) continue;
+      const nx = (npc.x - px) * scale + cx;
+      const ny = (npc.y - py) * scale + cy;
+      if (nx < 0 || nx > size || ny < 0 || ny > size) continue;
       ctx.fillStyle = '#22c55e';
       ctx.fillRect(nx - 1, ny - 1, 2, 2);
     }
-  }, [state.tick]);
+  }, [state.tick, size]);
 
-  return <canvas ref={canvasRef} width={176} height={176} className="w-full h-full" />;
+  return <canvas ref={canvasRef} width={size} height={size} className="w-full h-full" />;
 }
 

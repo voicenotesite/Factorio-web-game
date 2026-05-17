@@ -3,14 +3,19 @@ import { GameEngine } from '../game/engine';
 
 interface Props {
   engine: GameEngine;
+  currentUser: string;
   onBuild: () => void;
   onCraft: () => void;
   onResearch: () => void;
   onStats: () => void;
   onSave: () => void;
+  onFriends: () => void;
+  onAdmin: () => void;
 }
 
-export default function MobileControls({ engine, onBuild, onCraft, onResearch, onStats, onSave }: Props) {
+export default function MobileControls({
+  engine, currentUser, onBuild, onCraft, onResearch, onStats, onSave, onFriends, onAdmin,
+}: Props) {
   const joystickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
   const [joystickActive, setJoystickActive] = useState(false);
@@ -73,25 +78,53 @@ export default function MobileControls({ engine, onBuild, onCraft, onResearch, o
     }
   }, []);
 
+  const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
+
+  // Poll engine for selected building
+  useEffect(() => {
+    const id = setInterval(() => {
+      setSelectedBuilding(engine.selectedBuilding);
+    }, 100);
+    return () => clearInterval(id);
+  }, [engine]);
+
+  const isAdmin = currentUser.toUpperCase() === 'ADMIN';
+
   return (
     <div className="fixed inset-0 z-10 pointer-events-none" style={{ userSelect: 'none' }}>
-      {/* Virtual Joystick - bottom left */}
+
+      {/* ── Top action bar ── */}
+      <div
+        className="absolute top-14 left-0 right-0 flex justify-center gap-2 pointer-events-auto px-3"
+        style={{ zIndex: 11 }}
+      >
+        <TopBtn label="BUILD" icon="🔨" color="#f59e0b" onClick={onBuild} />
+        <TopBtn label="CRAFT" icon="⚙️" color="#22c55e" onClick={onCraft} />
+        <TopBtn label="TECH" icon="🔬" color="#38bdf8" onClick={onResearch} />
+        <TopBtn label="STATS" icon="📊" color="#a78bfa" onClick={onStats} />
+        <TopBtn label="FRIENDS" icon="👥" color="#f472b6" onClick={onFriends} />
+        {isAdmin && (
+          <TopBtn label="ADMIN" icon="🛡️" color="#ef4444" onClick={onAdmin} />
+        )}
+      </div>
+
+      {/* ── Virtual Joystick — bottom left ── */}
       <div
         ref={joystickRef}
         className="absolute pointer-events-auto"
         style={{
-          bottom: '90px',
+          bottom: '28px',
           left: '28px',
-          width: '100px',
-          height: '100px',
+          width: '108px',
+          height: '108px',
           borderRadius: '50%',
-          background: 'rgba(0,0,0,0.45)',
-          border: '2px solid rgba(216,128,16,0.35)',
+          background: 'rgba(0,0,0,0.5)',
+          border: '2px solid rgba(216,128,16,0.4)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           touchAction: 'none',
-          boxShadow: '0 0 20px rgba(0,0,0,0.5)',
+          boxShadow: '0 0 24px rgba(0,0,0,0.6)',
         }}
         onTouchStart={handleJoystickStart}
         onTouchMove={handleJoystickMove}
@@ -100,37 +133,104 @@ export default function MobileControls({ engine, onBuild, onCraft, onResearch, o
         <div
           ref={knobRef}
           style={{
-            width: '44px',
-            height: '44px',
+            width: '48px',
+            height: '48px',
             borderRadius: '50%',
-            background: joystickActive ? 'rgba(216,128,16,0.7)' : 'rgba(216,128,16,0.4)',
-            border: '2px solid rgba(216,128,16,0.8)',
+            background: joystickActive ? 'rgba(216,128,16,0.75)' : 'rgba(216,128,16,0.45)',
+            border: '2px solid rgba(216,128,16,0.9)',
             transition: joystickActive ? 'none' : 'transform 0.15s ease',
-            boxShadow: '0 0 10px rgba(216,128,16,0.3)',
+            boxShadow: joystickActive ? '0 0 20px rgba(216,128,16,0.6)' : '0 0 10px rgba(216,128,16,0.2)',
           }}
         />
       </div>
 
-      {/* Right side action buttons */}
+      {/* ── Mine + Attack buttons — bottom right ── */}
       <div
         className="absolute pointer-events-auto flex flex-col gap-3"
-        style={{ bottom: '90px', right: '16px' }}
+        style={{ bottom: '28px', right: '20px' }}
       >
-        <MobileBtn label="BUILD" color="#f59e0b" onClick={onBuild} icon="🔨" />
-        <MobileBtn label="CRAFT" color="#22c55e" onClick={onCraft} icon="⚙️" />
-        <MobileBtn label="TECH" color="#38bdf8" onClick={onResearch} icon="🔬" />
-        <MobileBtn label="STATS" color="#a78bfa" onClick={onStats} icon="📊" />
-        <MobileBtn label="SAVE" color="#94a3b8" onClick={onSave} icon="💾" />
-      </div>
-
-      {/* Mine/Attack button — hold to mine tile in front of player */}
-      <div
-        className="absolute pointer-events-auto"
-        style={{ bottom: '90px', right: '100px' }}
-      >
+        <AttackHoldBtn engine={engine} />
         <MineHoldBtn engine={engine} />
       </div>
+
+      {/* ── Save button — right side, mid ── */}
+      <div
+        className="absolute pointer-events-auto"
+        style={{ bottom: '160px', right: '20px' }}
+      >
+        <SideBtn icon="💾" color="#94a3b8" onClick={onSave} label="SAVE" />
+      </div>
+
+      {/* ── Cancel building banner ── */}
+      {selectedBuilding && (
+        <div
+          className="absolute pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-2xl"
+          style={{
+            bottom: '155px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'linear-gradient(135deg, #0f1418, #0a0d11)',
+            border: '1.5px solid rgba(56,189,248,0.5)',
+            boxShadow: '0 0 20px rgba(56,189,248,0.2)',
+            zIndex: 15,
+          }}
+        >
+          <span className="text-xs text-white/50 font-exo">Placing:</span>
+          <span className="text-sm font-bold text-sky-400 font-exo">{selectedBuilding.replace(/_/g, ' ')}</span>
+          <button
+            className="ml-2 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+            style={{
+              background: 'rgba(239,68,68,0.25)',
+              border: '1px solid rgba(239,68,68,0.5)',
+              color: '#f87171',
+              touchAction: 'none',
+            }}
+            onTouchEnd={(e) => { e.preventDefault(); engine.cancelBuilding(); }}
+            onClick={() => engine.cancelBuilding()}
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
+  );
+}
+
+function AttackHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }) {
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [pressed, setPressed] = useState(false);
+  const [flash, setFlash] = useState(false);
+
+  const start = (e: React.TouchEvent) => {
+    e.preventDefault();
+    setPressed(true);
+    const hit = engine.attackNearestEnemy();
+    if (hit) { setFlash(true); setTimeout(() => setFlash(false), 120); }
+    intervalRef.current = setInterval(() => {
+      const h = engine.attackNearestEnemy();
+      if (h) { setFlash(true); setTimeout(() => setFlash(false), 120); }
+    }, 350);
+  };
+
+  const stop = (e: React.TouchEvent) => {
+    e.preventDefault();
+    setPressed(false);
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+  };
+
+  return (
+    <button
+      style={{
+        width: '64px', height: '64px', borderRadius: '50%',
+        background: flash ? 'rgba(251,191,36,0.7)' : pressed ? 'rgba(251,191,36,0.45)' : 'rgba(251,191,36,0.2)',
+        border: '2px solid rgba(251,191,36,0.7)', color: 'white', fontSize: '26px',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none',
+        boxShadow: pressed ? '0 0 28px rgba(251,191,36,0.6)' : '0 0 14px rgba(251,191,36,0.2)',
+        transform: pressed ? 'scale(0.88)' : 'scale(1)',
+        transition: 'transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease',
+      }}
+      onTouchStart={start} onTouchEnd={stop} onTouchCancel={stop}
+    >⚔️</button>
   );
 }
 
@@ -154,8 +254,8 @@ function MineHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }
   return (
     <button
       style={{
-        width: '60px',
-        height: '60px',
+        width: '64px',
+        height: '64px',
         borderRadius: '50%',
         background: pressed ? 'rgba(220,38,38,0.55)' : 'rgba(220,38,38,0.35)',
         border: '2px solid rgba(220,38,38,0.6)',
@@ -179,28 +279,57 @@ function MineHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }
 }
 
 
-function MobileBtn({ label, color, onClick, icon }: { label: string; color: string; onClick: () => void; icon: string }) {
+function TopBtn({ label, icon, color, onClick }: { label: string; icon: string; color: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       style={{
-        width: '64px',
-        height: '48px',
-        borderRadius: '12px',
-        background: `rgba(0,0,0,0.55)`,
-        border: `1.5px solid ${color}55`,
+        flex: 1,
+        maxWidth: '72px',
+        height: '44px',
+        borderRadius: '10px',
+        background: 'rgba(0,0,0,0.65)',
+        border: `1.5px solid ${color}44`,
         color,
-        fontSize: '18px',
+        fontSize: '16px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         gap: '2px',
         touchAction: 'none',
+        boxShadow: `0 0 10px ${color}22`,
       }}
     >
       <span>{icon}</span>
-      <span style={{ fontSize: '7px', fontFamily: 'Orbitron', letterSpacing: '0.05em', opacity: 0.7 }}>{label}</span>
+      <span style={{ fontSize: '6px', fontFamily: 'Orbitron', letterSpacing: '0.05em', opacity: 0.65 }}>{label}</span>
     </button>
   );
 }
+
+function SideBtn({ icon, color, onClick, label }: { icon: string; color: string; onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: '44px',
+        height: '44px',
+        borderRadius: '10px',
+        background: 'rgba(0,0,0,0.65)',
+        border: `1.5px solid ${color}44`,
+        color,
+        fontSize: '18px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '1px',
+        touchAction: 'none',
+      }}
+    >
+      <span>{icon}</span>
+      <span style={{ fontSize: '6px', fontFamily: 'Orbitron', opacity: 0.5 }}>{label}</span>
+    </button>
+  );
+}
+

@@ -101,13 +101,12 @@ function App() {
 
   useEffect(() => {
     if (!started || !currentUser || !engineRef.current) return;
-    // Auto-save every 30 seconds
+    // Auto-save every 10 seconds (no cooldown — immediate on important events)
     const interval = setInterval(() => {
       if (engineRef.current && currentUser) {
         saveGame(currentUser, engineRef.current.state);
-        engineRef.current.addNotification('Auto-saved ✓', 'info');
       }
-    }, 30000);
+    }, 10000);
     // Save immediately on tab close / navigation away
     const handleUnload = () => {
       if (engineRef.current && currentUser) {
@@ -172,11 +171,14 @@ function App() {
       {currentUser && started && isMobile && engine && (
         <MobileControls
           engine={engine}
+          currentUser={currentUser}
           onBuild={() => setShowBuild(true)}
           onCraft={() => setShowInventory(true)}
           onResearch={() => setShowResearch(true)}
           onStats={() => setShowStats(true)}
           onSave={() => setShowSaveLoad(true)}
+          onFriends={() => setShowFriends(true)}
+          onAdmin={() => setShowAdmin(true)}
         />
       )}
 
