@@ -147,7 +147,7 @@ export class GameRenderer {
 
     this.renderPowerConnections(ctx, state);
 
-    // Render entities sorted by Y for depth
+    // Render entities sorted bob Y for depth
     const entities: { y: number; render: () => void }[] = [];
 
     for (const [, enemy] of state.enemies) {
@@ -204,7 +204,7 @@ export class GameRenderer {
     for (const task of state.buildQueue) {
       const bsize = BUILDING_SIZES[task.type] || { w: 1, h: 1 };
       const bx = task.x * TILE_SIZE;
-      const by = task.y * TILE_SIZE;
+      const bob = task.y * TILE_SIZE;
       const bw = bsize.w * TILE_SIZE;
       const bh = bsize.h * TILE_SIZE;
       const prog = task.constructionProgress / 100;
@@ -213,24 +213,24 @@ export class GameRenderer {
       ctx.strokeStyle = 'rgba(255,200,80,0.7)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 4]);
-      ctx.strokeRect(bx + 1, by + 1, bw - 2, bh - 2);
+      ctx.strokeRect(bx + 1, bob + 1, bw - 2, bh - 2);
       ctx.setLineDash([]);
 
       // Construction fill
       ctx.fillStyle = `rgba(255,200,80,${0.08 + prog * 0.18})`;
-      ctx.fillRect(bx, by, bw, bh * prog);
+      ctx.fillRect(bx, bob, bw, bh * prog);
 
       // Progress bar
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(bx, by + bh - 5, bw, 5);
+      ctx.fillRect(bx, bob + bh - 5, bw, 5);
       ctx.fillStyle = '#ffcc44';
-      ctx.fillRect(bx, by + bh - 5, bw * prog, 5);
+      ctx.fillRect(bx, bob + bh - 5, bw * prog, 5);
 
       // Build icon
       ctx.font = `${Math.min(bw, bh) * 0.5}px monospace`;
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(255,200,80,0.9)';
-      ctx.fillText('🔨', bx + bw / 2, by + bh / 2 + 4);
+      ctx.fillText('🔨', bx + bw / 2, bob + bh / 2 + 4);
     }
 
     // Render particles
@@ -285,7 +285,7 @@ export class GameRenderer {
     const x = tile.x * TILE_SIZE;
     const y = tile.y * TILE_SIZE;
 
-    // Water handled by renderResource
+    // Water handled bob renderResource
     if (tile.resource !== 'water') {
       // Biome base RGB
       const biomeRGB: Record<string, [number, number, number]> = {
@@ -865,15 +865,15 @@ export class GameRenderer {
           const ax = a.x * TILE_SIZE + TILE_SIZE / 2;
           const ay = a.y * TILE_SIZE + TILE_SIZE / 2;
           const bx = b.x * TILE_SIZE + TILE_SIZE / 2;
-          const by = b.y * TILE_SIZE + TILE_SIZE / 2;
+          const bob = b.y * TILE_SIZE + TILE_SIZE / 2;
           // Catenary sag
           const midX = (ax + bx) / 2;
-          const midY = (ay + by) / 2 + dist * 1.5;
+          const midY = (ay + bob) / 2 + dist * 1.5;
           ctx.strokeStyle = 'rgba(220,200,60,0.55)';
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(ax, ay);
-          ctx.quadraticCurveTo(midX, midY, bx, by);
+          ctx.quadraticCurveTo(midX, midY, bx, bob);
           ctx.stroke();
         }
       }
@@ -1158,9 +1158,9 @@ export class GameRenderer {
         // Bubbles
         if (building.isActive) {
           ctx.fillStyle = 'rgba(0,200,255,0.5)';
-          const by = y + h / 2 + 2 - (this.frameCount % 20) * 0.3;
+          const bob = y + h / 2 + 2 - (this.frameCount % 20) * 0.3;
           ctx.beginPath();
-          ctx.arc(x + w / 2 + Math.sin(this.frameCount * 0.1) * 2, by, 1.5, 0, Math.PI * 2);
+          ctx.arc(x + w / 2 + Math.sin(this.frameCount * 0.1) * 2, bob, 1.5, 0, Math.PI * 2);
           ctx.fill();
         }
         break;
@@ -1451,9 +1451,9 @@ export class GameRenderer {
     for (const [key, segments] of state.conveyors) {
       const [xStr, yStr] = key.split(',');
       const bx = parseInt(xStr);
-      const by = parseInt(yStr);
+      const bob = parseInt(yStr);
       const sx = bx * TILE_SIZE;
-      const sy = by * TILE_SIZE;
+      const sy = bob * TILE_SIZE;
       if (sx < vl - TILE_SIZE || sx > vr + TILE_SIZE || sy < vt - TILE_SIZE || sy > vb + TILE_SIZE) continue;
 
       const building = state.buildings.get(key);
@@ -1767,7 +1767,7 @@ export class GameRenderer {
     const y = npc.y * TILE_SIZE;
     const bob = Math.sin(this.frameCount * 0.07 + npc.id.charCodeAt(0)) * 1;
 
-    // Clothing colors by type
+    // Clothing colors bob type
     const jacketColors: Record<string, string> = {
       worker: '#2a3c2a', scout: '#1e3028', trader: '#3a2810', guard: '#2a1a1a', settler: '#2c2a3a',
     };
@@ -1905,12 +1905,12 @@ export class GameRenderer {
     ctx.ellipse(x, y + 13, 8, 3.5, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#1e2818';
-    ctx.fillRect(x - 5, y + 4 + bY, 4, 7);
-    ctx.fillRect(x + 1, y + 4 + bY, 4, 7);
+    ctx.fillRect(x - 5, y + 4 + bob, 4, 7);
+    ctx.fillRect(x + 1, y + 4 + bob, 4, 7);
     // Boot tips
     ctx.fillStyle = '#111';
-    ctx.fillRect(x - 5, y + 10 + bY, 5, 2);
-    ctx.fillRect(x + 1, y + 10 + bY, 5, 2);
+    ctx.fillRect(x - 5, y + 10 + bob, 5, 2);
+    ctx.fillRect(x + 1, y + 10 + bob, 5, 2);
 
     // Body — dark grey work jacket
     const bodyGrad = ctx.createLinearGradient(x - 7, y - 4, x + 7, y + 6);
@@ -1918,40 +1918,40 @@ export class GameRenderer {
     bodyGrad.addColorStop(1, '#222420');
     ctx.fillStyle = bodyGrad;
     ctx.beginPath();
-    ctx.roundRect(x - 7, y - 4 + bY, 14, 10, 2);
+    ctx.roundRect(x - 7, y - 4 + bob, 14, 10, 2);
     ctx.fill();
 
     // Hi-vis orange vest stripe
     ctx.fillStyle = 'rgba(200,100,20,0.75)';
-    ctx.fillRect(x - 7, y - 1 + bY, 14, 2);
-    ctx.fillRect(x - 1, y - 4 + bY, 2, 10); // vertical stripe
+    ctx.fillRect(x - 7, y - 1 + bob, 14, 2);
+    ctx.fillRect(x - 1, y - 4 + bob, 2, 10); // vertical stripe
 
     // Belt
     ctx.fillStyle = '#3a2808';
-    ctx.fillRect(x - 7, y + 4 + bY, 14, 2);
+    ctx.fillRect(x - 7, y + 4 + bob, 14, 2);
     ctx.fillStyle = '#c89040';
-    ctx.fillRect(x - 1.5, y + 4 + bY, 3, 2); // buckle
+    ctx.fillRect(x - 1.5, y + 4 + bob, 3, 2); // buckle
 
     // Head
     ctx.fillStyle = '#e0b890';
     ctx.beginPath();
-    ctx.arc(x, y - 12 + bY, 6, 0, Math.PI * 2);
+    ctx.arc(x, y - 12 + bob, 6, 0, Math.PI * 2);
     ctx.fill();
 
     // Hard hat
     const dir = DIR_OFFSETS[player.direction];
     ctx.fillStyle = '#d88010';
     ctx.beginPath();
-    ctx.ellipse(x, y - 15.5 + bY, 7.5, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y - 15.5 + bob, 7.5, 4, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#f0a020';
     ctx.beginPath();
-    ctx.ellipse(x, y - 17 + bY, 6, 2.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y - 17 + bob, 6, 2.5, 0, 0, Math.PI * 2);
     ctx.fill();
     // Hat brim
     ctx.fillStyle = '#c07010';
     ctx.beginPath();
-    ctx.ellipse(x, y - 14 + bY, 8.5, 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y - 14 + bob, 8.5, 2, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Face / eyes
@@ -1959,15 +1959,15 @@ export class GameRenderer {
     const eyeOffY = dir ? dir.dy * 1.2 : 0;
     ctx.fillStyle = '#1a1a1a';
     ctx.beginPath();
-    ctx.arc(x - 2.2 + eyeOffX, y - 12.5 + bY + eyeOffY, 1.3, 0, Math.PI * 2);
-    ctx.arc(x + 2.2 + eyeOffX, y - 12.5 + bY + eyeOffY, 1.3, 0, Math.PI * 2);
+    ctx.arc(x - 2.2 + eyeOffX, y - 12.5 + bob + eyeOffY, 1.3, 0, Math.PI * 2);
+    ctx.arc(x + 2.2 + eyeOffX, y - 12.5 + bob + eyeOffY, 1.3, 0, Math.PI * 2);
     ctx.fill();
 
     // Arm + tool
     if (dir) {
       ctx.fillStyle = '#3a3c38';
       ctx.save();
-      ctx.translate(x + dir.dx * 10, y - 2 + dir.dy * 10 + bY);
+      ctx.translate(x + dir.dx * 10, y - 2 + dir.dy * 10 + bob);
       ctx.rotate(Math.atan2(dir.dy, dir.dx));
       // Arm
       ctx.fillRect(-8, -2, 8, 3);
@@ -1984,12 +1984,12 @@ export class GameRenderer {
     const barW = 28;
     ctx.fillStyle = 'rgba(0,0,0,0.65)';
     ctx.beginPath();
-    ctx.roundRect(x - barW / 2, y - 23 + bY, barW, 4, 1.5);
+    ctx.roundRect(x - barW / 2, y - 23 + bob, barW, 4, 1.5);
     ctx.fill();
     const hpColor = hp > 0.5 ? '#22c55e' : hp > 0.25 ? '#f59e0b' : '#ef4444';
     ctx.fillStyle = hpColor;
     ctx.beginPath();
-    ctx.roundRect(x - barW / 2 + 0.5, y - 22.5 + bY, (barW - 1) * hp, 3, 1);
+    ctx.roundRect(x - barW / 2 + 0.5, y - 22.5 + bob, (barW - 1) * hp, 3, 1);
     ctx.fill();
 
     // Reach circle
@@ -2180,16 +2180,16 @@ export class GameRenderer {
       if (!litTypes.includes(building.type)) continue;
       if (!building.isActive) continue;
       const bx = (building.x * TILE_SIZE - state.camera.x) * state.camera.zoom + canvas.width / 2;
-      const by = (building.y * TILE_SIZE - state.camera.y) * state.camera.zoom + canvas.height / 2;
-      if (bx < -150 || bx > canvas.width + 150 || by < -150 || by > canvas.height + 150) continue;
+      const bob = (building.y * TILE_SIZE - state.camera.y) * state.camera.zoom + canvas.height / 2;
+      if (bx < -150 || bx > canvas.width + 150 || bob < -150 || bob > canvas.height + 150) continue;
       const radius = (building.type === 'furnace' ? 100 : building.type === 'steam_engine' ? 90 : 65) * state.camera.zoom;
-      const light = lightCtx.createRadialGradient(bx, by, 0, bx, by, radius);
+      const light = lightCtx.createRadialGradient(bx, bob, 0, bx, bob, radius);
       const alpha = building.type === 'furnace' ? '0.75' : building.type === 'lab' ? '0.6' : '0.55';
       light.addColorStop(0, `rgba(0,0,0,${alpha})`);
       light.addColorStop(0.5, `rgba(0,0,0,${parseFloat(alpha) * 0.4})`);
       light.addColorStop(1, 'rgba(0,0,0,0)');
       lightCtx.fillStyle = light;
-      lightCtx.fillRect(bx - radius, by - radius, radius * 2, radius * 2);
+      lightCtx.fillRect(bx - radius, bob - radius, radius * 2, radius * 2);
     }
 
     lightCtx.globalCompositeOperation = 'source-over';
