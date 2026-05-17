@@ -1,6 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { getCurrentUser, getCurrentUserId } from '../lib/auth';
+
+const MAX_MSG_LEN = 200;
+const HISTORY_LIMIT = 30;
 
 interface ChatMessage {
   id: string;
@@ -18,34 +21,37 @@ export default function ChatPanel({ onClose }: Props) {
   const [input, setInput] = useState('');
   const [minimized, setMinimized] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const minimizedRef = useRef(false);
   const username = getCurrentUser();
 
+  // Keep ref in sync so the channel callback doesn't capture stale state
+  useEffect(() => { minimizedRef.current = minimized; }, [minimized]);
+
   useEffect(() => {
+    // Fetch only needed columns, limit history
     supabase
       .from('chat_messages')
-      .select('*')
+      .select('id,username,message,created_at')
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(HISTORY_LIMIT)
       .then(({ data }) => {
-        if (data) setMessages(data.reverse() as ChatMessage[]);
+        if (data) setMessages((data as ChatMessage[]).reverse());
       });
 
+    // Use Broadcast instead of postgres_changes — zero WAL overhead on Nano
     const channel = supabase
-      .channel('global-chat')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'chat_messages',
-      }, (payload) => {
-        const msg = payload.new as ChatMessage;
-        setMessages(prev => [...prev.slice(-99), msg]);
-        if (minimized) setUnread(u => u + 1);
+      .channel('global-chat', { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'msg' }, ({ payload }) => {
+        const msg = payload as ChatMessage;
+        setMessages(prev => [...prev.slice(-(HISTORY_LIMIT - 1)), msg]);
+        if (minimizedRef.current) setUnread(u => u + 1);
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [minimized]);
+  }, []); // only mount/unmount — no reconnect on minimize
 
   useEffect(() => {
     if (!minimized) {
@@ -54,16 +60,34 @@ export default function ChatPanel({ onClose }: Props) {
     }
   }, [messages, minimized]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || !username) return;
-    const msg = input.trim();
+  const sendMessage = useCallback(async () => {
+    if (!input.trim() || !username || sending) return;
+    const msg = input.trim().slice(0, MAX_MSG_LEN);
     setInput('');
+    setSending(true);
+
+    const newMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      username,
+      message: msg,
+      created_at: new Date().toISOString(),
+    };
+
+    // Broadcast first (instant, zero DB load) + write to DB for history
+    const channel = supabase.channel('global-chat');
+    channel.send({ type: 'broadcast', event: 'msg', payload: newMsg });
+
     await supabase.from('chat_messages').insert({
+      id: newMsg.id,
       username,
       message: msg,
       user_id: getCurrentUserId(),
     });
-  };
+
+    // Optimistically add own message
+    setMessages(prev => [...prev.slice(-(HISTORY_LIMIT - 1)), newMsg]);
+    setSending(false);
+  }, [input, username, sending]);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
