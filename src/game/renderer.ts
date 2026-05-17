@@ -2222,17 +2222,24 @@ export class GameRenderer {
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       }
     } else if (state.weather === 'fog') {
-      // Layered fog
-      ctx.fillStyle = 'rgba(180,190,200,0.15)';
-      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-      // Moving fog patches
-      for (let i = 0; i < 5; i++) {
-        const fx = ((this.frameCount * 0.3 + i * 300) % (this.canvas.width + 400)) - 200;
-        const fy = this.canvas.height * 0.3 + Math.sin(i * 2.3) * this.canvas.height * 0.2;
-        ctx.fillStyle = `rgba(200,210,220,${0.05 + Math.sin(this.frameCount * 0.01 + i) * 0.02})`;
-        ctx.beginPath();
-        ctx.ellipse(fx, fy, 200, 40, 0, 0, Math.PI * 2);
-        ctx.fill();
+      // Layered atmospheric fog — radial gradient from edges
+      const w = this.canvas.width, h = this.canvas.height;
+      const fogGrad = ctx.createRadialGradient(w / 2, h / 2, w * 0.1, w / 2, h / 2, w * 0.7);
+      fogGrad.addColorStop(0, 'rgba(180,195,210,0)');
+      fogGrad.addColorStop(0.5, 'rgba(180,195,210,0.08)');
+      fogGrad.addColorStop(1, 'rgba(180,195,210,0.22)');
+      ctx.fillStyle = fogGrad;
+      ctx.fillRect(0, 0, w, h);
+      // Subtle animated wisps using horizontal gradients
+      const t = this.frameCount * 0.002;
+      for (let i = 0; i < 3; i++) {
+        const wispX = ((t * 40 + i * (w / 3)) % (w + 200)) - 100;
+        const wispGrad = ctx.createLinearGradient(wispX - 150, 0, wispX + 150, 0);
+        wispGrad.addColorStop(0, 'rgba(200,210,220,0)');
+        wispGrad.addColorStop(0.5, `rgba(200,210,220,${0.04 + Math.sin(t + i) * 0.01})`);
+        wispGrad.addColorStop(1, 'rgba(200,210,220,0)');
+        ctx.fillStyle = wispGrad;
+        ctx.fillRect(wispX - 150, h * 0.2 + i * h * 0.25, 300, h * 0.3);
       }
     }
   }

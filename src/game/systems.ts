@@ -983,6 +983,13 @@ function findSupplyJob(state: GameState, buildingList: Building[]): SupplyJob | 
 export function updateNPCs(state: GameState) {
   const buildingList = Array.from(state.buildings.values());
 
+  // Watchdog: release build tasks whose assigned NPC no longer exists
+  for (const task of state.buildQueue) {
+    if (task.assignedNpcId && !state.npcs.has(task.assignedNpcId)) {
+      task.assignedNpcId = undefined;
+    }
+  }
+
   for (const [, npc] of state.npcs) {
     npc.taskTimer--;
 

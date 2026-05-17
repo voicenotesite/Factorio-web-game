@@ -552,19 +552,32 @@ export class GameEngine {
   }
 
   loadFromSave(save: import('../lib/saveSystem').SaveData): void {
-    this.state.tick = save.tick;
-    this.state.pollution = save.pollution;
-    this.state.evolution = save.evolution;
-    this.state.dayTime = save.dayTime;
-    this.state.weather = save.weather as GameState['weather'];
-    this.state.statistics = { ...save.statistics };
+    this.state.tick = save.tick ?? 0;
+    this.state.pollution = save.pollution ?? 0;
+    this.state.evolution = save.evolution ?? 0;
+    this.state.dayTime = save.dayTime ?? this.state.dayTime;
+    this.state.weather = (save.weather as GameState['weather']) ?? 'clear';
+    this.state.statistics = {
+      itemsProduced: {},
+      itemsConsumed: {},
+      enemiesKilled: 0,
+      buildingsPlaced: 0,
+      timePlayed: 0,
+      ...save.statistics,
+    };
     this.state.buildQueue = [];  // always start with fresh build queue on load
     this.state.worldSeed = (save as any).worldSeed || this.state.worldSeed;
     initWorldSeed(this.state.worldSeed);
     Object.assign(this.state.player, save.player);
     this.state.player.gems = this.state.player.gems ?? 0;
+    this.state.player.premiumCurrency = this.state.player.premiumCurrency ?? 0;
     this.state.player.premiumBalance = this.state.player.premiumBalance ?? 0;
     this.state.player.premiumTier = this.state.player.premiumTier ?? 'free';
+    this.state.player.achievements = this.state.player.achievements ?? [];
+    this.state.player.cosmetics = this.state.player.cosmetics ?? { skinColor: '#3388ee', hatType: 'none', trailEffect: 'none' };
+    this.state.player.totalPlayTime = this.state.player.totalPlayTime ?? 0;
+    this.state.player.health = this.state.player.health ?? this.state.player.maxHealth;
+    this.state.player.maxHealth = this.state.player.maxHealth ?? 100;
 
     this.state.buildings.clear();
     for (const [key, b] of (save.buildings || [])) {
