@@ -16,6 +16,7 @@ import FriendsPanel from './components/FriendsPanel';
 import VisitWorldView from './components/VisitWorldView';
 import MobileControls from './components/MobileControls';
 import PremiumPopup from './components/PremiumPopup';
+import AdminPanel from './components/AdminPanel';
 import { GameEngine } from './game/engine';
 import { GameState } from './game/types';
 import { getCurrentUser, logout } from './lib/auth';
@@ -35,6 +36,7 @@ function App() {
   const [showShop, setShowShop] = useState(false);
   const [showSaveLoad, setShowSaveLoad] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
   const [visitingWorld, setVisitingWorld] = useState<{ id: string; name: string } | null>(null);
   const [notifications, setNotifications] = useState<{ text: string; timer: number; type?: string }[]>([]);
   const [currentUser, setCurrentUser] = useState<string | null>(getCurrentUser);
@@ -170,6 +172,13 @@ function App() {
             icon={<GemIcon />} color="#06b6d4" />
           <ActionBarBtn label="Friends" shortcut="" onClick={() => setShowFriends(true)} active={showFriends}
             icon={<FriendsIcon />} color="#f472b6" />
+          {currentUser?.toUpperCase() === 'ADMIN' && (
+            <>
+              <div className="w-px h-6 mx-1" style={{ background: 'rgba(220,38,38,0.3)' }} />
+              <ActionBarBtn label="Admin" shortcut="" onClick={() => setShowAdmin(true)} active={showAdmin}
+                icon={<span>🛡️</span>} color="#ef4444" />
+            </>
+          )}
           <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
           <ActionBarBtn label="Save" shortcut="" onClick={() => setShowSaveLoad(true)} active={showSaveLoad}
             icon={<SaveIcon />} color="#94a3b8" />
@@ -219,6 +228,7 @@ function App() {
       {showShop && engine && gameState && <ShopMenu engine={engine} state={gameState} onClose={() => setShowShop(false)} />}
       {showSaveLoad && engine && <SaveLoad engine={engine} onClose={() => setShowSaveLoad(false)} />}
       {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} />}
+      {showAdmin && engine && gameState && <AdminPanel engine={engine} state={gameState} onClose={() => setShowAdmin(false)} />}
       {visitingWorld && <VisitWorldView friendId={visitingWorld.id} friendName={visitingWorld.name} onClose={() => setVisitingWorld(null)} />}
       {showPremiumPopup && (
         <PremiumPopup
