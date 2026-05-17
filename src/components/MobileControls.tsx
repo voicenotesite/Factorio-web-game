@@ -30,6 +30,7 @@ export default function MobileControls({
   const animFrameRef = useRef<number>(0);
 
   const joystickActiveRef = useRef(false);
+  const joystickTouchId = useRef<number | null>(null);
 
   useEffect(() => {
     const tick = () => {
@@ -50,6 +51,8 @@ export default function MobileControls({
 
   const handleJoystickStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
+    const touch = e.changedTouches[0];
+    joystickTouchId.current = touch.identifier;
     const rect = joystickRef.current!.getBoundingClientRect();
     joystickOrigin.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
     joystickActiveRef.current = true;
@@ -59,7 +62,15 @@ export default function MobileControls({
   const handleJoystickMove = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
     if (!joystickActiveRef.current) return;
-    const touch = e.touches[0];
+    // Find the specific finger that started the joystick (multi-touch safe)
+    let touch: Touch | undefined;
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].identifier === joystickTouchId.current) {
+        touch = e.touches[i];
+        break;
+      }
+    }
+    if (!touch) return;
     const maxDist = 40;
     let dx = touch.clientX - joystickOrigin.current.x;
     let dy = touch.clientY - joystickOrigin.current.y;
@@ -76,6 +87,16 @@ export default function MobileControls({
 
   const handleJoystickEnd = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
+    // Only end if the joystick finger was lifted
+    let joystickFingerLifted = false;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === joystickTouchId.current) {
+        joystickFingerLifted = true;
+        break;
+      }
+    }
+    if (!joystickFingerLifted) return;
+    joystickTouchId.current = null;
     joystickActiveRef.current = false;
     setJoystickActive(false);
     joystickDelta.current = { x: 0, y: 0 };
