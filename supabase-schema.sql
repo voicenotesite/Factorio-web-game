@@ -116,3 +116,6 @@ CREATE POLICY "Users can upsert own snapshot" ON world_snapshots
 -- Add world_data column for co-op world visiting (run if not exists)
 ALTER TABLE world_snapshots ADD COLUMN IF NOT EXISTS world_data TEXT;
 
+-- Add save_data column for cloud backup of full save (run if not exists)
+ALTER TABLE world_snapshots ADD COLUMN IF NOT EXISTS save_data TEXT;
+

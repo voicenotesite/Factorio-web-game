@@ -44,7 +44,7 @@ export function saveGame(username: string, state: GameState): void {
   };
   localStorage.setItem(getSaveKey(username), JSON.stringify(data));
 
-  // Push snapshot to Supabase for world sharing (fire and forget)
+  // Push full save + world snapshot to Supabase (fire and forget — cloud backup)
   const uid = getCurrentUserId();
   if (uid) {
     const worldData = JSON.stringify({
@@ -58,6 +58,7 @@ export function saveGame(username: string, state: GameState): void {
       tick: state.tick,
       building_count: state.buildings.size,
       world_data: worldData,
+      save_data: JSON.stringify(data),
       updated_at: new Date().toISOString(),
     }).then(() => {});
   }
@@ -75,6 +76,22 @@ export function deleteSave(username: string): void {
 
 export function hasSave(username: string): boolean {
   return !!localStorage.getItem(getSaveKey(username));
+}
+
+/** Try to restore save from Supabase cloud backup into localStorage, returns true if found */
+export async function restoreFromCloud(uid: string, username: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('world_snapshots')
+      .select('save_data')
+      .eq('user_id', uid)
+      .single();
+    if (error || !data?.save_data) return false;
+    localStorage.setItem(getSaveKey(username), data.save_data);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function getSaveInfo(username: string): { timestamp: number; tick: number } | null {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { login, register, getCurrentUser } from '../lib/auth';
-import { hasSave } from '../lib/saveSystem';
+import { login, register, getCurrentUser, getCurrentUserId } from '../lib/auth';
+import { hasSave, restoreFromCloud } from '../lib/saveSystem';
 import { t } from '../lib/i18n';
 import LangSelector from './LangSelector';
 
@@ -32,7 +32,18 @@ export default function AuthScreen({ onAuth }: Props) {
     }
 
     const user = getCurrentUser()!;
-    const saveExists = hasSave(user);
+    let saveExists = hasSave(user);
+
+    // If no local save, try to restore from Supabase cloud backup
+    if (!saveExists) {
+      const uid = getCurrentUserId();
+      if (uid) {
+        setLoading(true);
+        saveExists = await restoreFromCloud(uid, user);
+        setLoading(false);
+      }
+    }
+
     onAuth(user, saveExists);
   };
 
