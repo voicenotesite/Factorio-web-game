@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { BUILDING_COLORS } from '../game/constants';
 import { GameEngine } from '../game/engine';
 import { getBuildingCost, canAffordBuilding } from '../game/systems';
@@ -45,6 +46,8 @@ const ITEM_NAMES: Record<string, string> = {
 };
 
 export default function BuildMenu({ engine, state, onClose }: Props) {
+  const [searchQuery, setSearchQuery] = useState('');
+
   const handleSelect = (type: string) => {
     if (!canAffordBuilding(state, type)) {
       engine.addNotification('Not enough resources!');
@@ -76,8 +79,29 @@ export default function BuildMenu({ engine, state, onClose }: Props) {
           >✕</button>
         </div>
 
+        {/* Search */}
+        <div className="mb-4">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search buildings..."
+            className="w-full px-3 py-2 text-xs rounded-lg outline-none font-exo"
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(216,128,16,0.2)',
+              color: 'rgba(255,255,255,0.8)',
+              caretColor: '#d88010',
+            }}
+            autoFocus
+          />
+        </div>
+
         {CATEGORIES.map(category => {
-          const items = BUILDABLE_ITEMS.filter(i => i.category === category);
+          const q = searchQuery.toLowerCase();
+          const items = BUILDABLE_ITEMS.filter(i => i.category === category && (
+            !q || i.name.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q) || i.type.includes(q)
+          ));
           if (items.length === 0) return null;
           const catColor = CATEGORY_COLORS[category];
           return (

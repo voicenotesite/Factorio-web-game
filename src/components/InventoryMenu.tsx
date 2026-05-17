@@ -98,7 +98,7 @@ export default function InventoryMenu({ engine, state, onClose }: Props) {
                     <div className="w-full h-full rounded-lg" style={{ background: RESOURCE_COLORS[slot.itemId] || '#888', opacity: 0.6, borderRadius: 'inherit' }} />
                   </div>
                   <div className="text-[9px] text-white/40 truncate mb-0.5">{slot.itemId.replace(/_/g, ' ')}</div>
-                  <div className="text-xs text-white font-mono font-bold tabular-nums" style={{ textShadow: `0 0 8px ${RESOURCE_COLORS[slot.itemId] || '#888'}` }}>{slot.count}</div>
+                  <div className="text-xs text-white font-mono font-bold tabular-nums" style={{ textShadow: `0 0 8px ${RESOURCE_COLORS[slot.itemId] || '#888'}` }}>{slot.count.toLocaleString()}</div>
                 </div>
               ))}
               {player.inventory.length === 0 && (

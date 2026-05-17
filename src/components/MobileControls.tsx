@@ -136,15 +136,18 @@ export default function MobileControls({ engine, onBuild, onCraft, onResearch, o
 
 function MineHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [pressed, setPressed] = useState(false);
 
   const start = (e: React.TouchEvent) => {
     e.preventDefault();
+    setPressed(true);
     engine.mineInFront();
     intervalRef.current = setInterval(() => engine.mineInFront(), 200);
   };
 
   const stop = (e: React.TouchEvent) => {
     e.preventDefault();
+    setPressed(false);
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
   };
 
@@ -154,7 +157,7 @@ function MineHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }
         width: '60px',
         height: '60px',
         borderRadius: '50%',
-        background: 'rgba(220,38,38,0.35)',
+        background: pressed ? 'rgba(220,38,38,0.55)' : 'rgba(220,38,38,0.35)',
         border: '2px solid rgba(220,38,38,0.6)',
         color: 'white',
         fontSize: '22px',
@@ -162,7 +165,9 @@ function MineHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }
         alignItems: 'center',
         justifyContent: 'center',
         touchAction: 'none',
-        boxShadow: '0 0 15px rgba(220,38,38,0.2)',
+        boxShadow: pressed ? '0 0 25px rgba(220,38,38,0.5)' : '0 0 15px rgba(220,38,38,0.2)',
+        transform: pressed ? 'scale(0.88)' : 'scale(1)',
+        transition: 'transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease',
       }}
       onTouchStart={start}
       onTouchEnd={stop}

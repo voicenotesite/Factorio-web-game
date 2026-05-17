@@ -1098,9 +1098,12 @@ export function updateNPCs(state: GameState) {
         const dy = npc.targetY - npc.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist > 0.5) {
-          npc.x += (dx / dist) * npc.speed;
-          npc.y += (dy / dist) * npc.speed;
+          const step = Math.min(npc.speed, dist);
+          npc.x += (dx / dist) * step;
+          npc.y += (dy / dist) * step;
         } else {
+          npc.x = Math.round(npc.x);
+          npc.y = Math.round(npc.y);
           npc.state = 'idle';
           npc.taskTimer = 40 + Math.random() * 80;
         }
@@ -1280,7 +1283,7 @@ export function spawnEnemies(state: GameState) {
   for (const [, spawner] of state.spawners) {
     spawner.spawnTimer--;
     if (spawner.spawnTimer <= 0) {
-      spawner.spawnTimer = Math.max(60, spawner.spawnRate);
+      spawner.spawnTimer = Math.max(60, spawner.spawnRate) * (state.evolution < 0.1 ? 2.5 : 1);
       const types: Enemy['type'][] = ['biter', 'spitter'];
       const type = types[Math.floor(Math.random() * types.length)];
       const stats = ENEMY_STATS[type];

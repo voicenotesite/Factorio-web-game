@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { GameState } from '../game/types';
 import { BUILDING_COLORS, RESOURCE_COLORS } from '../game/constants';
 
@@ -29,6 +29,11 @@ export default function HUD({ state, notifications }: Props) {
   const hpGlow = hpPct > 50 ? 'bar-glow-green' : hpPct > 25 ? 'bar-glow-amber' : 'bar-glow-red';
 
   const isMobile = window.innerWidth < 768;
+  const [hintsVisible, setHintsVisible] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setHintsVisible(false), 30000);
+    return () => clearTimeout(t);
+  }, []);
 
   if (isMobile) {
     return (
@@ -62,7 +67,7 @@ export default function HUD({ state, notifications }: Props) {
                 <div className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{
                   backgroundColor: RESOURCE_COLORS[slot.itemId] || '#888',
                 }} />
-                <span className="text-[9px] text-white/70 font-mono tabular-nums">{slot.count}</span>
+                <span className="text-[9px] text-white/70 font-mono tabular-nums">{slot.count.toLocaleString()}</span>
               </div>
             ))}
           </div>
@@ -185,7 +190,7 @@ export default function HUD({ state, notifications }: Props) {
                   boxShadow: `0 0 4px ${RESOURCE_COLORS[slot.itemId] || '#888'}`,
                 }}
               />
-              <span className="text-[10px] text-white/60 font-mono tabular-nums">{slot.count}</span>
+              <span className="text-[10px] text-white/60 font-mono tabular-nums">{slot.count.toLocaleString()}</span>
             </div>
           ))}
         </div>
@@ -193,7 +198,7 @@ export default function HUD({ state, notifications }: Props) {
 
       {/* Notifications */}
       <div className="absolute top-14 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 pointer-events-none" style={{ minWidth: 260 }}>
-        {notifications.map((n, i) => {
+        {[...notifications].reverse().map((n, i) => {
           const notifColor = n.type === 'error'
             ? { border: '1px solid rgba(239,68,68,0.3)', text: '#f87171', icon: '✕' }
             : n.type === 'success'
@@ -238,11 +243,13 @@ export default function HUD({ state, notifications }: Props) {
         <Minimap state={state} />
       </div>
 
-      {/* Controls hint */}
-      <div className="absolute bottom-16 left-4 text-[9px] text-white/15 pointer-events-none space-y-0.5 font-exo">
-        <div>WASD Move · Q Rotate · B Build · R Research · I Inventory</div>
-        <div>LMB Mine/Place · RMB Remove · Scroll Zoom · Tab Stats</div>
-      </div>
+      {/* Controls hint — fades out after 30 s */}
+      {hintsVisible && (
+        <div className="absolute bottom-16 left-4 text-[9px] text-white/15 pointer-events-none space-y-0.5 font-exo transition-opacity duration-1000">
+          <div>WASD Move · Q Rotate · B Build · R Research · I Inventory</div>
+          <div>LMB Mine/Place · RMB Remove · Scroll Zoom · Tab Stats</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -290,7 +297,16 @@ function Minimap({ state }: { state: GameState }) {
           if (mx < -2 || mx > 178 || my < -2 || my > 178) continue;
 
           if (tile.building) {
-            ctx.fillStyle = BUILDING_COLORS[tile.building.type] || '#888';
+            const MINIMAP_BUILDING_COLORS: Record<string, string> = {
+              miner: '#f59e0b', furnace: '#ef4444', assembler: '#3b82f6',
+              conveyor: '#f97316', inserter: '#fb923c', splitter: '#fb923c',
+              underground_belt: '#fb923c', pipe: '#64748b',
+              boiler: '#dc2626', steam_engine: '#fbbf24', power_pole: '#facc15',
+              lab: '#a855f7', radar: '#06b6d4', turret: '#dc2626', wall: '#6b7280',
+              storage: '#0ea5e9', refinery: '#c084fc', chemical_plant: '#34d399',
+              pumpjack: '#a3e635',
+            };
+            ctx.fillStyle = MINIMAP_BUILDING_COLORS[tile.building.type] || BUILDING_COLORS[tile.building.type] || '#888';
           } else if (tile.resource) {
             ctx.fillStyle = RESOURCE_COLORS[tile.resource] || '#888';
           } else {

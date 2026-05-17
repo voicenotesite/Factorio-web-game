@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, Component, ReactNode } from 'react';
 import GameCanvas from './components/GameCanvas';
 import HUD from './components/HUD';
 import BuildMenu from './components/BuildMenu';
@@ -27,6 +27,8 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
 
 function App() {
   const engineRef = useRef<GameEngine | null>(null);
+
+  useEffect(() => { document.title = 'Novactorio'; }, []);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [started, setStarted] = useState(false);
   const [showBuild, setShowBuild] = useState(false);
@@ -146,7 +148,11 @@ function App() {
     <div className="w-screen h-screen overflow-hidden select-none font-exo" style={{ background: 'var(--bg)' }}>
       {!currentUser && <AuthScreen onAuth={handleAuth} />}
       {currentUser && !started && <StartScreen onStart={() => setStarted(true)} />}
-      {currentUser && started && <GameCanvas engineRef={engineRef} onEngineReady={handleEngineReady} />}
+      {currentUser && started && (
+        <ErrorBoundary>
+          <GameCanvas engineRef={engineRef} onEngineReady={handleEngineReady} />
+        </ErrorBoundary>
+      )}
       {currentUser && started && gameState && <HUD state={gameState} notifications={notifications} />}
       {currentUser && started && gameState && engine && <BuildingInfo engine={engine} state={gameState} />}
 
@@ -340,4 +346,34 @@ const FriendsIcon = () => (
 );
 
 export default App;
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: '' };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/90 z-50 font-exo">
+          <div className="text-center p-8 rounded-2xl" style={{ background: '#0c1016', border: '1px solid rgba(239,68,68,0.3)' }}>
+            <div className="text-red-400 text-2xl mb-3 font-orbitron">⚠ Game Error</div>
+            <div className="text-white/50 text-sm mb-4 max-w-xs">{this.state.error}</div>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 rounded-lg text-sm font-orbitron"
+              style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171' }}
+            >
+              Reload Game
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 

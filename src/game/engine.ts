@@ -107,7 +107,7 @@ export class GameEngine {
   }
 
   private setupInput(canvas: HTMLCanvasElement) {
-    window.addEventListener('keydown', (e) => {
+    this.keyDownHandler = (e) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       this.keys.add(e.key.toLowerCase());
@@ -138,11 +138,13 @@ export class GameEngine {
       if (e.key === 'Escape') {
         this.selectedBuilding = null;
       }
-    });
+    };
+    window.addEventListener('keydown', this.keyDownHandler);
 
-    window.addEventListener('keyup', (e) => {
+    this.keyUpHandler = (e) => {
       this.keys.delete(e.key.toLowerCase());
-    });
+    };
+    window.addEventListener('keyup', this.keyUpHandler);
 
     canvas.addEventListener('mousemove', (e) => {
       const rect = canvas.getBoundingClientRect();
@@ -259,8 +261,13 @@ export class GameEngine {
     this.state.worldSeed = Math.abs(hash) % 900000 + 100000;
   }
 
+  private keyDownHandler: ((e: KeyboardEvent) => void) | null = null;
+  private keyUpHandler: ((e: KeyboardEvent) => void) | null = null;
+
   stop() {
     this.running = false;
+    if (this.keyDownHandler) { window.removeEventListener('keydown', this.keyDownHandler); this.keyDownHandler = null; }
+    if (this.keyUpHandler) { window.removeEventListener('keyup', this.keyUpHandler); this.keyUpHandler = null; }
   }
 
   private loop = () => {
@@ -378,7 +385,7 @@ export class GameEngine {
   private generateChunksAroundPlayer() {
     const px = Math.floor(this.state.player.x / CHUNK_SIZE);
     const py = Math.floor(this.state.player.y / CHUNK_SIZE);
-    const dist = 4;
+    const dist = 5;
 
     for (let cy = py - dist; cy <= py + dist; cy++) {
       for (let cx = px - dist; cx <= px + dist; cx++) {

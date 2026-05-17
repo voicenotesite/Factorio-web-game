@@ -76,8 +76,8 @@ export class GameRenderer {
       skyGrad.addColorStop(1, 'rgb(6,6,14)');
     } else {
       // Day
-      skyGrad.addColorStop(0, `rgb(${Math.floor(8 + dayFactor * 14)},${Math.floor(10 + dayFactor * 18)},${Math.floor(18 + dayFactor * 22)})`);
-      skyGrad.addColorStop(1, `rgb(${Math.floor(12 + dayFactor * 18)},${Math.floor(14 + dayFactor * 22)},${Math.floor(24 + dayFactor * 28)})`);
+      skyGrad.addColorStop(0, `rgb(${Math.floor(10 + dayFactor * 65)},${Math.floor(20 + dayFactor * 85)},${Math.floor(50 + dayFactor * 110)})`);
+      skyGrad.addColorStop(1, `rgb(${Math.floor(14 + dayFactor * 70)},${Math.floor(25 + dayFactor * 90)},${Math.floor(55 + dayFactor * 105)})`);
     }
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1888,15 +1888,22 @@ export class GameRenderer {
     const bob = Math.sin(this.frameCount * 0.12) * 1.2;
     const isMoving = this.isPlayerMoving;
 
+    // Player ambient glow — warm hard-hat light
+    const glowR = 22;
+    const playerGlow = ctx.createRadialGradient(x, y, 0, x, y, glowR);
+    playerGlow.addColorStop(0, 'rgba(255,210,100,0.22)');
+    playerGlow.addColorStop(0.5, 'rgba(255,200,80,0.10)');
+    playerGlow.addColorStop(1, 'rgba(255,200,80,0)');
+    ctx.fillStyle = playerGlow;
+    ctx.beginPath();
+    ctx.arc(x, y, glowR, 0, Math.PI * 2);
+    ctx.fill();
+
     // Ground shadow
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
     ctx.ellipse(x, y + 13, 8, 3.5, 0, 0, Math.PI * 2);
     ctx.fill();
-
-    const bY = isMoving ? bob : 0;
-
-    // Legs (dark cargo pants)
     ctx.fillStyle = '#1e2818';
     ctx.fillRect(x - 5, y + 4 + bY, 4, 7);
     ctx.fillRect(x + 1, y + 4 + bY, 4, 7);
@@ -2127,7 +2134,7 @@ export class GameRenderer {
         case 'resource': {
           ctx.globalAlpha = alpha;
           ctx.beginPath();
-          ctx.roundRect(p.x - 3, p.y - 3, 6, 6, 1);
+          ctx.arc(p.x, p.y, p.size * 0.85, 0, Math.PI * 2);
           ctx.fill();
           break;
         }

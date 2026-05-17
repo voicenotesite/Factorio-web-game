@@ -164,17 +164,33 @@ export default function ChatPanel({ onClose }: Props) {
         {messages.length === 0 && (
           <div className="text-center text-white/20 text-xs mt-4 font-orbitron">No messages yet...</div>
         )}
-        {messages.map(msg => (
-          <div key={msg.id} className="text-xs leading-relaxed">
-            <span
-              className="font-semibold mr-1.5"
-              style={{ color: msg.username === username ? '#d88010' : 'rgba(56,189,248,0.8)' }}
-            >
-              {msg.username}:
-            </span>
-            <span style={{ color: 'rgba(205,197,178,0.8)' }}>{msg.message}</span>
-          </div>
-        ))}
+        {messages.map(msg => {
+          const isOwn = msg.username === username;
+          return (
+            <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className="text-xs leading-relaxed max-w-[80%] px-2 py-1 rounded-lg"
+                style={{
+                  background: isOwn ? 'rgba(216,128,16,0.15)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${isOwn ? 'rgba(216,128,16,0.25)' : 'rgba(255,255,255,0.06)'}`,
+                  textAlign: isOwn ? 'right' : 'left',
+                }}
+              >
+                {!isOwn && (
+                  <span className="font-semibold mr-1.5" style={{ color: 'rgba(56,189,248,0.8)' }}>
+                    {msg.username}:
+                  </span>
+                )}
+                <span style={{ color: 'rgba(205,197,178,0.8)' }}>{msg.message}</span>
+                {isOwn && (
+                  <span className="font-semibold ml-1.5" style={{ color: '#d88010' }}>
+                    me
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
