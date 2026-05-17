@@ -16,9 +16,11 @@ export default function MobileControls({ engine, onBuild, onCraft, onResearch }:
   const joystickDelta = useRef({ x: 0, y: 0 });
   const animFrameRef = useRef<number>(0);
 
+  const joystickActiveRef = useRef(false);
+
   useEffect(() => {
     const tick = () => {
-      if (joystickActive && engine) {
+      if (joystickActiveRef.current && engine) {
         const { x, y } = joystickDelta.current;
         const speed = 0.18;
         if (Math.abs(x) > 0.05 || Math.abs(y) > 0.05) {
@@ -32,18 +34,19 @@ export default function MobileControls({ engine, onBuild, onCraft, onResearch }:
     };
     animFrameRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [engine, joystickActive]);
+  }, [engine]); // only re-run if engine changes, not on joystick toggle
 
   const handleJoystickStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
     const rect = joystickRef.current!.getBoundingClientRect();
     joystickOrigin.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    joystickActiveRef.current = true;
     setJoystickActive(true);
   }, []);
 
   const handleJoystickMove = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
-    if (!joystickActive) return;
+    if (!joystickActiveRef.current) return;
     const touch = e.touches[0];
     const maxDist = 40;
     let dx = touch.clientX - joystickOrigin.current.x;
@@ -61,6 +64,7 @@ export default function MobileControls({ engine, onBuild, onCraft, onResearch }:
 
   const handleJoystickEnd = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
+    joystickActiveRef.current = false;
     setJoystickActive(false);
     joystickDelta.current = { x: 0, y: 0 };
     if (knobRef.current) {
