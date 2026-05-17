@@ -231,6 +231,7 @@ export class GameEngine {
   }
 
   start() {
+    this.running = true;
     // Apply per-player world seed before generating any chunks
     initWorldSeed(this.state.worldSeed);
     for (let cy = -3; cy <= 3; cy++) {
