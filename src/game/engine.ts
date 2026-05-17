@@ -167,6 +167,48 @@ export class GameEngine {
 
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
+    // Touch support for mobile: map touch events → mouse state so
+    // handleMouseActions() works identically on mobile and desktop.
+    const touchToTile = (touch: Touch) => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = touch.clientX - rect.left;
+      const sy = touch.clientY - rect.top;
+      // Canvas internal size may differ from CSS size
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const cx = sx * scaleX;
+      const cy = sy * scaleY;
+      this.mouse.x = cx;
+      this.mouse.y = cy;
+      this.mouse.worldX = (cx - canvas.width / 2) / this.state.camera.zoom + this.state.camera.x;
+      this.mouse.worldY = (cy - canvas.height / 2) / this.state.camera.zoom + this.state.camera.y;
+      this.hoveredTile = {
+        x: Math.floor(this.mouse.worldX / TILE_SIZE),
+        y: Math.floor(this.mouse.worldY / TILE_SIZE),
+      };
+    };
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (e.touches.length > 0) {
+        touchToTile(e.touches[0]);
+        this.mouse.down = true;
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (e.touches.length > 0) {
+        touchToTile(e.touches[0]);
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      this.mouse.down = false;
+      this.mouse.rightDown = false;
+    }, { passive: false });
+
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       const zoomFactor = e.deltaY > 0 ? 0.88 : 1.14;
@@ -174,8 +216,21 @@ export class GameEngine {
     }, { passive: false });
   }
 
+  /** Mobile: mine tile directly in front of / under the player */
+  mineInFront() {
+    const { player } = this.state;
+    const offsets: Record<string, [number, number]> = {
+      up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0],
+    };
+    const [dx, dy] = offsets[player.direction] || [0, 1];
+    for (let r = 0; r <= Math.ceil(player.reach); r++) {
+      const tx = Math.floor(player.x + dx * r);
+      const ty = Math.floor(player.y + dy * r);
+      if (playerMine(this.state, tx, ty)) return;
+    }
+  }
+
   start() {
-    this.running = true;
     // Apply per-player world seed before generating any chunks
     initWorldSeed(this.state.worldSeed);
     for (let cy = -3; cy <= 3; cy++) {

@@ -123,38 +123,56 @@ export default function MobileControls({ engine, onBuild, onCraft, onResearch, o
         <MobileBtn label="SAVE" color="#94a3b8" onClick={onSave} icon="💾" />
       </div>
 
-      {/* Attack/interact button - bottom right center */}
+      {/* Mine/Attack button — hold to mine tile in front of player */}
       <div
         className="absolute pointer-events-auto"
         style={{ bottom: '90px', right: '100px' }}
       >
-        <button
-          style={{
-            width: '60px',
-            height: '60px',
-            borderRadius: '50%',
-            background: 'rgba(220,38,38,0.35)',
-            border: '2px solid rgba(220,38,38,0.6)',
-            color: 'white',
-            fontSize: '22px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            touchAction: 'none',
-            boxShadow: '0 0 15px rgba(220,38,38,0.2)',
-          }}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true });
-            document.dispatchEvent(event);
-          }}
-        >
-          ⛏
-        </button>
+        <MineHoldBtn engine={engine} />
       </div>
     </div>
   );
 }
+
+function MineHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }) {
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const start = (e: React.TouchEvent) => {
+    e.preventDefault();
+    engine.mineInFront();
+    intervalRef.current = setInterval(() => engine.mineInFront(), 200);
+  };
+
+  const stop = (e: React.TouchEvent) => {
+    e.preventDefault();
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+  };
+
+  return (
+    <button
+      style={{
+        width: '60px',
+        height: '60px',
+        borderRadius: '50%',
+        background: 'rgba(220,38,38,0.35)',
+        border: '2px solid rgba(220,38,38,0.6)',
+        color: 'white',
+        fontSize: '22px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        touchAction: 'none',
+        boxShadow: '0 0 15px rgba(220,38,38,0.2)',
+      }}
+      onTouchStart={start}
+      onTouchEnd={stop}
+      onTouchCancel={stop}
+    >
+      ⛏
+    </button>
+  );
+}
+
 
 function MobileBtn({ label, color, onClick, icon }: { label: string; color: string; onClick: () => void; icon: string }) {
   return (
