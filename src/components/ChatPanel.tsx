@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { getCurrentUser, getCurrentUserId } from '../lib/auth';
+import { t } from '../lib/i18n';
 
 const MAX_MSG_LEN = 200;
 const HISTORY_LIMIT = 30;
@@ -171,7 +172,7 @@ export default function ChatPanel({ onClose }: Props) {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey}
-            placeholder={username ? "Type a message..." : "Login to chat"}
+            placeholder={username ? t('typeMessage') : 'Login to chat'}
             disabled={!username}
             className="flex-1 px-2 py-1.5 text-xs rounded-lg outline-none"
             style={{

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { GameEngine } from '../game/engine';
 import { GameState } from '../game/types';
+import { t } from '../lib/i18n';
+import PaymentModal from './PaymentModal';
 
 interface Props {
   engine: GameEngine;
@@ -67,26 +69,29 @@ const PREMIUM_TIERS = [
 export default function ShopMenu({ engine, state, onClose }: Props) {
   const [tab, setTab] = useState<'cosmetics' | 'boosts' | 'premium'>('cosmetics');
   const [message, setMessage] = useState('');
+  const [showPayment, setShowPayment] = useState(false);
 
   const purchaseWithGems = (gemCost: number, callback: () => void) => {
-    if (state.player.gems < gemCost) { setMessage('Za mało gemów!'); return; }
+    if (state.player.gems < gemCost) { setMessage(t('insufficientGems')); return; }
     state.player.gems -= gemCost;
     callback();
-    setMessage('Zakupiono za gemy!');
-    engine.addNotification('Zakupiono za gemy!', 'success');
+    setMessage(t('purchased'));
+    engine.addNotification(t('purchased'), 'success');
   };
 
   const purchaseWithZl = (zlCost: number, callback: () => void) => {
-    if (state.player.premiumBalance < zlCost) { setMessage('Za mało złotówek!'); return; }
+    if (state.player.premiumBalance < zlCost) { setMessage(t('insufficientBalance')); return; }
     state.player.premiumBalance -= zlCost;
     callback();
-    setMessage('Zakupiono!');
-    engine.addNotification('Zakupiono za zł!', 'success');
+    setMessage(t('purchased'));
+    engine.addNotification(t('purchased'), 'success');
   };
 
-  const isError = message.includes('mało') || message.includes('Not');
+  const isError = message === t('insufficientBalance') || message === t('insufficientGems');
 
   return (
+    <>
+    {showPayment && <PaymentModal onClose={() => setShowPayment(false)} />}
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 backdrop-blur-md" onClick={onClose}>
       <div
         className="panel-glass rounded-2xl p-5 max-w-lg w-full mx-4 max-h-[82vh] overflow-y-auto animate-slide-up font-exo"
@@ -95,7 +100,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between mb-4 pb-3" style={{ borderBottom: '1px solid rgba(6,182,212,0.15)' }}>
           <div>
-            <h2 className="font-orbitron font-bold text-lg tracking-wider" style={{ color: '#06b6d4' }}>SHOP</h2>
+            <h2 className="font-orbitron font-bold text-lg tracking-wider" style={{ color: '#06b6d4' }}>{t('shop').toUpperCase()}</h2>
             <div className="flex items-center gap-3 mt-1">
               <div className="flex items-center gap-1.5">
                 <span className="text-cyan-400 text-sm">💎</span>
@@ -125,19 +130,19 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
 
         {/* Tab switcher */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl" style={{ background: 'rgba(0,0,0,0.3)' }}>
-          {(['cosmetics', 'boosts', 'premium'] as const).map(t => (
+          {(['cosmetics', 'boosts', 'premium'] as const).map(tabKey => (
             <button
-              key={t}
-              onClick={() => { setTab(t); setMessage(''); }}
+              key={tabKey}
+              onClick={() => { setTab(tabKey); setMessage(''); }}
               className="flex-1 py-2 px-3 text-xs font-semibold rounded-lg transition-all duration-200 font-exo capitalize"
               style={{
-                background: tab === t ? 'rgba(6,182,212,0.15)' : 'transparent',
-                color: tab === t ? '#06b6d4' : 'rgba(255,255,255,0.35)',
-                border: `1px solid ${tab === t ? 'rgba(6,182,212,0.3)' : 'transparent'}`,
-                boxShadow: tab === t ? '0 0 15px rgba(6,182,212,0.1)' : 'none',
+                background: tab === tabKey ? 'rgba(6,182,212,0.15)' : 'transparent',
+                color: tab === tabKey ? '#06b6d4' : 'rgba(255,255,255,0.35)',
+                border: `1px solid ${tab === tabKey ? 'rgba(6,182,212,0.3)' : 'transparent'}`,
+                boxShadow: tab === tabKey ? '0 0 15px rgba(6,182,212,0.1)' : 'none',
               }}
             >
-              {t === 'premium' ? '👑 Konto' : t}
+              {tabKey === 'premium' ? `👑 ${t('account')}` : tabKey === 'cosmetics' ? t('cosmetics') : t('boosts')}
             </button>
           ))}
         </div>
@@ -161,7 +166,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                       <div className="w-8 h-8 rounded-full mx-auto mb-1.5" style={{ backgroundColor: skin.color, boxShadow: `0 0 12px ${skin.color}60` }} />
                       <div className="text-[11px] text-white/70 font-medium mb-1.5">{skin.name}</div>
                       {skin.gemCost === 0 && skin.zlCost === 0
-                        ? <div className="text-[10px] text-white/30">Bezpłatny</div>
+                        ? <div className="text-[10px] text-white/30">{t('free')}</div>
                         : <div className="flex gap-1 justify-center flex-wrap">
                             {skin.gemCost > 0 && (
                               <button onClick={() => purchaseWithGems(skin.gemCost, cb)}
@@ -199,7 +204,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                       <div className="text-xl mb-1">🎩</div>
                       <div className="text-[11px] text-white/70 font-medium mb-1.5">{hat.name}</div>
                       {hat.gemCost === 0 && hat.zlCost === 0
-                        ? <div className="text-[10px] text-white/30">Bezpłatny</div>
+                        ? <div className="text-[10px] text-white/30">{t('free')}</div>
                         : <div className="flex gap-1 justify-center flex-wrap">
                             {hat.gemCost > 0 && (
                               <button onClick={() => purchaseWithGems(hat.gemCost, cb)}
@@ -236,7 +241,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                     >
                       <div className="text-[11px] text-white/70 font-medium mb-1.5">{trail.name}</div>
                       {trail.gemCost === 0 && trail.zlCost === 0
-                        ? <div className="text-[10px] text-white/30">Bezpłatny</div>
+                        ? <div className="text-[10px] text-white/30">{t('free')}</div>
                         : <div className="flex gap-1 justify-center flex-wrap">
                             {trail.gemCost > 0 && (
                               <button onClick={() => purchaseWithGems(trail.gemCost, cb)}
@@ -304,7 +309,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
 
         {tab === 'premium' && (
           <div className="space-y-3">
-            <p className="text-xs text-white/30 text-center mb-4 font-exo">Wybierz plan konta · Płatności dostępne wkrótce</p>
+            <p className="text-xs text-white/30 text-center mb-4 font-exo">{t('selectPlan')} · {t('paymentsComingSoon')}</p>
             {PREMIUM_TIERS.map(tier => {
               const isCurrent = state.player.premiumTier === tier.id;
               return (
@@ -320,7 +325,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="font-orbitron font-bold text-sm tracking-wider" style={{ color: tier.color }}>{tier.name}</span>
-                      {isCurrent && <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: `${tier.color}20`, color: tier.color }}>AKTYWNY</span>}
+                      {isCurrent && <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: `${tier.color}20`, color: tier.color }}>{t('currentPlan').toUpperCase()}</span>}
                     </div>
                     <span className="font-mono text-sm font-bold" style={{ color: tier.color }}>{tier.price}</span>
                   </div>
@@ -334,11 +339,11 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                   </ul>
                   {!isCurrent && (
                     <button
-                      onClick={() => engine.addNotification('Płatności będą dostępne wkrótce!', 'build')}
+                      onClick={() => setShowPayment(true)}
                       className="w-full py-1.5 rounded-lg text-xs font-semibold font-orbitron tracking-wider transition-all hover:opacity-90 active:scale-95"
                       style={{ background: `${tier.color}20`, color: tier.color, border: `1px solid ${tier.color}40` }}
                     >
-                      KUP
+                      {t('buy').toUpperCase()}
                     </button>
                   )}
                 </div>
@@ -348,6 +353,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
         )}
       </div>
     </div>
+    </>
   );
 }
 

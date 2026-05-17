@@ -15,6 +15,7 @@ import ChatPanel from './components/ChatPanel';
 import FriendsPanel from './components/FriendsPanel';
 import VisitWorldView from './components/VisitWorldView';
 import MobileControls from './components/MobileControls';
+import PremiumPopup from './components/PremiumPopup';
 import { GameEngine } from './game/engine';
 import { GameState } from './game/types';
 import { getCurrentUser, logout } from './lib/auth';
@@ -38,6 +39,7 @@ function App() {
   const [notifications, setNotifications] = useState<{ text: string; timer: number; type?: string }[]>([]);
   const [currentUser, setCurrentUser] = useState<string | null>(getCurrentUser);
   const [hasSaveData, setHasSaveData] = useState(false);
+  const [showPremiumPopup, setShowPremiumPopup] = useState(false);
 
   const handleEngineReady = useCallback((engine: GameEngine) => {
     engineRef.current = engine;
@@ -75,6 +77,16 @@ function App() {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [started]);
+
+  useEffect(() => {
+    if (currentUser && started && gameState) {
+      const noPopup = localStorage.getItem('novactorio_no_premium_popup') === '1';
+      if (!noPopup && gameState.player.premiumTier === 'free') {
+        const timer = setTimeout(() => setShowPremiumPopup(true), 3000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [currentUser, started, gameState?.player.premiumTier]);
 
   useEffect(() => {
     if (!started || !currentUser || !engineRef.current) return;
@@ -204,6 +216,13 @@ function App() {
       {showSaveLoad && engine && <SaveLoad engine={engine} onClose={() => setShowSaveLoad(false)} />}
       {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} />}
       {visitingWorld && <VisitWorldView friendId={visitingWorld.id} friendName={visitingWorld.name} onClose={() => setVisitingWorld(null)} />}
+      {showPremiumPopup && (
+        <PremiumPopup
+          onClose={() => setShowPremiumPopup(false)}
+          onDontAsk={() => { localStorage.setItem('novactorio_no_premium_popup', '1'); setShowPremiumPopup(false); }}
+          onBuyPremium={() => setShowShop(true)}
+        />
+      )}
     </div>
   );
 }

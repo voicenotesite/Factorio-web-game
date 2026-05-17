@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { login, register, getCurrentUser } from '../lib/auth';
 import { hasSave } from '../lib/saveSystem';
+import { t } from '../lib/i18n';
+import LangSelector from './LangSelector';
 
 interface Props {
   onAuth: (username: string, hasSaveData: boolean) => void;
@@ -85,7 +87,7 @@ export default function AuthScreen({ onAuth }: Props) {
                   borderRight: m === 'login' ? '1px solid rgba(255,255,255,0.06)' : 'none',
                 }}
               >
-                {m === 'login' ? '⬡ Sign In' : '+ Register'}
+              {m === 'login' ? `⬡ ${t('login')}` : `+ ${t('register')}`}
               </button>
             ))}
           </div>
@@ -153,13 +155,16 @@ export default function AuthScreen({ onAuth }: Props) {
                 border: '1px solid rgba(216,128,16,0.4)',
               }}
             >
-              {loading ? '...' : mode === 'login' ? '▶ ENTER NOVACTORIO' : '+ CREATE ACCOUNT'}
+              {loading ? '...' : mode === 'login' ? `▶ ${t('enterGame').toUpperCase()}` : `+ ${t('register').toUpperCase()}`}
             </button>
           </form>
 
           <div className="mt-4 text-center text-[9px] text-white/15 font-exo">
             Powered by Supabase · Saves stored in cloud
           </div>
+        </div>
+        <div className="mt-4 flex justify-center">
+          <LangSelector />
         </div>
       </div>
     </div>
