@@ -166,6 +166,9 @@ export interface PlayerState {
   xp: number;
   level: number;
   premiumCurrency: number;
+  gems: number;
+  premiumBalance: number;
+  premiumTier: 'free' | 'starter' | 'premium';
   cosmetics: { skinColor: string; hatType: string; trailEffect: string };
   achievements: string[];
   totalPlayTime: number;

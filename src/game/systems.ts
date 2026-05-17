@@ -866,8 +866,8 @@ export function spawnNPCs(state: GameState) {
   const buildings = Array.from(state.buildings.values());
   // Allow spawning even without buildings — NPCs wander the world
 
-  const types: NPC['type'][] = ['worker', 'scout', 'trader', 'guard', 'settler'];
-  const type = types[Math.floor(Math.random() * types.length)];
+  const typeRoll = Math.random();
+  const type: NPC['type'] = typeRoll < 0.4 ? 'worker' : typeRoll < 0.55 ? 'guard' : typeRoll < 0.7 ? 'scout' : typeRoll < 0.85 ? 'trader' : 'settler';
   const home = buildings.length > 0 ? buildings[Math.floor(Math.random() * buildings.length)] : { x: (Math.random() - 0.5) * 20, y: (Math.random() - 0.5) * 20 };
 
   const npc: NPC = {
@@ -1024,7 +1024,7 @@ export function updateNPCs(state: GameState) {
       }
       if (nearEnemy) {
         npc.state = 'fleeing';
-        npc.taskTimer = 200;
+        npc.taskTimer = 300;
       }
     }
 
@@ -1038,7 +1038,7 @@ export function updateNPCs(state: GameState) {
           if (freeTask) {
             freeTask.assignedNpcId = npc.id;
             npc.state = 'working';
-            npc.taskTimer = 600;
+            npc.taskTimer = 1800;
             break;
           }
           // Priority 2: supply chain job
@@ -1116,11 +1116,16 @@ export function updateNPCs(state: GameState) {
           } else {
             buildTask.constructionProgress += 1.2;
             if (buildTask.constructionProgress >= 100) {
-              placeBuilding(state, buildTask.type, buildTask.x, buildTask.y, buildTask.direction, true);
-              state.buildQueue = state.buildQueue.filter(q => q.id !== buildTask.id);
-              spawnParticle(state, buildTask.x * TILE_SIZE + 16, buildTask.y * TILE_SIZE + 16, 'spark', '#88ffcc');
-              npc.state = 'idle';
-              npc.taskTimer = 30;
+              const placed = placeBuilding(state, buildTask.type, buildTask.x, buildTask.y, buildTask.direction, true);
+              if (placed) {
+                state.buildQueue = state.buildQueue.filter(q => q.id !== buildTask.id);
+                spawnParticle(state, buildTask.x * TILE_SIZE + 16, buildTask.y * TILE_SIZE + 16, 'spark', '#88ffcc');
+                npc.state = 'idle';
+                npc.taskTimer = 30;
+              } else {
+                buildTask.constructionProgress = 80;
+                npc.taskTimer = 60;
+              }
             }
           }
           if (npc.taskTimer <= 0) {
@@ -1641,7 +1646,8 @@ export function grantXPToPlayer(state: GameState, amount: number, notify?: (msg:
     state.player.xp -= requiredXP;
     state.player.level++;
     state.player.premiumCurrency += 3;
-    const msg = `Level Up! Now level ${state.player.level}! +3 gems`;
+    state.player.gems += 1;
+    const msg = `Level Up! Now level ${state.player.level}! +1 gem`;
     if (notify) {
       notify(msg);
     }
@@ -1683,7 +1689,8 @@ export function checkAchievements(state: GameState) {
     if (def.check(state)) {
       state.player.achievements.push(def.id);
       state.notifications.push({ text: `🏆 Achievement: ${def.name} — ${def.description}`, timer: 300 });
-      state.player.premiumCurrency += 2; // small gem bonus
+      state.player.premiumCurrency += 2; // small gem bonus (legacy)
+      state.player.gems += 1;
     }
   }
 }

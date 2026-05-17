@@ -41,7 +41,8 @@ export default function StatsMenu({ state, onClose }: Props) {
           <Section title="Player" color="#38bdf8">
             <StatRow label="Level" value={player.level.toString()} color="#818cf8" />
             <StatRow label="Experience" value={`${player.xp} / ${player.level * 500}`} />
-            <StatRow label="Złote" value={`${(player.premiumCurrency * 0.25).toFixed(2)} zł`} color="#06b6d4" />
+            <StatRow label="Gemy" value={`${player.gems} 💎`} color="#06b6d4" />
+            <StatRow label="Saldo" value={`${player.premiumBalance.toFixed(2)} zł`} color="#22c55e" />
             <StatRow label="Health" value={`${Math.ceil(player.health)} / ${player.maxHealth}`} color={player.health / player.maxHealth > 0.5 ? '#22c55e' : '#ef4444'} />
             <StatRow label="Speed" value={player.speed.toFixed(2)} />
             <StatRow label="Mining Speed" value={`×${player.miningSpeed.toFixed(1)}`} />

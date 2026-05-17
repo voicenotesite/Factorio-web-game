@@ -67,6 +67,9 @@ export class GameEngine {
         xp: 0,
         level: 1,
         premiumCurrency: 0,
+        gems: 0,
+        premiumBalance: 0,
+        premiumTier: 'free' as const,
         cosmetics: { skinColor: '#3388ee', hatType: 'none', trailEffect: 'none' },
         achievements: [],
         totalPlayTime: 0,
@@ -475,6 +478,9 @@ export class GameEngine {
     this.state.statistics = { ...save.statistics };
     this.state.buildQueue = save.buildQueue || [];
     Object.assign(this.state.player, save.player);
+    this.state.player.gems = this.state.player.gems ?? 0;
+    this.state.player.premiumBalance = this.state.player.premiumBalance ?? 0;
+    this.state.player.premiumTier = this.state.player.premiumTier ?? 'free';
 
     this.state.buildings.clear();
     for (const [key, b] of (save.buildings || [])) {
