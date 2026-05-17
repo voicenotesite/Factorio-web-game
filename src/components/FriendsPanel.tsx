@@ -69,7 +69,7 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('id, username')
-      .eq('username', addUsername.trim())
+      .ilike('username', addUsername.trim())
       .single();
 
     if (!profile) { setMsg('User not found'); return; }
@@ -183,7 +183,7 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
               <input
                 value={addUsername}
                 onChange={e => setAddUsername(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && sendFriendRequest()}
+                onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') sendFriendRequest(); }}
                 placeholder="Enter player name..."
                 className="w-full px-3 py-2.5 text-sm rounded-lg outline-none"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}

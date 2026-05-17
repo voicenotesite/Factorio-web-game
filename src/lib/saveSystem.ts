@@ -40,7 +40,7 @@ export function saveGame(username: string, state: GameState): void {
     conveyors: Array.from(state.conveyors.entries()),
     research: Array.from(state.research.entries()).map(([k, v]) => [k, { ...v }]),
     npcs: Array.from(state.npcs.entries()),
-    buildQueue: [...state.buildQueue],
+    buildQueue: [],  // intentionally not persisted — NPC orders reset on logout
   };
   localStorage.setItem(getSaveKey(username), JSON.stringify(data));
 

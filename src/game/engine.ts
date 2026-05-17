@@ -7,7 +7,7 @@ import {
   spawnNPCs, updateNPCs, spawnEnemies, updateEnemies,
   updatePollution, updateParticles, updateWorldEvents, updateWeather,
   updateVisibility, playerMine, addItemToPlayer, spawnParticle,
-  canAffordBuilding, payBuildingCost, grantXPToPlayer, getTileAt, checkAchievements,
+  canAffordBuilding, payBuildingCost, getBuildingCost, grantXPToPlayer, getTileAt, checkAchievements,
 } from './systems';
 
 export class GameEngine {
@@ -382,6 +382,18 @@ export class GameEngine {
           // Also cancel any queued build at this position
           this.state.buildQueue = this.state.buildQueue.filter(q => !(q.x === x && q.y === y));
         }
+      } else if (!this.selectedBuilding) {
+        // Right-click on empty tile with no building selected = cancel queued build
+        const queueIdx = this.state.buildQueue.findIndex(q => q.x === x && q.y === y);
+        if (queueIdx !== -1) {
+          const task = this.state.buildQueue[queueIdx];
+          // Refund materials to player
+          for (const c of getBuildingCost(task.type)) {
+            addItemToPlayer(this.state, c.itemId, c.count);
+          }
+          this.state.buildQueue.splice(queueIdx, 1);
+          this.addNotification(`Cancelled ${task.type.replace(/_/g, ' ')}`, 'info');
+        }
       } else if (this.selectedBuilding) {
         // Right-click empty tile with building selected = queue for worker to build
         const dist = Math.sqrt((x - this.state.player.x) ** 2 + (y - this.state.player.y) ** 2);
@@ -489,7 +501,7 @@ export class GameEngine {
     this.state.dayTime = save.dayTime;
     this.state.weather = save.weather as GameState['weather'];
     this.state.statistics = { ...save.statistics };
-    this.state.buildQueue = save.buildQueue || [];
+    this.state.buildQueue = [];  // always start with fresh build queue on load
     this.state.worldSeed = (save as any).worldSeed || this.state.worldSeed;
     initWorldSeed(this.state.worldSeed);
     Object.assign(this.state.player, save.player);
