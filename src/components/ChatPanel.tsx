@@ -2,9 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { getCurrentUser, getCurrentUserId } from '../lib/auth';
 import { t } from '../lib/i18n';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const MAX_MSG_LEN = 200;
-const HISTORY_LIMIT = 30;
+const HISTORY_LIMIT = 50;
 
 interface ChatMessage {
   id: string;
@@ -23,16 +24,17 @@ export default function ChatPanel({ onClose }: Props) {
   const [minimized, setMinimized] = useState(false);
   const [unread, setUnread] = useState(0);
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const minimizedRef = useRef(false);
+  const channelRef = useRef<RealtimeChannel | null>(null);
   const username = getCurrentUser();
   const isMobile = window.innerWidth < 768;
 
-  // Keep ref in sync so the channel callback doesn't capture stale state
   useEffect(() => { minimizedRef.current = minimized; }, [minimized]);
 
   useEffect(() => {
-    // Fetch only needed columns, limit history
+    // Fetch last HISTORY_LIMIT messages from DB (global history)
     supabase
       .from('chat_messages')
       .select('id,username,message,created_at')
@@ -42,18 +44,23 @@ export default function ChatPanel({ onClose }: Props) {
         if (data) setMessages((data as ChatMessage[]).reverse());
       });
 
-    // Use Broadcast instead of postgres_changes — zero WAL overhead on Nano
+    // Single channel instance — reused for both subscribe AND send
     const channel = supabase
-      .channel('global-chat', { config: { broadcast: { self: false } } })
+      .channel('global-chat', { config: { broadcast: { self: true } } })
       .on('broadcast', { event: 'msg' }, ({ payload }) => {
         const msg = payload as ChatMessage;
-        setMessages(prev => [...prev.slice(-(HISTORY_LIMIT - 1)), msg]);
+        setMessages(prev => {
+          // Deduplicate by id (own message arrives via broadcast too now)
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [...prev.slice(-(HISTORY_LIMIT - 1)), msg];
+        });
         if (minimizedRef.current) setUnread(u => u + 1);
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, []); // only mount/unmount — no reconnect on minimize
+    channelRef.current = channel;
+    return () => { supabase.removeChannel(channel); channelRef.current = null; };
+  }, []);
 
   useEffect(() => {
     if (!minimized) {
@@ -66,6 +73,7 @@ export default function ChatPanel({ onClose }: Props) {
     if (!input.trim() || !username || sending) return;
     const msg = input.trim().slice(0, MAX_MSG_LEN);
     setInput('');
+    setSendError('');
     setSending(true);
 
     const newMsg: ChatMessage = {
@@ -75,19 +83,23 @@ export default function ChatPanel({ onClose }: Props) {
       created_at: new Date().toISOString(),
     };
 
-    // Broadcast first (instant, zero DB load) + write to DB for history
-    const channel = supabase.channel('global-chat');
-    channel.send({ type: 'broadcast', event: 'msg', payload: newMsg });
+    // 1. Broadcast via the subscribed channel (instant delivery to all online)
+    channelRef.current?.send({ type: 'broadcast', event: 'msg', payload: newMsg });
 
-    await supabase.from('chat_messages').insert({
+    // 2. Persist to DB for history (new players fetching on connect will see it)
+    const { error } = await supabase.from('chat_messages').insert({
       id: newMsg.id,
       username,
       message: msg,
       user_id: getCurrentUserId(),
     });
 
-    // Optimistically add own message
-    setMessages(prev => [...prev.slice(-(HISTORY_LIMIT - 1)), newMsg]);
+    if (error) {
+      // Non-fatal: message was broadcast already, just warn about history
+      setSendError('⚠ Not saved to history');
+      setTimeout(() => setSendError(''), 3000);
+    }
+
     setSending(false);
   }, [input, username, sending]);
 
@@ -167,6 +179,7 @@ export default function ChatPanel({ onClose }: Props) {
       </div>
 
       <div className="px-2 py-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        {sendError && <div className="text-[10px] text-yellow-400/80 mb-1 px-1">{sendError}</div>}
         <div className="flex gap-1.5">
           <input
             value={input}
