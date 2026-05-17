@@ -4,8 +4,8 @@ import { getCurrentUser, getCurrentUserId } from '../lib/auth';
 
 interface FriendRequest {
   id: string;
-  sender_username: string;
-  sender_id: string;
+  user_id: string;
+  user_username: string;  // actual DB column name (the sender)
   status: 'pending' | 'accepted';
 }
 
@@ -168,7 +168,7 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
                   className="flex items-center justify-between p-3 rounded-xl"
                   style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
                 >
-                  <span className="text-sm text-white/70">{req.sender_username}</span>
+                  <span className="text-sm text-white/70">{req.user_username}</span>
                   <div className="flex gap-1.5">
                     <button onClick={() => acceptRequest(req)} className="text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.2)' }}>✓</button>
                     <button onClick={() => declineRequest(req)} className="text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>✕</button>
