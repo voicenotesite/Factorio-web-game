@@ -261,6 +261,28 @@ export class GameEngine {
     this.selectedBuilding = null;
   }
 
+  removeNearestBuilding(): boolean {
+    const { player } = this.state;
+    let nearest: { key: string; building: { x: number; y: number; type: string } } | null = null;
+    let nearestDist = Infinity;
+    for (const [key, building] of this.state.buildings) {
+      const d = Math.sqrt((building.x - player.x) ** 2 + (building.y - player.y) ** 2);
+      if (d < player.reach + 1 && d < nearestDist) {
+        nearestDist = d;
+        nearest = { key, building: building as any };
+      }
+    }
+    if (!nearest) return false;
+    if (removeBuilding(this.state, nearest.building.x, nearest.building.y)) {
+      this.addNotification(`Removed ${nearest.building.type.replace(/_/g, ' ')}`, 'info');
+      this.state.buildQueue = this.state.buildQueue.filter(
+        q => !(q.x === nearest!.building.x && q.y === nearest!.building.y)
+      );
+      return true;
+    }
+    return false;
+  }
+
   start() {
     this.running = true;
     // Apply per-player world seed before generating any chunks

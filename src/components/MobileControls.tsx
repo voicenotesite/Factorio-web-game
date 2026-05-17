@@ -206,11 +206,12 @@ export default function MobileControls({
         <MineHoldBtn engine={engine} />
       </div>
 
-      {/* ── Save button — right side, mid ── */}
+      {/* ── Save + Demolish buttons — right side, mid ── */}
       <div
-        className="absolute pointer-events-auto"
+        className="absolute pointer-events-auto flex flex-col gap-2"
         style={{ bottom: '160px', right: '20px' }}
       >
+        <DemolishBtn engine={engine} />
         <SideBtn icon="💾" color="#94a3b8" onClick={onSave} label="SAVE" />
       </div>
 
@@ -331,6 +332,43 @@ function MineHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }
   );
 }
 
+
+function DemolishBtn({ engine }: { engine: import('../game/engine').GameEngine }) {
+  const [flash, setFlash] = useState(false);
+
+  const handleTap = (e: React.TouchEvent) => {
+    e.preventDefault();
+    const removed = engine.removeNearestBuilding();
+    if (removed) { setFlash(true); setTimeout(() => setFlash(false), 200); }
+  };
+
+  return (
+    <button
+      onTouchEnd={handleTap}
+      onClick={() => engine.removeNearestBuilding()}
+      style={{
+        width: '44px',
+        height: '44px',
+        borderRadius: '10px',
+        background: flash ? 'rgba(239,68,68,0.55)' : 'rgba(239,68,68,0.18)',
+        border: `1.5px solid rgba(239,68,68,${flash ? '0.9' : '0.45'})`,
+        color: '#f87171',
+        fontSize: '18px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '1px',
+        touchAction: 'none',
+        transition: 'background 0.15s, border-color 0.15s',
+        boxShadow: flash ? '0 0 16px rgba(239,68,68,0.5)' : 'none',
+      }}
+    >
+      <span>🗑</span>
+      <span style={{ fontSize: '6px', fontFamily: 'Orbitron', opacity: 0.6 }}>DEMO</span>
+    </button>
+  );
+}
 
 function TopBtn({ label, icon, color, onClick }: { label: string; icon: string; color: string; onClick: () => void }) {
   return (
