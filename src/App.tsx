@@ -19,8 +19,9 @@ import PremiumPopup from './components/PremiumPopup';
 import AdminPanel from './components/AdminPanel';
 import { GameEngine } from './game/engine';
 import { GameState } from './game/types';
-import { getCurrentUser, logout } from './lib/auth';
+import { getCurrentUser, logout, getCurrentUserId } from './lib/auth';
 import { saveGame, loadGame, hasSave } from './lib/saveSystem';
+import { supabase } from './lib/supabase';
 
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
 
@@ -118,6 +119,26 @@ function App() {
       setHasSaveData(false);
     }
   }, [started, hasSaveData, currentUser]);
+
+  // Co-op: receive visitors in own world
+  useEffect(() => {
+    if (!started || !currentUser || !engine) return;
+    const myId = getCurrentUserId();
+    if (!myId) return;
+
+    const channel = supabase
+      .channel(`coop-${myId}`, { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'pos' }, ({ payload }) => {
+        const { id, username, x, y, color } = payload as any;
+        engine.updateCoopVisitor(id, username, x, y, color);
+      })
+      .on('broadcast', { event: 'leave' }, ({ payload }) => {
+        engine.removeCoopVisitor((payload as any).id);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [started, currentUser, engine]);
 
   const engine = engineRef.current;
 

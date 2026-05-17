@@ -214,4 +214,5 @@ export interface GameState {
   notifications: { text: string; timer: number; type?: 'info' | 'error' | 'success' | 'build' }[];
   buildQueue: BuildQueueItem[];
   worldSeed: number;
+  coopVisitors?: Map<string, { username: string; x: number; y: number; color: string }>;
 }

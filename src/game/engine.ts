@@ -102,6 +102,7 @@ export class GameEngine {
       notifications: [],
       buildQueue: [],
       worldSeed: Math.floor(Math.random() * 900000) + 100000,
+      coopVisitors: new Map(),
     };
   }
 
@@ -612,5 +613,28 @@ export class GameEngine {
     }
 
     this.addNotification('Game loaded!', 'success');
+  }
+
+  updateCoopVisitor(id: string, username: string, x: number, y: number, color: string) {
+    if (!this.state.coopVisitors) this.state.coopVisitors = new Map();
+    this.state.coopVisitors.set(id, { username, x, y, color });
+  }
+
+  removeCoopVisitor(id: string) {
+    this.state.coopVisitors?.delete(id);
+  }
+
+  loadWorldData(worldData: { buildings: [string, unknown][]; seed: number }) {
+    this.state.buildings.clear();
+    this.state.conveyors.clear();
+
+    for (const [key, b] of (worldData.buildings || [])) {
+      this.state.buildings.set(key as string, b as any);
+    }
+
+    if (worldData.seed) {
+      this.state.worldSeed = worldData.seed;
+      initWorldSeed(worldData.seed);
+    }
   }
 }

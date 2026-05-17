@@ -171,6 +171,30 @@ export class GameRenderer {
     entities.sort((a, b) => a.y - b.y);
     for (const e of entities) e.render();
 
+    // Render co-op visitors (other players in this world)
+    if (state.coopVisitors) {
+      for (const [, visitor] of state.coopVisitors) {
+        const vx = visitor.x * TILE_SIZE - state.camera.x + canvas.width / 2;
+        const vy = visitor.y * TILE_SIZE - state.camera.y + canvas.height / 2;
+        ctx.save();
+        ctx.translate(vx, vy);
+        // Body
+        ctx.beginPath();
+        ctx.arc(0, -8, 8, 0, Math.PI * 2);
+        ctx.fillStyle = visitor.color;
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Name tag
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'white';
+        ctx.fillText(visitor.username, 0, -22);
+        ctx.restore();
+      }
+    }
+
     // Ghost building preview
     if (this.ghostBuilding && this.ghostTile) {
       this.renderGhostBuilding(ctx, state);

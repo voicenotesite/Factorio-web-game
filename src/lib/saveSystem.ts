@@ -47,11 +47,17 @@ export function saveGame(username: string, state: GameState): void {
   // Push snapshot to Supabase for world sharing (fire and forget)
   const uid = getCurrentUserId();
   if (uid) {
+    const worldData = JSON.stringify({
+      v: 1,
+      seed: state.worldSeed,
+      buildings: Array.from(state.buildings.entries()),
+    });
     supabase.from('world_snapshots').upsert({
       user_id: uid,
       username,
       tick: state.tick,
       building_count: state.buildings.size,
+      world_data: worldData,
       updated_at: new Date().toISOString(),
     }).then(() => {});
   }

@@ -113,3 +113,6 @@ CREATE POLICY "Users can upsert own snapshot" ON world_snapshots
 -- Broadcast is pure pub/sub and doesn't touch the WAL decoder at all.
 -- This is critical for Nano tier with limited CPU/RAM.
 
+-- Add world_data column for co-op world visiting (run if not exists)
+ALTER TABLE world_snapshots ADD COLUMN IF NOT EXISTS world_data TEXT;
+
