@@ -13,7 +13,7 @@ export async function register(username: string, password: string): Promise<{ su
   if (!trimmed || trimmed.length < 3) return { success: false, error: 'Username must be 3+ characters' };
   if (!password || password.length < 4) return { success: false, error: 'Password must be 4+ characters' };
 
-  const fakeEmail = `${trimmed.toLowerCase()}@novactorio.game`;
+  const fakeEmail = `${trimmed.toLowerCase()}@novactorio.io`;
 
   const { data, error } = await supabase.auth.signUp({
     email: fakeEmail,
@@ -38,7 +38,7 @@ export async function register(username: string, password: string): Promise<{ su
 }
 
 export async function login(username: string, password: string): Promise<{ success: boolean; error?: string }> {
-  const fakeEmail = `${username.trim().toLowerCase()}@novactorio.game`;
+  const fakeEmail = `${username.trim().toLowerCase()}@novactorio.io`;
   const { data, error } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
 
   if (error) {
