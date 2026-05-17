@@ -33,24 +33,26 @@ const TRAIL_EFFECTS = [
   { id: 'rainbow', name: 'Rainbow', cost: 60 },
 ];
 
+// Costs are stored in internal gems; display = cost * 0.25 zł
 const BOOST_PACKS = [
-  { id: 'speed_boost', name: 'Speed Boost', desc: '+25% movement for 5 min', cost: 5, icon: '⚡', color: '#fbbf24' },
-  { id: 'mining_boost', name: 'Mining Boost', desc: '+50% mining for 5 min', cost: 5, icon: '⛏', color: '#f97316' },
-  { id: 'xp_boost', name: 'XP Boost', desc: '+100% XP for 5 min', cost: 8, icon: '⭐', color: '#a78bfa' },
-  { id: 'shield', name: 'Shield', desc: 'Immunity for 2 min', cost: 10, icon: '🛡', color: '#38bdf8' },
+  { id: 'speed_boost', name: 'Speed Boost', desc: '+5% movement (one-time)', cost: 4, icon: '⚡', color: '#fbbf24' },
+  { id: 'mining_boost', name: 'Mining Boost', desc: '+10% mining (one-time)', cost: 4, icon: '⛏', color: '#f97316' },
+  { id: 'xp_boost', name: 'XP Boost', desc: '+20% XP gain (one-time)', cost: 8, icon: '⭐', color: '#a78bfa' },
+  { id: 'shield', name: 'Shield', desc: 'Restore 25% health', cost: 8, icon: '🛡', color: '#38bdf8' },
 ];
 
 export default function ShopMenu({ engine, state, onClose }: Props) {
   const [tab, setTab] = useState<'cosmetics' | 'boosts'>('cosmetics');
   const [message, setMessage] = useState('');
   const currency = state.player.premiumCurrency;
+  const toZl = (gems: number) => (gems * 0.25).toFixed(2);
 
   const purchase = (cost: number, callback: () => void) => {
-    if (currency < cost) { setMessage('Not enough gems!'); return; }
+    if (currency < cost) { setMessage('Brak środków!'); return; }
     state.player.premiumCurrency -= cost;
     callback();
-    setMessage('Purchased!');
-    engine.addNotification('Item purchased from shop!');
+    setMessage('Zakupiono!');
+    engine.addNotification('Zakupiono przedmiot!');
   };
 
   return (
@@ -64,9 +66,9 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
           <div>
             <h2 className="font-orbitron font-bold text-lg tracking-wider" style={{ color: '#06b6d4' }}>SHOP</h2>
             <div className="flex items-center gap-1.5 mt-1">
-              <span className="text-cyan-400 text-sm" style={{ filter: 'drop-shadow(0 0 4px #06b6d4)' }}>◆</span>
-              <span className="text-cyan-300 font-mono font-bold tabular-nums">{currency}</span>
-              <span className="text-white/20 text-xs">gems · earn by leveling up</span>
+              <span className="text-cyan-400 text-sm" style={{ filter: 'drop-shadow(0 0 4px #06b6d4)' }}>zł</span>
+              <span className="text-cyan-300 font-mono font-bold tabular-nums">{toZl(currency)}</span>
+              <span className="text-white/20 text-xs">zł · zdobywane levelując</span>
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-all text-sm font-orbitron">✕</button>
@@ -120,7 +122,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                     >
                       <div className="w-8 h-8 rounded-full mx-auto mb-1.5" style={{ backgroundColor: skin.color, boxShadow: `0 0 12px ${skin.color}60` }} />
                       <div className="text-[11px] text-white/70 font-medium">{skin.name}</div>
-                      <div className="text-[10px] mt-0.5" style={{ color: '#06b6d488' }}>{skin.cost === 0 ? 'Free' : `${skin.cost} ◆`}</div>
+                      <div className="text-[10px] mt-0.5" style={{ color: '#06b6d488' }}>{skin.cost === 0 ? 'Bezpłatny' : `${toZl(skin.cost)} zł`}</div>
                     </button>
                   );
                 })}
@@ -141,7 +143,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                     >
                       <div className="text-xl mb-1">🎩</div>
                       <div className="text-[11px] text-white/70 font-medium">{hat.name}</div>
-                      <div className="text-[10px] mt-0.5" style={{ color: '#06b6d488' }}>{hat.cost === 0 ? 'Free' : `${hat.cost} ◆`}</div>
+                      <div className="text-[10px] mt-0.5" style={{ color: '#06b6d488' }}>{hat.cost === 0 ? 'Bezpłatny' : `${toZl(hat.cost)} zł`}</div>
                     </button>
                   );
                 })}
@@ -161,7 +163,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                       }}
                     >
                       <div className="text-[11px] text-white/70 font-medium">{trail.name}</div>
-                      <div className="text-[10px] mt-0.5" style={{ color: '#06b6d488' }}>{trail.cost === 0 ? 'Free' : `${trail.cost} ◆`}</div>
+                      <div className="text-[10px] mt-0.5" style={{ color: '#06b6d488' }}>{trail.cost === 0 ? 'Bezpłatny' : `${toZl(trail.cost)} zł`}</div>
                     </button>
                   );
                 })}
@@ -177,10 +179,10 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                 key={pack.id}
                 onClick={() => purchase(pack.cost, () => {
                   switch (pack.id) {
-                    case 'speed_boost': state.player.speed *= 1.25; break;
-                    case 'mining_boost': state.player.miningSpeed *= 1.5; break;
-                    case 'xp_boost': state.player.craftingSpeed *= 2; break;
-                    case 'shield': state.player.health = state.player.maxHealth; break;
+                    case 'speed_boost': state.player.speed = Math.min(state.player.speed * 1.05, state.player.speed * 1.1); break;
+                    case 'mining_boost': state.player.miningSpeed = Math.min(state.player.miningSpeed * 1.1, state.player.miningSpeed * 1.2); break;
+                    case 'xp_boost': state.player.craftingSpeed = Math.min(state.player.craftingSpeed * 1.2, state.player.craftingSpeed * 1.4); break;
+                    case 'shield': state.player.health = Math.min(state.player.health + state.player.maxHealth * 0.25, state.player.maxHealth); break;
                   }
                 })}
                 className="p-4 rounded-xl text-left transition-all hover:opacity-90 active:scale-95"
@@ -193,7 +195,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                 <div className="text-2xl mb-2">{pack.icon}</div>
                 <div className="text-sm text-white/85 font-semibold">{pack.name}</div>
                 <div className="text-[11px] text-white/30 mt-1 leading-tight">{pack.desc}</div>
-                <div className="text-[11px] mt-2 font-bold font-mono" style={{ color: pack.color }}>{pack.cost} ◆</div>
+                <div className="text-[11px] mt-2 font-bold font-mono" style={{ color: pack.color }}>{toZl(pack.cost)} zł</div>
               </button>
             ))}
           </div>

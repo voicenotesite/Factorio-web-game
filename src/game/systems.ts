@@ -1393,7 +1393,8 @@ export function updatePollution(state: GameState) {
   }
 
   state.pollution = totalPollution;
-  state.evolution = Math.min(1, state.pollution * 0.0001 + state.tick * 0.000005);
+  // Evolution driven purely by pollution — idle players won't see it rise
+  state.evolution = Math.min(1, state.pollution * 0.00008);
 }
 
 // ============ PARTICLE SYSTEM ============

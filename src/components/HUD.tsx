@@ -136,8 +136,8 @@ export default function HUD({ state, notifications }: Props) {
 
           {/* Premium */}
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md" style={{ background: 'rgba(216,128,16,0.06)', border: '1px solid rgba(216,128,16,0.15)' }}>
-            <span className="text-cyan-400 text-xs" style={{ filter: 'drop-shadow(0 0 4px #06b6d4)' }}>◆</span>
-            <span className="text-[11px] text-cyan-300/80 font-mono tabular-nums">{state.player.premiumCurrency}</span>
+            <span className="text-cyan-400 text-xs font-bold" style={{ filter: 'drop-shadow(0 0 4px #06b6d4)' }}>zł</span>
+            <span className="text-[11px] text-cyan-300/80 font-mono tabular-nums">{(state.player.premiumCurrency * 0.25).toFixed(2)}</span>
           </div>
 
           {/* Day/Night */}
