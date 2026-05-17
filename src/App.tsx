@@ -57,6 +57,10 @@ function App() {
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      // Don't fire shortcuts when user is typing in any input/textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
       if (e.key === 'Tab') { e.preventDefault(); setShowStats(prev => !prev); }
       if (e.key === 'l') setShowLeaderboard(prev => !prev);
       if (e.key === 'p') setShowShop(prev => !prev);

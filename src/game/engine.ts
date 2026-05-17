@@ -103,6 +103,8 @@ export class GameEngine {
 
   private setupInput(canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       this.keys.add(e.key.toLowerCase());
       if (e.key === 'b' || e.key === 'B') this.onStateChange && null; // handled in React
       if (e.key === 'q' || e.key === 'Q') {
