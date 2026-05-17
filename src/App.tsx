@@ -44,6 +44,8 @@ function App() {
   const [hasSaveData, setHasSaveData] = useState(false);
   const [showPremiumPopup, setShowPremiumPopup] = useState(false);
 
+  const engine = engineRef.current;
+
   const handleEngineReady = useCallback((engine: GameEngine) => {
     engineRef.current = engine;
     engine.onStateChange = (state) => {
@@ -139,8 +141,6 @@ function App() {
 
     return () => { supabase.removeChannel(channel); };
   }, [started, currentUser, engine]);
-
-  const engine = engineRef.current;
 
   return (
     <div className="w-screen h-screen overflow-hidden select-none font-exo" style={{ background: 'var(--bg)' }}>
