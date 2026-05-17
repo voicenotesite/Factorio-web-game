@@ -1,6 +1,6 @@
 import { GameState, Building } from './types';
 import { CHUNK_SIZE, TILE_SIZE, RESEARCH_TREE, DAY_LENGTH, RECIPES, MAX_PARTICLES, BUILDING_SIZES } from './constants';
-import { generateChunk, getChunkKey } from './world';
+import { generateChunk, getChunkKey, initWorldSeed } from './world';
 import { GameRenderer } from './renderer';
 import {
   placeBuilding, removeBuilding, updateProduction, updateConveyors,
@@ -101,6 +101,7 @@ export class GameEngine {
       },
       notifications: [],
       buildQueue: [],
+      worldSeed: Math.floor(Math.random() * 900000) + 100000,
     };
   }
 
@@ -175,6 +176,8 @@ export class GameEngine {
 
   start() {
     this.running = true;
+    // Apply per-player world seed before generating any chunks
+    initWorldSeed(this.state.worldSeed);
     for (let cy = -3; cy <= 3; cy++) {
       for (let cx = -3; cx <= 3; cx++) {
         const key = getChunkKey(cx, cy);
@@ -187,6 +190,16 @@ export class GameEngine {
     // Pre-spawn a couple NPCs to make world feel alive from start
     for (let i = 0; i < 2; i++) spawnNPCs(this.state);
     this.loop();
+  }
+
+  /** Call before start() to tie the world seed to the logged-in username */
+  setSeedFromUsername(username: string) {
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+      hash = ((hash << 5) - hash) + username.charCodeAt(i);
+      hash |= 0;
+    }
+    this.state.worldSeed = Math.abs(hash) % 900000 + 100000;
   }
 
   stop() {
@@ -477,6 +490,8 @@ export class GameEngine {
     this.state.weather = save.weather as GameState['weather'];
     this.state.statistics = { ...save.statistics };
     this.state.buildQueue = save.buildQueue || [];
+    this.state.worldSeed = (save as any).worldSeed || this.state.worldSeed;
+    initWorldSeed(this.state.worldSeed);
     Object.assign(this.state.player, save.player);
     this.state.player.gems = this.state.player.gems ?? 0;
     this.state.player.premiumBalance = this.state.player.premiumBalance ?? 0;

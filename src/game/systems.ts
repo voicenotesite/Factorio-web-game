@@ -1243,18 +1243,21 @@ export function updateNPCs(state: GameState) {
             enemyCount++;
           }
         }
-        if (enemyCount === 0) {
+        if (enemyCount === 0 || npc.taskTimer <= 0) {
+          // Release any build task so another worker (or this one after idle) can pick it up
+          for (const task of state.buildQueue) {
+            if (task.assignedNpcId === npc.id) {
+              task.assignedNpcId = undefined;
+              task.constructionProgress = Math.max(0, task.constructionProgress - 20);
+            }
+          }
           npc.state = 'idle';
           npc.taskTimer = 60;
         } else {
           const len = Math.sqrt(fleeDx * fleeDx + fleeDy * fleeDy) || 1;
           npc.x += (fleeDx / len) * npc.speed * 1.4;
           npc.y += (fleeDy / len) * npc.speed * 1.4;
-        }
-        npc.taskTimer--;
-        if (npc.taskTimer <= 0) {
-          npc.state = 'idle';
-          npc.taskTimer = 60;
+          npc.taskTimer--;
         }
         break;
       }

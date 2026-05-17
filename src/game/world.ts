@@ -1,14 +1,24 @@
 import { SimplexNoise } from './noise';
 import { Tile, BiomeType, ResourceType } from './types';
-import { BIOME_COLORS, WORLD_SEED, CHUNK_SIZE } from './constants';
+import { BIOME_COLORS, CHUNK_SIZE } from './constants';
 
-const biomeNoise = new SimplexNoise(WORLD_SEED);
-const resourceNoise = new SimplexNoise(WORLD_SEED + 1);
-const moistureNoise = new SimplexNoise(WORLD_SEED + 2);
-const heightNoise = new SimplexNoise(WORLD_SEED + 3);
-const veinNoise = new SimplexNoise(WORLD_SEED + 4);
-const treeNoise = new SimplexNoise(WORLD_SEED + 5);
-const yieldNoise = new SimplexNoise(WORLD_SEED + 6);
+let biomeNoise = new SimplexNoise(42);
+let resourceNoise = new SimplexNoise(43);
+let moistureNoise = new SimplexNoise(44);
+let heightNoise = new SimplexNoise(45);
+let veinNoise = new SimplexNoise(46);
+let treeNoise = new SimplexNoise(47);
+let yieldNoise = new SimplexNoise(48);
+
+export function initWorldSeed(seed: number) {
+  biomeNoise = new SimplexNoise(seed);
+  resourceNoise = new SimplexNoise(seed + 1);
+  moistureNoise = new SimplexNoise(seed + 2);
+  heightNoise = new SimplexNoise(seed + 3);
+  veinNoise = new SimplexNoise(seed + 4);
+  treeNoise = new SimplexNoise(seed + 5);
+  yieldNoise = new SimplexNoise(seed + 6);
+}
 
 function getBiome(x: number, y: number): BiomeType {
   const moisture = moistureNoise.octave2D(x * 0.005, y * 0.005, 4, 0.5);

@@ -55,6 +55,10 @@ function App() {
   const handleAuth = useCallback((username: string, hasSaveDataArg: boolean) => {
     setCurrentUser(username);
     setHasSaveData(hasSaveDataArg);
+    // Set world seed based on username so each player gets a unique world
+    if (engineRef.current) {
+      engineRef.current.setSeedFromUsername(username);
+    }
   }, []);
 
   useEffect(() => {
