@@ -101,27 +101,39 @@ function App() {
 
   useEffect(() => {
     if (!started || !currentUser || !engineRef.current) return;
+    // Auto-save every 30 seconds
     const interval = setInterval(() => {
       if (engineRef.current && currentUser) {
         saveGame(currentUser, engineRef.current.state);
-        engineRef.current.addNotification('Auto-saved', 'info');
+        engineRef.current.addNotification('Auto-saved ✓', 'info');
       }
-    }, 120000);
-    return () => clearInterval(interval);
+    }, 30000);
+    // Save immediately on tab close / navigation away
+    const handleUnload = () => {
+      if (engineRef.current && currentUser) {
+        saveGame(currentUser, engineRef.current.state);
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
   }, [started, currentUser]);
 
   useEffect(() => {
-    if (started && hasSaveData && currentUser && engineRef.current) {
+    if (!started || !hasSaveData || !currentUser) return;
+    // Wait for engine to be ready (GameCanvas effect runs before App effects)
+    const tryLoad = () => {
+      const eng = engineRef.current;
+      if (!eng) { setTimeout(tryLoad, 100); return; }
       const save = loadGame(currentUser);
       if (save) {
-        setTimeout(() => {
-          if (engineRef.current) {
-            engineRef.current.loadFromSave(save);
-          }
-        }, 500);
+        eng.loadFromSave(save);
       }
-      setHasSaveData(false);
-    }
+    };
+    setTimeout(tryLoad, 300);
+    setHasSaveData(false);
   }, [started, hasSaveData, currentUser]);
 
   // Co-op: receive visitors in own world

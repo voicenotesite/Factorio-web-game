@@ -60,7 +60,9 @@ export function saveGame(username: string, state: GameState): void {
       world_data: worldData,
       save_data: JSON.stringify(data),
       updated_at: new Date().toISOString(),
-    }).then(() => {});
+    }).then(({ error }) => {
+      if (error) console.warn('[Save] Cloud backup failed:', error.message);
+    });
   }
 }
 
