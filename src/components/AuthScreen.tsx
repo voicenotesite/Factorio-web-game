@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { login, register, getCurrentUser } from '../lib/auth';
-import { hasSave, getSaveInfo } from '../lib/saveSystem';
+import { hasSave } from '../lib/saveSystem';
 
 interface Props {
   onAuth: (username: string, hasSaveData: boolean) => void;
@@ -13,14 +13,14 @@ export default function AuthScreen({ onAuth }: Props) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     const result = mode === 'login'
-      ? login(username, password)
-      : register(username, password);
+      ? await login(username, password)
+      : await register(username, password);
 
     setLoading(false);
 
@@ -33,10 +33,6 @@ export default function AuthScreen({ onAuth }: Props) {
     const saveExists = hasSave(user);
     onAuth(user, saveExists);
   };
-
-  const saveInfo = username.trim().length >= 3 && mode === 'login'
-    ? getSaveInfo(username.trim())
-    : null;
 
   return (
     <div
@@ -114,11 +110,6 @@ export default function AuthScreen({ onAuth }: Props) {
                 onFocus={e => e.target.style.borderColor = 'rgba(216,128,16,0.4)'}
                 onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
               />
-              {saveInfo && (
-                <div className="mt-1 text-[9px] text-green-400/60 font-mono">
-                  ✓ Save found — Tick {saveInfo.tick} · {new Date(saveInfo.timestamp).toLocaleDateString()}
-                </div>
-              )}
             </div>
 
             <div>
@@ -167,7 +158,7 @@ export default function AuthScreen({ onAuth }: Props) {
           </form>
 
           <div className="mt-4 text-center text-[9px] text-white/15 font-exo">
-            Saves stored locally in browser · No server required
+            Powered by Supabase · Saves stored in cloud
           </div>
         </div>
       </div>

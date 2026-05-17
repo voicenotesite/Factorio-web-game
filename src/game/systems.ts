@@ -1024,6 +1024,7 @@ export function updateNPCs(state: GameState) {
       }
       if (nearEnemy) {
         npc.state = 'fleeing';
+        npc.taskTimer = 200;
       }
     }
 
@@ -1227,21 +1228,26 @@ export function updateNPCs(state: GameState) {
       }
 
       case 'fleeing': {
-        let nearestEnemy: Enemy | null = null;
-        let nearestDist = Infinity;
-        for (const [, e] of state.enemies) {
-          const d = Math.sqrt((e.x - npc.x) ** 2 + (e.y - npc.y) ** 2);
-          if (d < nearestDist) { nearestDist = d; nearestEnemy = e; }
-        }
-        if (nearestEnemy && nearestDist < 15) {
-          const dx = npc.x - nearestEnemy.x;
-          const dy = npc.y - nearestEnemy.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 0) {
-            npc.x += (dx / dist) * npc.speed * 2.2;
-            npc.y += (dy / dist) * npc.speed * 2.2;
+        let fleeDx = 0, fleeDy = 0;
+        let enemyCount = 0;
+        for (const [, enemy] of state.enemies) {
+          const d = Math.sqrt((enemy.x - npc.x) ** 2 + (enemy.y - npc.y) ** 2);
+          if (d < 15) {
+            fleeDx -= (enemy.x - npc.x) / (d + 0.001);
+            fleeDy -= (enemy.y - npc.y) / (d + 0.001);
+            enemyCount++;
           }
+        }
+        if (enemyCount === 0) {
+          npc.state = 'idle';
+          npc.taskTimer = 60;
         } else {
+          const len = Math.sqrt(fleeDx * fleeDx + fleeDy * fleeDy) || 1;
+          npc.x += (fleeDx / len) * npc.speed * 1.4;
+          npc.y += (fleeDy / len) * npc.speed * 1.4;
+        }
+        npc.taskTimer--;
+        if (npc.taskTimer <= 0) {
           npc.state = 'idle';
           npc.taskTimer = 60;
         }

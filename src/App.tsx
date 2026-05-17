@@ -11,10 +11,16 @@ import BuildingInfo from './components/BuildingInfo';
 import SaveLoad from './components/SaveLoad';
 import StartScreen from './components/StartScreen';
 import AuthScreen from './components/AuthScreen';
+import ChatPanel from './components/ChatPanel';
+import FriendsPanel from './components/FriendsPanel';
+import VisitWorldView from './components/VisitWorldView';
+import MobileControls from './components/MobileControls';
 import { GameEngine } from './game/engine';
 import { GameState } from './game/types';
 import { getCurrentUser, logout } from './lib/auth';
 import { saveGame, loadGame, hasSave } from './lib/saveSystem';
+
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
 
 function App() {
   const engineRef = useRef<GameEngine | null>(null);
@@ -27,6 +33,8 @@ function App() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showSaveLoad, setShowSaveLoad] = useState(false);
+  const [showFriends, setShowFriends] = useState(false);
+  const [visitingWorld, setVisitingWorld] = useState<{ id: string; name: string } | null>(null);
   const [notifications, setNotifications] = useState<{ text: string; timer: number; type?: string }[]>([]);
   const [currentUser, setCurrentUser] = useState<string | null>(getCurrentUser);
   const [hasSaveData, setHasSaveData] = useState(false);
@@ -56,6 +64,7 @@ function App() {
       if (e.key === 'Escape') {
         setShowBuild(false); setShowResearch(false); setShowInventory(false);
         setShowStats(false); setShowLeaderboard(false); setShowShop(false); setShowSaveLoad(false);
+        setShowFriends(false);
         if (engineRef.current) engineRef.current.selectedBuilding = null;
       }
     };
@@ -98,6 +107,19 @@ function App() {
       {currentUser && started && gameState && <HUD state={gameState} notifications={notifications} />}
       {currentUser && started && gameState && engine && <BuildingInfo engine={engine} state={gameState} />}
 
+      {/* Mobile controls */}
+      {currentUser && started && isMobile && engine && (
+        <MobileControls
+          engine={engine}
+          onBuild={() => setShowBuild(true)}
+          onCraft={() => setShowInventory(true)}
+          onResearch={() => setShowResearch(true)}
+        />
+      )}
+
+      {/* Chat */}
+      {currentUser && started && <ChatPanel />}
+
       {/* Bottom action bar */}
       {currentUser && started && (
         <div
@@ -124,6 +146,8 @@ function App() {
             icon={<TrophyIcon />} color="#fbbf24" />
           <ActionBarBtn label="Shop" shortcut="P" onClick={() => setShowShop(true)} active={showShop}
             icon={<GemIcon />} color="#06b6d4" />
+          <ActionBarBtn label="Friends" shortcut="" onClick={() => setShowFriends(true)} active={showFriends}
+            icon={<FriendsIcon />} color="#f472b6" />
           <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
           <ActionBarBtn label="Save" shortcut="" onClick={() => setShowSaveLoad(true)} active={showSaveLoad}
             icon={<SaveIcon />} color="#94a3b8" />
@@ -172,6 +196,8 @@ function App() {
       {showLeaderboard && <LeaderboardMenu onClose={() => setShowLeaderboard(false)} />}
       {showShop && engine && gameState && <ShopMenu engine={engine} state={gameState} onClose={() => setShowShop(false)} />}
       {showSaveLoad && engine && <SaveLoad engine={engine} onClose={() => setShowSaveLoad(false)} />}
+      {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} />}
+      {visitingWorld && <VisitWorldView friendId={visitingWorld.id} friendName={visitingWorld.name} onClose={() => setVisitingWorld(null)} />}
     </div>
   );
 }
@@ -212,7 +238,6 @@ function ActionBarBtn({ label, shortcut, onClick, icon, color, active }: {
   );
 }
 
-// Minimal inline SVG icons
 const WrenchIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
@@ -246,6 +271,11 @@ const GemIcon = () => (
 const SaveIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17,21 17,13 7,13 7,21" /><polyline points="7,3 7,8 15,8" />
+  </svg>
+);
+const FriendsIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
   </svg>
 );
 

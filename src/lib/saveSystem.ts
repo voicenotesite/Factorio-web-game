@@ -1,4 +1,6 @@
 import { GameState } from '../game/types';
+import { supabase } from './supabase';
+import { getCurrentUserId } from './auth';
 
 export interface SaveData {
   version: number;
@@ -41,6 +43,18 @@ export function saveGame(username: string, state: GameState): void {
     buildQueue: [...state.buildQueue],
   };
   localStorage.setItem(getSaveKey(username), JSON.stringify(data));
+
+  // Push snapshot to Supabase for world sharing (fire and forget)
+  const uid = getCurrentUserId();
+  if (uid) {
+    supabase.from('world_snapshots').upsert({
+      user_id: uid,
+      username,
+      tick: state.tick,
+      building_count: state.buildings.size,
+      updated_at: new Date().toISOString(),
+    }).then(() => {});
+  }
 }
 
 export function loadGame(username: string): SaveData | null {
