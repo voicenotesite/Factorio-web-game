@@ -100,24 +100,6 @@ export default function HUD({ state, notifications }: Props) {
             );
           })}
         </div>
-
-        {/* Minimap — bottom left corner above joystick */}
-        <div
-          className="absolute rounded-xl overflow-hidden"
-          style={{
-            bottom: '150px',
-            left: '16px',
-            width: '80px',
-            height: '80px',
-            background: 'linear-gradient(180deg, #111820, #0c1016)',
-            border: '1px solid rgba(216,128,16,0.25)',
-            boxShadow: '0 0 12px rgba(0,0,0,0.7)',
-            opacity: 0.85,
-          }}
-        >
-          <div className="absolute top-0.5 left-1.5 text-[6px] font-orbitron text-white/25 z-10 tracking-widest">MAP</div>
-          <Minimap state={state} size={80} />
-        </div>
       </div>
     );
   }

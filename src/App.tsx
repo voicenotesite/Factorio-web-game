@@ -168,9 +168,10 @@ function App() {
       {currentUser && started && gameState && engine && <BuildingInfo engine={engine} state={gameState} />}
 
       {/* Mobile controls */}
-      {currentUser && started && isMobile && engine && (
+      {currentUser && started && isMobile && engine && gameState && (
         <MobileControls
           engine={engine}
+          gameState={gameState}
           currentUser={currentUser}
           onBuild={() => setShowBuild(true)}
           onCraft={() => setShowInventory(true)}
@@ -179,6 +180,7 @@ function App() {
           onSave={() => setShowSaveLoad(true)}
           onFriends={() => setShowFriends(true)}
           onAdmin={() => setShowAdmin(true)}
+          onLogout={() => { logout(); setCurrentUser(null); setStarted(false); }}
         />
       )}
 

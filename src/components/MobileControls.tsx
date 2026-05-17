@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { GameEngine } from '../game/engine';
+import { GameState } from '../game/types';
+import { BUILDING_COLORS, RESOURCE_COLORS } from '../game/constants';
 
 interface Props {
   engine: GameEngine;
+  gameState: GameState;
   currentUser: string;
   onBuild: () => void;
   onCraft: () => void;
@@ -11,10 +14,11 @@ interface Props {
   onSave: () => void;
   onFriends: () => void;
   onAdmin: () => void;
+  onLogout: () => void;
 }
 
 export default function MobileControls({
-  engine, currentUser, onBuild, onCraft, onResearch, onStats, onSave, onFriends, onAdmin,
+  engine, gameState, currentUser, onBuild, onCraft, onResearch, onStats, onSave, onFriends, onAdmin, onLogout,
 }: Props) {
   const joystickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
@@ -106,6 +110,55 @@ export default function MobileControls({
         {isAdmin && (
           <TopBtn label="ADMIN" icon="🛡️" color="#ef4444" onClick={onAdmin} />
         )}
+      </div>
+
+      {/* ── Minimap — above joystick, bottom-left ── */}
+      <div
+        className="absolute rounded-xl overflow-hidden pointer-events-none"
+        style={{
+          bottom: '148px',
+          left: '16px',
+          width: '84px',
+          height: '84px',
+          background: 'linear-gradient(180deg, #111820, #0c1016)',
+          border: '1px solid rgba(216,128,16,0.3)',
+          boxShadow: '0 0 14px rgba(0,0,0,0.8)',
+          opacity: 0.9,
+          zIndex: 12,
+        }}
+      >
+        <div className="absolute top-0.5 left-1.5 text-[6px] font-orbitron text-white/30 z-10 tracking-widest">MAP</div>
+        <MiniMapCanvas state={gameState} size={84} />
+      </div>
+
+      {/* ── Logout button — left side, above minimap ── */}
+      <div
+        className="absolute pointer-events-auto"
+        style={{ bottom: '240px', left: '16px' }}
+      >
+        <button
+          onTouchEnd={(e) => { e.preventDefault(); onLogout(); }}
+          onClick={onLogout}
+          style={{
+            width: '84px',
+            height: '32px',
+            borderRadius: '8px',
+            background: 'rgba(0,0,0,0.6)',
+            border: '1px solid rgba(239,68,68,0.3)',
+            color: 'rgba(248,113,113,0.8)',
+            fontSize: '10px',
+            fontFamily: 'Orbitron',
+            letterSpacing: '0.05em',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            touchAction: 'none',
+          }}
+        >
+          <span>⬡</span>
+          <span>LOGOUT</span>
+        </button>
       </div>
 
       {/* ── Virtual Joystick — bottom left ── */}
@@ -331,5 +384,78 @@ function SideBtn({ icon, color, onClick, label }: { icon: string; color: string;
       <span style={{ fontSize: '6px', fontFamily: 'Orbitron', opacity: 0.5 }}>{label}</span>
     </button>
   );
+}
+
+function MiniMapCanvas({ state, size }: { state: GameState; size: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const scale = 1.5;
+    const cx = size / 2;
+    const cy = size / 2;
+    const px = state.player.x;
+    const py = state.player.y;
+
+    ctx.fillStyle = '#06080a';
+    ctx.fillRect(0, 0, size, size);
+
+    const BUILDING_COLORS_MAP: Record<string, string> = {
+      miner: '#f59e0b', furnace: '#ef4444', assembler: '#3b82f6',
+      conveyor: '#f97316', inserter: '#fb923c', boiler: '#dc2626',
+      steam_engine: '#fbbf24', power_pole: '#facc15', lab: '#a855f7',
+      turret: '#dc2626', wall: '#6b7280', storage: '#0ea5e9',
+    };
+
+    for (const [, chunk] of state.chunks) {
+      for (let y = 0; y < chunk.length; y++) {
+        for (let x = 0; x < chunk[y].length; x++) {
+          const tile = chunk[y][x];
+          if (tile.visibility < 0.5) continue;
+          const mx = (tile.x - px) * scale + cx;
+          const my = (tile.y - py) * scale + cy;
+          if (mx < -2 || mx > size + 2 || my < -2 || my > size + 2) continue;
+          if (tile.building) {
+            ctx.fillStyle = BUILDING_COLORS_MAP[tile.building.type] || BUILDING_COLORS[tile.building.type] || '#888';
+          } else if (tile.resource) {
+            ctx.fillStyle = RESOURCE_COLORS[tile.resource] || '#555';
+          } else {
+            const biomeColors: Record<string, string> = {
+              grass: '#0f2a14', desert: '#3a2a1a', snow: '#2a3040',
+              forest: '#0a2010', swamp: '#121a12', volcanic: '#1a0f0a',
+            };
+            ctx.fillStyle = biomeColors[tile.biome] || '#0f2a14';
+          }
+          ctx.fillRect(mx, my, scale, scale);
+        }
+      }
+    }
+
+    // Enemies (red dots)
+    for (const [, enemy] of state.enemies) {
+      const ex = (enemy.x - px) * scale + cx;
+      const ey = (enemy.y - py) * scale + cy;
+      if (ex < 0 || ex > size || ey < 0 || ey > size) continue;
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(ex - 1, ey - 1, 2, 2);
+    }
+
+    // Player dot
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 5);
+    g.addColorStop(0, 'rgba(56,189,248,0.9)');
+    g.addColorStop(1, 'rgba(56,189,248,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - 5, cy - 5, 10, 10);
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }, [state.tick, size]);
+
+  return <canvas ref={canvasRef} width={size} height={size} style={{ width: size, height: size }} />;
 }
 
