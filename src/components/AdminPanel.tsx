@@ -161,12 +161,12 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
 
         {/* Tabs */}
         <div className="flex" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          {tabs.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
+          {tabs.map(tabItem => (
+            <button key={tabItem.id} onClick={() => setTab(tabItem.id)}
               className="flex-1 py-2.5 text-[10px] font-orbitron tracking-wider transition-colors"
-              style={{ color: tab === t.id ? '#ef4444' : 'rgba(255,255,255,0.3)', borderBottom: tab === t.id ? '2px solid #ef4444' : '2px solid transparent' }}
+              style={{ color: tab === tabItem.id ? '#ef4444' : 'rgba(255,255,255,0.3)', borderBottom: tab === tabItem.id ? '2px solid #ef4444' : '2px solid transparent' }}
             >
-              {t.icon} {t.label}
+              {tabItem.icon} {tabItem.label}
             </button>
           ))}
         </div>

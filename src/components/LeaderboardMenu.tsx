@@ -86,15 +86,15 @@ export default function LeaderboardMenu({ onClose }: Props) {
 
         {/* Tab switcher */}
         <div className="flex gap-1 mb-4 p-1 rounded-xl flex-shrink-0" style={{ background: 'rgba(0,0,0,0.3)' }}>
-          {(['leaderboard', 'achievements'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
+          {(['leaderboard', 'achievements'] as const).map(tabKey => (
+            <button key={tabKey} onClick={() => setTab(tabKey)}
               className="flex-1 py-2 px-4 text-sm font-semibold rounded-lg transition-all font-exo capitalize"
               style={{
-                background: tab === t ? 'rgba(251,191,36,0.15)' : 'transparent',
-                color: tab === t ? '#fbbf24' : 'rgba(255,255,255,0.35)',
-                border: `1px solid ${tab === t ? 'rgba(251,191,36,0.3)' : 'transparent'}`,
+                background: tab === tabKey ? 'rgba(251,191,36,0.15)' : 'transparent',
+                color: tab === tabKey ? '#fbbf24' : 'rgba(255,255,255,0.35)',
+                border: `1px solid ${tab === tabKey ? 'rgba(251,191,36,0.3)' : 'transparent'}`,
               }}
-            >{t}</button>
+            >{tabKey}</button>
           ))}
         </div>
 

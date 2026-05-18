@@ -117,17 +117,17 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
         </div>
 
         <div className="flex" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          {(['friends', 'requests', 'add'] as const).map(t => (
+          {(['friends', 'requests', 'add'] as const).map(tabKey => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={tabKey}
+              onClick={() => setTab(tabKey)}
               className="flex-1 py-2.5 text-[10px] font-orbitron tracking-wider uppercase transition-colors"
               style={{
-                color: tab === t ? '#d88010' : 'rgba(255,255,255,0.3)',
-                borderBottom: tab === t ? '2px solid #d88010' : '2px solid transparent',
+                color: tab === tabKey ? '#d88010' : 'rgba(255,255,255,0.3)',
+                borderBottom: tab === tabKey ? '2px solid #d88010' : '2px solid transparent',
               }}
             >
-              {t === 'friends' ? `${t('friendsTab')} (${friends.length})` : t === 'requests' ? `${t('requestsTab')} ${requests.length > 0 ? `(${requests.length})` : ''}` : t('addTab')}
+              {tabKey === 'friends' ? `${t('friendsTab')} (${friends.length})` : tabKey === 'requests' ? `${t('requestsTab')} ${requests.length > 0 ? `(${requests.length})` : ''}` : t('addTab')}
             </button>
           ))}
         </div>
