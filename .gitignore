@@ -21,3 +21,8 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+supabase.exe
+supabase-go.exe
+supabase/.temp/
+

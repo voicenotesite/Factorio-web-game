@@ -7,6 +7,12 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", {
   httpClient: Stripe.createFetchHttpClient(),
 });
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 interface CheckoutPayload {
   priceId: string;
   userId: string;
@@ -19,13 +25,17 @@ console.info("stripe-checkout started");
 
 export default {
   fetch: withSupabase({ auth: ["publishable", "secret"] }, async (req, ctx) => {
+    if (req.method === "OPTIONS") {
+      return new Response("ok", { headers: corsHeaders });
+    }
+
     try {
       const { priceId, userId, username, successUrl, cancelUrl }: CheckoutPayload = await req.json();
 
       if (!priceId || !userId) {
         return new Response(JSON.stringify({ error: "Missing priceId or userId" }), {
           status: 400,
-          headers: { "Content-Type": "application/json" },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
@@ -51,13 +61,13 @@ export default {
 
       return new Response(JSON.stringify({ url: session.url, sessionId: session.id }), {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch (err) {
       console.error("Stripe checkout error:", err);
       return new Response(JSON.stringify({ error: err.message }), {
         status: 500,
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
   }),
