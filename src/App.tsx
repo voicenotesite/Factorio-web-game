@@ -50,6 +50,7 @@ function App() {
   const [showPremiumPopup, setShowPremiumPopup] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [saveCooldown, setSaveCooldown] = useState(0);
+  const [showSaveOverlay, setShowSaveOverlay] = useState(false);
   const [coopMode, setCoopMode] = useState(false);
   const [coopOnline, setCoopOnline] = useState(0);
   const coopChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -161,7 +162,10 @@ function App() {
     if (saveCooldown <= 0) return;
     const t2 = setInterval(() => {
       setSaveCooldown(prev => {
-        if (prev <= 1) return 0;
+        if (prev <= 1) {
+          setShowSaveOverlay(false);
+          return 0;
+        }
         return prev - 1;
       });
     }, 1000);
@@ -171,6 +175,7 @@ function App() {
   const triggerSave = useCallback(() => {
     if (!currentUser || !engineRef.current || saveCooldown > 0) return;
     setSaveCooldown(10);
+    setShowSaveOverlay(true);
     saveGame(currentUser, engineRef.current.state);
   }, [currentUser, saveCooldown]);
 
@@ -374,7 +379,7 @@ function App() {
       )}
 
       {/* Save cooldown overlay */}
-      {saveCooldown > 0 && (
+      {showSaveOverlay && (
         <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
           <div className="animate-slide-up text-center" style={{
             background: 'rgba(0,0,0,0.75)',
