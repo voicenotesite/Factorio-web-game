@@ -119,3 +119,26 @@ ALTER TABLE world_snapshots ADD COLUMN IF NOT EXISTS world_data TEXT;
 -- Add save_data column for cloud backup of full save (run if not exists)
 ALTER TABLE world_snapshots ADD COLUMN IF NOT EXISTS save_data TEXT;
 
+-- Premium / payments support (for Stripe integration)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS premium_tier TEXT DEFAULT 'free';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS premium_updated_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users ON DELETE CASCADE,
+  username TEXT NOT NULL,
+  stripe_session_id TEXT UNIQUE NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'pln',
+  tier TEXT NOT NULL DEFAULT 'premium',
+  status TEXT NOT NULL DEFAULT 'completed',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS payments_user_idx ON payments (user_id);
+CREATE INDEX IF NOT EXISTS payments_stripe_session_idx ON payments (stripe_session_id);
+
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own payments" ON payments FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Service role can insert payments" ON payments FOR INSERT WITH CHECK (auth.uid() = user_id OR auth.role() = 'service_role');
+

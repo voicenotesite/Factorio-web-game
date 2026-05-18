@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head><title>Sprite Slicer</title><style>
+body{background:#111;color:#fff;font-family:monospace;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{color:#d88010}
+canvas{border:1px solid #444;margin:10px 0;max-width:90vw}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;margin:10px 0}
+input,button{padding:8px 16px;border-radius:6px;border:1px solid #444;background:#222;color:#fff;font-family:monospace;font-size:14px}
+button{background:#d88010;border-color:#d88010;color:#000;font-weight:bold;cursor:pointer;transition:.2s}
+button:hover{background:#e69320}
+.grid{display:grid;gap:8px;margin-top:15px;justify-content:center}
+.grid img{width:64px;height:64px;image-rendering:pixelated;border:1px solid #555;border-radius:4px;cursor:pointer;transition:.2s}
+.grid img:hover{border-color:#d88010;transform:scale(1.1)}
+.dl-btn{font-size:11px;padding:4px 8px}
+</style></head>
+<body>
+<h1>🧩 Sprite Slicer</h1>
+<div class=controls>
+<input type=file id=upload accept=image/*>
+<label>Rows: <input id=rows type=number value=4 min=1 max=10 style=width:50px></label>
+<label>Cols: <input id=cols type=number value=5 min=1 max=10 style=width:50px></label>
+<button onclick=slice()>✂️ Slice</button>
+</div>
+<canvas id=canvas></canvas>
+<div id=output class=grid></div>
+<script>
+const c=document.getElementById('canvas'),ctx=c.getContext('2d');
+let img=null;
+document.getElementById('upload').onchange=e=>{
+const file=e.target.files[0];if(!file)return;
+const reader=new FileReader();
+reader.onload=()=>{
+img=new Image();
+img.onload=()=>{c.width=img.width;c.height=img.height;ctx.drawImage(img,0,0);drawGrid()};
+img.src=reader.result;
+};reader.readAsDataURL(file);
+};
+function drawGrid(){
+const rows=+document.getElementById('rows').value,cols=+document.getElementById('cols').value;
+if(!img)return;
+c.width=img.width;c.height=img.height;ctx.drawImage(img,0,0);
+const cw=img.width/cols,ch=img.height/rows;
+ctx.strokeStyle='rgba(216,128,16,0.5)';ctx.lineWidth=1;
+for(let i=1;i<cols;i++){ctx.beginPath();ctx.moveTo(i*cw,0);ctx.lineTo(i*cw,img.height);ctx.stroke()}
+for(let i=1;i<rows;i++){ctx.beginPath();ctx.moveTo(0,i*ch);ctx.lineTo(img.width,i*ch);ctx.stroke()}
+}
+function slice(){
+if(!img)return alert('Najpierw wgraj obrazek');
+const rows=+document.getElementById('rows').value,cols=+document.getElementById('cols').value;
+const cw=img.width/cols,ch=img.height/rows;
+const out=document.getElementById('output');
+out.style.gridTemplateColumns=`repeat(${cols},auto)`;
+out.innerHTML='';
+const names=['Crimson','Emerald','Gold','Obsidian','Arctic','Hard Hat','Crown','Beret','Mil. Helmet','None Hat',
+'Sparkle','Flame','Electric','Rainbow','None Trail','Speed Boost','Mining Boost','XP Boost','Shield'];
+let idx=0;
+for(let r=0;r<rows;r++)for(let col=0;col<cols;col++){
+const oc=document.createElement('canvas');
+oc.width=cw;oc.height=ch;
+const octx=oc.getContext('2d');
+octx.drawImage(img,-col*cw,-r*ch);
+const name=names[idx]||`icon_${r}_${col}`;
+const wrap=document.createElement('div');
+wrap.style.textAlign='center';
+const iEl=document.createElement('img');
+iEl.src=oc.toDataURL();
+iEl.title=name;
+const lbl=document.createElement('div');
+lbl.textContent=name;lbl.style.fontSize='9px';lbl.style.color='#aaa';lbl.style.marginTop='3px';
+const btn=document.createElement('button');
+btn.textContent='⬇ Pobierz';btn.className='dl-btn';
+btn.onclick=()=>{const a=document.createElement('a');a.href=oc.toDataURL('image/png');a.download=name.replace(/[^a-zA-Z0-9]/g,'_')+'.png';a.click()};
+wrap.appendChild(iEl);wrap.appendChild(lbl);wrap.appendChild(btn);out.appendChild(wrap);
+idx++;
+}
+}
+document.getElementById('rows').oninput=drawGrid;document.getElementById('cols').oninput=drawGrid;
+</script>
+</body></html>

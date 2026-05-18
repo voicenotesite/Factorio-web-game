@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import { GameState } from '../game/types';
 import { BUILDING_COLORS, RESOURCE_COLORS, RECIPES, CHUNK_SIZE } from '../game/constants';
 import { GameEngine } from '../game/engine';
@@ -64,7 +65,7 @@ export default function BuildingInfo({ engine, state }: Props) {
             <span className="text-[10px] text-white/30 font-mono">Lv.{building.level}</span>
             <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-orbitron ${building.isActive ? 'text-emerald-400/70' : 'text-white/20'}`}
               style={{ background: building.isActive ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.04)' }}>
-              {building.isActive ? 'ACTIVE' : 'IDLE'}
+              {building.isActive ? t('bldgActive') : t('bldgIdle')}
             </span>
           </div>
         </div>
@@ -87,7 +88,7 @@ export default function BuildingInfo({ engine, state }: Props) {
               boxShadow: canUpgrade ? '0 0 10px rgba(217,119,6,0.2)' : 'none',
             }}
           >
-            ↑ UP
+            {t('bldgUpgrade')}
           </button>
         )}
       </div>
@@ -119,7 +120,7 @@ export default function BuildingInfo({ engine, state }: Props) {
       {/* Health */}
       <div className="mb-3">
         <div className="flex items-center justify-between text-[10px] mb-1.5">
-          <span className="text-white/30">Health</span>
+          <span className="text-white/30">{t('bldgHealth')}</span>
           <span className="text-white/50 tabular-nums font-mono">{Math.ceil(building.health)}/{building.maxHealth}</span>
         </div>
         <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.4)' }}>
@@ -142,7 +143,7 @@ export default function BuildingInfo({ engine, state }: Props) {
       {building.recipe && (
         <div className="mb-3">
           <div className="flex items-center justify-between text-[10px] mb-1.5">
-            <span className="text-white/30">Recipe</span>
+            <span className="text-white/30">{t('bldgRecipe')}</span>
             <span className="text-blue-300/60 font-medium">{building.recipe.name}</span>
           </div>
           <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.4)' }}>
@@ -161,7 +162,7 @@ export default function BuildingInfo({ engine, state }: Props) {
       {/* Inventories */}
       {building.inventory.length > 0 && (
         <div className="mb-2">
-          <div className="text-[10px] text-white/25 mb-1">Input</div>
+          <div className="text-[10px] text-white/25 mb-1">{t('bldgInput')}</div>
           <div className="flex flex-wrap gap-1">
             {building.inventory.map((slot, i) => (
               <div key={i} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -175,7 +176,7 @@ export default function BuildingInfo({ engine, state }: Props) {
 
       {building.outputInventory.length > 0 && (
         <div className="mb-2">
-          <div className="text-[10px] text-white/25 mb-1">Output</div>
+          <div className="text-[10px] text-white/25 mb-1">{t('bldgOutput')}</div>
           <div className="flex flex-wrap gap-1">
             {building.outputInventory.map((slot, i) => (
               <div key={i} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -190,7 +191,7 @@ export default function BuildingInfo({ engine, state }: Props) {
       {/* Recipe selector */}
       {building.type === 'assembler' && (
         <div className="mt-3 pt-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          <div className="text-[10px] text-white/25 mb-1.5 font-orbitron tracking-wider">SET RECIPE</div>
+          <div className="text-[10px] text-white/25 mb-1.5 font-orbitron tracking-wider">{t('bldgSetRecipe')}</div>
           <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
             {Object.values(RECIPES).filter(r => r.category !== 'smelting').map(r => (
               <button

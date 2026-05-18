@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import { RESEARCH_TREE, RESOURCE_COLORS } from '../game/constants';
 import { GameEngine } from '../game/engine';
 import { GameState } from '../game/types';
@@ -25,8 +26,8 @@ export default function ResearchMenu({ engine, state, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(216,128,16,0.18)' }}>
           <div>
-            <h2 className="font-orbitron font-bold text-lg tracking-wider" style={{ color: 'rgba(216,128,16,0.85)' }}>RESEARCH TREE</h2>
-            <p className="text-xs text-white/30 mt-1">Unlock technologies to advance your factory</p>
+            <h2 className="font-orbitron font-bold text-lg tracking-wider" style={{ color: 'rgba(216,128,16,0.85)' }}>{t('researchTree')}</h2>
+            <p className="text-xs text-white/30 mt-1">{t('researchSubtitle')}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-all text-sm font-orbitron">✕</button>
         </div>
@@ -71,7 +72,7 @@ export default function ResearchMenu({ engine, state, onClose }: Props) {
                         {r.name}
                       </h3>
                       {unlocked && (
-                        <span className="text-[9px] font-orbitron px-2 py-0.5 rounded-full" style={{ background: 'rgba(216,128,16,0.15)', color: '#e8c060', border: '1px solid rgba(216,128,16,0.3)' }}>DONE</span>
+                        <span className="text-[9px] font-orbitron px-2 py-0.5 rounded-full" style={{ background: 'rgba(216,128,16,0.15)', color: '#e8c060', border: '1px solid rgba(216,128,16,0.3)' }}>{t('researchDone')}</span>
                       )}
                     </div>
                     <p className="text-[11px] text-white/30 mt-0.5 leading-tight">{r.description}</p>
@@ -131,7 +132,7 @@ export default function ResearchMenu({ engine, state, onClose }: Props) {
                       boxShadow: '0 0 15px rgba(216,128,16,0.2)',
                     }}
                   >
-                    Start Research
+                    {t('researchStart')}
                   </button>
                 )}
               </div>

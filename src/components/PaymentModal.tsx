@@ -1,44 +1,51 @@
-// TODO: Replace with Stripe integration: https://stripe.com/docs/js
 import { useState } from 'react';
 import { t } from '../lib/i18n';
+import { getCurrentUser, getCurrentUserId } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 
 const PLANS = [
-  { id: 'starter', name: 'STARTER', price: 9.99, color: '#f59e0b' },
-  { id: 'premium', name: 'PREMIUM', price: 24.99, color: '#a78bfa' },
+  { id: 'starter', name: 'STARTER', price: 9.99, color: '#f59e0b', priceId: 'price_1TYW6EK4E5IHLVVAW4SaLTXU' },
+  { id: 'premium', name: 'PREMIUM', price: 24.99, color: '#a78bfa', priceId: 'price_1TYW9LK4E5IHLVVAZrXNVjWk' },
 ];
 
 interface Props {
   onClose: () => void;
 }
 
-function formatCard(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 16);
-  return digits.replace(/(.{4})/g, '$1 ').trim();
-}
-
-function formatExpiry(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 4);
-  if (digits.length >= 3) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return digits;
-}
-
 export default function PaymentModal({ onClose }: Props) {
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'premium'>('starter');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvv, setCvv] = useState('');
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+
+  const username = getCurrentUser();
+  const userId = getCurrentUserId();
 
   const plan = PLANS.find(p => p.id === selectedPlan)!;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCheckout = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setDone(true);
-    }, 2000);
+    setError('');
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('stripe-checkout', {
+        body: {
+          priceId: plan.priceId,
+          userId,
+          username,
+          successUrl: window.location.origin + '?checkout=success',
+          cancelUrl: window.location.origin + '?checkout=cancel',
+        },
+      })
+
+      if (fnError) throw new Error(fnError.message)
+      if (!data?.url) throw new Error('No checkout URL returned')
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url
+    } catch (e: any) {
+      setError(e.message || 'Payment error. Please try again.')
+      setLoading(false)
+    }
   };
 
   return (
@@ -69,159 +76,86 @@ export default function PaymentModal({ onClose }: Props) {
           </button>
         </div>
 
-        {done ? (
-          /* Success state */
-          <div className="text-center py-6">
-            <div
-              className="text-5xl mb-4 animate-bounce"
-              style={{ filter: 'drop-shadow(0 0 15px #4ade80)' }}
-            >
-              ✓
-            </div>
-            <p className="text-sm text-white/70 leading-relaxed font-exo">
-              {t('paymentSimulated')}
-            </p>
-            <button
-              onClick={onClose}
-              className="mt-5 px-6 py-2 rounded-xl text-sm font-semibold font-orbitron tracking-wider transition-all hover:opacity-90"
-              style={{
-                background: 'rgba(34,197,94,0.15)',
-                color: '#4ade80',
-                border: '1px solid rgba(34,197,94,0.3)',
-              }}
-            >
-              {t('close').toUpperCase()}
-            </button>
+        {error && (
+          <div className="mb-4 text-xs text-center py-2 rounded-lg font-semibold"
+            style={{
+              background: 'rgba(239,68,68,0.1)',
+              color: '#f87171',
+              border: '1px solid rgba(239,68,68,0.2)',
+            }}
+          >
+            {error}
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Plan selector */}
-            <div>
-              <label className="block text-[10px] font-orbitron tracking-widest text-white/30 mb-2 uppercase">
-                {t('selectPlan')}
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {PLANS.map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setSelectedPlan(p.id as 'starter' | 'premium')}
-                    className="p-3 rounded-xl text-center transition-all"
-                    style={{
-                      background: selectedPlan === p.id ? `${p.color}15` : 'rgba(255,255,255,0.02)',
-                      border: `1px solid ${selectedPlan === p.id ? `${p.color}50` : `${p.color}20`}`,
-                    }}
-                  >
-                    <div className="font-orbitron font-bold text-[11px] tracking-wider" style={{ color: p.color }}>
-                      {p.name}
-                    </div>
-                    <div className="font-mono text-sm font-bold mt-0.5" style={{ color: p.color }}>
-                      {p.price.toFixed(2)} zł
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Card number */}
-            <div>
-              <label className="block text-[10px] font-orbitron tracking-widest text-white/30 mb-1.5 uppercase">
-                {t('cardNumber')}
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={cardNumber}
-                onChange={e => setCardNumber(formatCard(e.target.value))}
-                placeholder="0000 0000 0000 0000"
-                maxLength={19}
-                required
-                className="w-full px-3 py-2.5 text-sm font-mono rounded-lg outline-none transition-all"
-                style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  color: 'rgba(255,255,255,0.85)',
-                  caretColor: '#d88010',
-                  letterSpacing: '0.1em',
-                }}
-                onFocus={e => (e.target.style.borderColor = 'rgba(216,128,16,0.4)')}
-                onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
-              />
-            </div>
-
-            {/* Expiry + CVV */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-orbitron tracking-widest text-white/30 mb-1.5 uppercase">
-                  {t('expiryDate')}
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={expiry}
-                  onChange={e => setExpiry(formatExpiry(e.target.value))}
-                  placeholder="MM/YY"
-                  maxLength={5}
-                  required
-                  className="w-full px-3 py-2.5 text-sm font-mono rounded-lg outline-none transition-all"
-                  style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: 'rgba(255,255,255,0.85)',
-                    caretColor: '#d88010',
-                  }}
-                  onFocus={e => (e.target.style.borderColor = 'rgba(216,128,16,0.4)')}
-                  onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-orbitron tracking-widest text-white/30 mb-1.5 uppercase">
-                  {t('cvv')}
-                </label>
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  value={cvv}
-                  onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="•••"
-                  maxLength={4}
-                  required
-                  className="w-full px-3 py-2.5 text-sm font-mono rounded-lg outline-none transition-all"
-                  style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: 'rgba(255,255,255,0.85)',
-                    caretColor: '#d88010',
-                  }}
-                  onFocus={e => (e.target.style.borderColor = 'rgba(216,128,16,0.4)')}
-                  onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
-                />
-              </div>
-            </div>
-
-            {/* Submit button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-xl font-orbitron font-bold text-sm tracking-widest transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
-              style={{
-                background: `linear-gradient(135deg, ${plan.color}cc, ${plan.color})`,
-                color: 'white',
-                boxShadow: `0 0 20px ${plan.color}30, inset 0 1px 0 rgba(255,255,255,0.1)`,
-                border: `1px solid ${plan.color}60`,
-              }}
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ...
-                </span>
-              ) : (
-                t('payButton', { price: plan.price.toFixed(2) })
-              )}
-            </button>
-          </form>
         )}
+
+        <div className="space-y-4">
+          {/* Plan selector */}
+          <div>
+            <label className="block text-[10px] font-orbitron tracking-widest text-white/30 mb-2 uppercase">
+              {t('selectPlan')}
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {PLANS.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedPlan(p.id as 'starter' | 'premium')}
+                  className="p-3 rounded-xl text-center transition-all"
+                  style={{
+                    background: selectedPlan === p.id ? `${p.color}15` : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${selectedPlan === p.id ? `${p.color}50` : `${p.color}20`}`,
+                  }}
+                >
+                  <div className="font-orbitron font-bold text-[11px] tracking-wider" style={{ color: p.color }}>
+                    {p.name}
+                  </div>
+                  <div className="font-mono text-sm font-bold mt-0.5" style={{ color: p.color }}>
+                    {p.price.toFixed(2)} zł/mies.
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Payment info */}
+          <div className="p-3 rounded-xl text-xs"
+            style={{
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              color: 'rgba(255,255,255,0.4)',
+            }}
+          >
+            <span className="text-cyan-400">🔒</span> {t('paymentStripe')} ·{' '}
+            {plan.name === 'PREMIUM' ? '24.99 zł/mies.' : '9.99 zł/mies.'} · {t('paymentCancelAnytime')}
+          </div>
+
+          {/* Pay button */}
+          <button
+            onClick={handleCheckout}
+            disabled={loading || !userId}
+            className="w-full py-3 rounded-xl font-orbitron font-bold text-sm tracking-widest transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
+            style={{
+              background: `linear-gradient(135deg, ${plan.color}cc, ${plan.color})`,
+              color: 'white',
+              boxShadow: `0 0 20px ${plan.color}30, inset 0 1px 0 rgba(255,255,255,0.1)`,
+              border: `1px solid ${plan.color}60`,
+            }}
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                {t('paymentRedirect')}
+              </span>
+            ) : (
+              `${t('payButton', { price: plan.price.toFixed(2) })} · ${plan.name}`
+            )}
+          </button>
+
+          {!userId && (
+            <div className="text-xs text-center text-yellow-400/70">
+              {t('paymentLoginRequired')}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { t } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { getCurrentUser, getCurrentUserId } from '../lib/auth';
 
@@ -72,8 +73,8 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
       .ilike('username', addUsername.trim())
       .single();
 
-    if (!profile) { setMsg('User not found'); return; }
-    if (profile.id === myId) { setMsg("Can't add yourself"); return; }
+    if (!profile) { setMsg(t('userNotFound')); return; }
+    if (profile.id === myId) { setMsg(t('cannotAddSelf')); return; }
 
     const { error } = await supabase.from('friendships').insert({
       user_id: myId,
@@ -83,8 +84,8 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
       status: 'pending',
     });
 
-    if (error) setMsg(error.message.includes('duplicate') ? 'Already sent' : error.message);
-    else { setMsg('Request sent!'); setAddUsername(''); }
+    if (error) setMsg(error.message.includes('duplicate') ? t('alreadySent') : error.message);
+    else { setMsg(t('requestSent')); setAddUsername(''); }
   };
 
   const acceptRequest = async (req: FriendRequest) => {
@@ -111,7 +112,7 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <h2 className="font-orbitron font-bold text-base text-white/80 tracking-wider">👥 FRIENDS</h2>
+          <h2 className="font-orbitron font-bold text-base text-white/80 tracking-wider">{t('friendsTitle')}</h2>
           <button onClick={onClose} className="text-white/30 hover:text-white/60 transition-colors font-orbitron text-sm">✕</button>
         </div>
 
@@ -126,7 +127,7 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
                 borderBottom: tab === t ? '2px solid #d88010' : '2px solid transparent',
               }}
             >
-              {t === 'friends' ? `Friends (${friends.length})` : t === 'requests' ? `Requests ${requests.length > 0 ? `(${requests.length})` : ''}` : '+ Add'}
+              {t === 'friends' ? `${t('friendsTab')} (${friends.length})` : t === 'requests' ? `${t('requestsTab')} ${requests.length > 0 ? `(${requests.length})` : ''}` : t('addTab')}
             </button>
           ))}
         </div>
@@ -134,7 +135,7 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
         <div className="p-4 min-h-[200px]">
           {tab === 'friends' && (
             <div className="space-y-2">
-              {friends.length === 0 && <div className="text-center text-white/25 text-xs py-8 font-orbitron">No friends yet</div>}
+              {friends.length === 0 && <div className="text-center text-white/25 text-xs py-8 font-orbitron">{t('noFriends')}</div>}
               {friends.map(f => (
                 <div
                   key={f.user_id}
@@ -151,7 +152,7 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
                       className="text-[9px] px-2 py-1 rounded-lg font-orbitron transition-all hover:opacity-80"
                       style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)' }}
                     >
-                      🌍 Visit
+                      🌍 {t('visitWorld')}
                     </button>
                   )}
                 </div>
@@ -161,7 +162,7 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
 
           {tab === 'requests' && (
             <div className="space-y-2">
-              {requests.length === 0 && <div className="text-center text-white/25 text-xs py-8 font-orbitron">No requests</div>}
+              {requests.length === 0 && <div className="text-center text-white/25 text-xs py-8 font-orbitron">{t('noRequests')}</div>}
               {requests.map(req => (
                 <div
                   key={req.id}
@@ -184,7 +185,7 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
                 value={addUsername}
                 onChange={e => setAddUsername(e.target.value)}
                 onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') sendFriendRequest(); }}
-                placeholder="Enter player name..."
+                placeholder={t('addFriendPlaceholder')}
                 className="w-full px-3 py-2.5 text-sm rounded-lg outline-none"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
               />
@@ -194,7 +195,7 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
                 className="w-full py-2.5 text-sm font-bold rounded-xl disabled:opacity-40 transition-all"
                 style={{ background: 'linear-gradient(135deg, rgba(180,90,0,0.9), rgba(216,128,16,0.9))', color: 'white', border: '1px solid rgba(216,128,16,0.4)' }}
               >
-                Send Request
+                {t('sendRequest')}
               </button>
               {msg && (
                 <div className="text-center text-xs py-1.5 rounded-lg" style={{ color: msg.includes('sent') || msg.includes('Request') ? '#4ade80' : '#f87171' }}>

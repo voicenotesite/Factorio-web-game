@@ -31,7 +31,7 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
 function App() {
   const engineRef = useRef<GameEngine | null>(null);
 
-  useEffect(() => { document.title = 'Novactorio'; }, []);
+  useEffect(() => { document.title = t('gameTitle'); }, []);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [started, setStarted] = useState(false);
   const [showBuild, setShowBuild] = useState(false);
@@ -49,6 +49,15 @@ function App() {
   const [hasSaveData, setHasSaveData] = useState(false);
   const [showPremiumPopup, setShowPremiumPopup] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [saveCooldown, setSaveCooldown] = useState(0);
+  const [coopMode, setCoopMode] = useState(false);
+  const [coopOnline, setCoopOnline] = useState(0);
+  const coopChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const coopPosIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const saveCooldownRef = useRef(0);
+  const coopModeRef = useRef(false);
+  saveCooldownRef.current = saveCooldown;
+  coopModeRef.current = coopMode;
 
   const engine = engineRef.current;
 
@@ -60,6 +69,15 @@ function App() {
       if (engine.keys.has('b')) { setShowBuild(prev => !prev); engine.keys.delete('b'); }
       if (engine.keys.has('r')) { setShowResearch(prev => !prev); engine.keys.delete('r'); }
       if (engine.keys.has('i')) { setShowInventory(prev => !prev); engine.keys.delete('i'); }
+    };
+    engine.onBuildingAction = (action, type, x, y, dir) => {
+      if (!coopModeRef.current || !coopChannelRef.current) return;
+      const myId = getCurrentUserId();
+      if (!myId) return;
+      coopChannelRef.current.send({
+        type: 'broadcast', event: action === 'place' ? 'build_place' : 'build_remove',
+        payload: { type, x, y, dir, senderId: myId },
+      });
     };
   }, []);
 
@@ -104,14 +122,13 @@ function App() {
   }, [currentUser, started, gameState?.player.premiumTier]);
 
   useEffect(() => {
-    if (!started || !currentUser || !engineRef.current) return;
-    // Auto-save every 10 seconds (no cooldown — immediate on important events)
+    if (!started || !currentUser) return;
     const interval = setInterval(() => {
-      if (engineRef.current && currentUser) {
+      if (engineRef.current && saveCooldownRef.current <= 0) {
+        setSaveCooldown(10);
         saveGame(currentUser, engineRef.current.state);
       }
     }, 10000);
-    // Save immediately on tab close / navigation away
     const handleUnload = () => {
       if (engineRef.current && currentUser) {
         saveGame(currentUser, engineRef.current.state);
@@ -139,7 +156,25 @@ function App() {
     setHasSaveData(false);
   }, [started, hasSaveData, currentUser]);
 
-  // Co-op: receive visitors in own world
+  // Save cooldown countdown effect
+  useEffect(() => {
+    if (saveCooldown <= 0) return;
+    const t2 = setInterval(() => {
+      setSaveCooldown(prev => {
+        if (prev <= 1) return 0;
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t2);
+  }, [saveCooldown]);
+
+  const triggerSave = useCallback(() => {
+    if (!currentUser || !engineRef.current || saveCooldown > 0) return;
+    setSaveCooldown(10);
+    saveGame(currentUser, engineRef.current.state);
+  }, [currentUser, saveCooldown]);
+
+  // Co-op: real-time multiplayer via Supabase Realtime
   useEffect(() => {
     if (!started || !currentUser || !engine) return;
     const myId = getCurrentUserId();
@@ -149,15 +184,50 @@ function App() {
       .channel(`coop-${myId}`, { config: { broadcast: { self: false } } })
       .on('broadcast', { event: 'pos' }, ({ payload }) => {
         const { id, username, x, y, color } = payload as any;
-        engine.updateCoopVisitor(id, username, x, y, color);
+        if (id !== myId) engine.updateCoopVisitor(id, username, x, y, color);
       })
       .on('broadcast', { event: 'leave' }, ({ payload }) => {
         engine.removeCoopVisitor((payload as any).id);
       })
+      .on('broadcast', { event: 'build_place' }, ({ payload }) => {
+        const { type, x, y, dir, senderId } = payload as any;
+        if (senderId !== myId) engine.placeBuildingFromCoop(type, x, y, dir);
+      })
+      .on('broadcast', { event: 'build_remove' }, ({ payload }) => {
+        const { x, y, senderId } = payload as any;
+        if (senderId !== myId) engine.removeBuildingFromCoop(x, y);
+      })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    coopChannelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      coopChannelRef.current = null;
+    };
   }, [started, currentUser, engine]);
+
+  // Co-op: periodic position broadcast
+  useEffect(() => {
+    if (!started || !currentUser || !coopMode || !engine) return;
+    const myId = getCurrentUserId();
+    if (!myId) return;
+    const myColor = '#3388ee';
+
+    const interval = setInterval(() => {
+      if (!engine.running || !coopChannelRef.current) return;
+      coopChannelRef.current.send({
+        type: 'broadcast', event: 'pos',
+        payload: { id: myId, username: currentUser, x: engine.state.player.x, y: engine.state.player.y, color: myColor },
+      });
+    }, 200);
+    coopPosIntervalRef.current = interval;
+
+    return () => {
+      clearInterval(interval);
+      coopPosIntervalRef.current = null;
+    };
+  }, [started, currentUser, coopMode, engine]);
 
   return (
     <div className="w-screen h-screen overflow-hidden select-none font-exo" style={{ background: 'var(--bg)' }}>
@@ -206,24 +276,24 @@ function App() {
             boxShadow: 'inset 0 1px 0 rgba(216,128,16,0.08), 0 0 0 1px rgba(0,0,0,0.7), 0 -8px 40px rgba(0,0,0,0.9), 0 0 40px rgba(216,128,16,0.04)',
           }}
         >
-          <ActionBarBtn label="Build" shortcut="B" onClick={() => setShowBuild(true)} active={showBuild}
+          <ActionBarBtn label={t('actionBuild')} shortcut="B" onClick={() => setShowBuild(true)} active={showBuild}
             icon={<WrenchIcon />} color="#f59e0b" />
-          <ActionBarBtn label="Research" shortcut="R" onClick={() => setShowResearch(true)} active={showResearch}
+          <ActionBarBtn label={t('actionResearch')} shortcut="R" onClick={() => setShowResearch(true)} active={showResearch}
             icon={<FlaskIcon />} color="#38bdf8" />
-          <ActionBarBtn label="Craft" shortcut="I" onClick={() => setShowInventory(true)} active={showInventory}
+          <ActionBarBtn label={t('actionCraft')} shortcut="I" onClick={() => setShowInventory(true)} active={showInventory}
             icon={<PackageIcon />} color="#22c55e" />
-          <ActionBarBtn label="Stats" shortcut="Tab" onClick={() => setShowStats(true)} active={showStats}
+          <ActionBarBtn label={t('actionStats')} shortcut="Tab" onClick={() => setShowStats(true)} active={showStats}
             icon={<ChartIcon />} color="#a78bfa" />
-          <ActionBarBtn label="Ranks" shortcut="L" onClick={() => setShowLeaderboard(true)} active={showLeaderboard}
+          <ActionBarBtn label={t('actionRanks')} shortcut="L" onClick={() => setShowLeaderboard(true)} active={showLeaderboard}
             icon={<TrophyIcon />} color="#fbbf24" />
-          <ActionBarBtn label="Shop" shortcut="P" onClick={() => setShowShop(true)} active={showShop}
+          <ActionBarBtn label={t('actionShop')} shortcut="P" onClick={() => setShowShop(true)} active={showShop}
             icon={<GemIcon />} color="#06b6d4" />
-          <ActionBarBtn label="Friends" shortcut="" onClick={() => setShowFriends(true)} active={showFriends}
+          <ActionBarBtn label={t('actionFriends')} shortcut="" onClick={() => setShowFriends(true)} active={showFriends}
             icon={<FriendsIcon />} color="#f472b6" />
           {currentUser?.toUpperCase() === 'ADMIN' && (
             <>
               <div className="w-px h-6 mx-1" style={{ background: 'rgba(220,38,38,0.3)' }} />
-              <ActionBarBtn label="Admin" shortcut="" onClick={() => setShowAdmin(true)} active={showAdmin}
+              <ActionBarBtn label={t('actionAdmin')} shortcut="" onClick={() => setShowAdmin(true)} active={showAdmin}
                 icon={<span>🛡️</span>} color="#ef4444" />
             </>
           )}
@@ -231,14 +301,25 @@ function App() {
           <ActionBarBtn label={t('guide')} shortcut="" onClick={() => setShowGuide(true)} active={showGuide}
             icon={<span>📖</span>} color="#22d3ee" />
           <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
-          <ActionBarBtn label="Save" shortcut="" onClick={() => setShowSaveLoad(true)} active={showSaveLoad}
-            icon={<SaveIcon />} color="#94a3b8" />
+          <ActionBarBtn label={saveCooldown > 0 ? `⏳ ${saveCooldown}s` : t('actionSave')} shortcut="" onClick={triggerSave} active={saveCooldown > 0}
+            icon={<SaveIcon />} color={saveCooldown > 0 ? '#22c55e' : '#94a3b8'} />
+          <ActionBarBtn label={t('actionLoad')} shortcut="" onClick={() => setShowSaveLoad(true)} active={showSaveLoad}
+            icon={<span>📂</span>} color="#60a5fa" />
+          <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
+          <ActionBarBtn label={t(coopMode ? 'actionCoopOn' : 'actionCoop')} shortcut="" onClick={() => {
+            if (coopMode && coopChannelRef.current) {
+              const myId = getCurrentUserId();
+              coopChannelRef.current.send({ type: 'broadcast', event: 'leave', payload: { id: myId } });
+            }
+            setCoopMode(p => !p);
+          }} active={coopMode}
+            icon={<span>🌐</span>} color="#f472b6" />
           <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
           <button
             onClick={() => { logout(); setCurrentUser(null); setStarted(false); }}
             className="btn-factory flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all"
             style={{ background: 'transparent', border: '1px solid transparent' }}
-            title={`Logout (${currentUser})`}
+            title={`${t('actionLogout')} (${currentUser})`}
           >
             <span style={{ color: 'rgba(255,255,255,0.3)' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -265,10 +346,10 @@ function App() {
             backdropFilter: 'blur(10px)',
           }}
         >
-          <span className="text-white/40">Placing: </span>
+          <span className="text-white/40">{t('placing')}</span>
           <span className="font-semibold text-emerald-400">{engine.selectedBuilding.replace(/_/g, ' ')}</span>
-          <span className="text-white/25 ml-2">· Dir: <span className="text-white/40">{engine.selectedDirection.toUpperCase()}</span></span>
-          <span className="text-white/20 ml-2 text-xs">(Q rotate · ESC cancel)</span>
+          <span className="text-white/25 ml-2">· {t('direction')}: <span className="text-white/40">{engine.selectedDirection.toUpperCase()}</span></span>
+          <span className="text-white/20 ml-2 text-xs">{t('rotateHint')}</span>
         </div>
       )}
 
@@ -279,7 +360,7 @@ function App() {
       {showStats && gameState && <StatsMenu state={gameState} onClose={() => setShowStats(false)} />}
       {showLeaderboard && <LeaderboardMenu onClose={() => setShowLeaderboard(false)} />}
       {showShop && engine && gameState && <ShopMenu engine={engine} state={gameState} onClose={() => setShowShop(false)} />}
-      {showSaveLoad && engine && <SaveLoad engine={engine} onClose={() => setShowSaveLoad(false)} />}
+      {showSaveLoad && engine && <SaveLoad engine={engine} onClose={() => setShowSaveLoad(false)} saveCooldown={saveCooldown} onSave={triggerSave} />}
       {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} />}
       {showAdmin && engine && gameState && <AdminPanel engine={engine} state={gameState} onClose={() => setShowAdmin(false)} />}
       {visitingWorld && <VisitWorldView friendId={visitingWorld.id} friendName={visitingWorld.name} onClose={() => setVisitingWorld(null)} />}
@@ -290,6 +371,50 @@ function App() {
           onDontAsk={() => { localStorage.setItem('novactorio_no_premium_popup', '1'); setShowPremiumPopup(false); }}
           onBuyPremium={() => setShowShop(true)}
         />
+      )}
+
+      {/* Save cooldown overlay */}
+      {saveCooldown > 0 && (
+        <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
+          <div className="animate-slide-up text-center" style={{
+            background: 'rgba(0,0,0,0.75)',
+            border: '1px solid rgba(34,197,94,0.3)',
+            borderRadius: '20px',
+            padding: '30px 50px',
+            boxShadow: '0 0 60px rgba(34,197,94,0.15), inset 0 1px 0 rgba(34,197,94,0.08)',
+            backdropFilter: 'blur(8px)',
+          }}>
+            <div className="font-orbitron font-black text-sm tracking-[0.3em] mb-1" style={{ color: '#4ade80' }}>
+              ZAPISYWANIE STANU GRY
+            </div>
+            <div className="font-mono text-5xl font-bold animate-pulse" style={{ color: '#22c55e' }}>
+              {saveCooldown}s
+            </div>
+            <div className="w-full h-1 mt-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+              <div className="h-full rounded-full transition-all duration-1000 ease-linear"
+                style={{
+                  width: `${(saveCooldown / 10) * 100}%`,
+                  background: 'linear-gradient(90deg, #166534, #22c55e)',
+                  boxShadow: '0 0 8px rgba(34,197,94,0.5)',
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* COOP mode indicator */}
+      {coopMode && started && currentUser && (
+        <div className="fixed bottom-24 left-4 z-20 px-3 py-1.5 rounded-xl text-[10px] font-orbitron tracking-wider"
+          style={{
+            background: 'rgba(244,114,182,0.12)',
+            border: '1px solid rgba(244,114,182,0.3)',
+            color: '#f472b6',
+            boxShadow: '0 0 15px rgba(244,114,182,0.1)',
+          }}
+        >
+          🌐 {t('coopActive')}
+        </div>
       )}
     </div>
   );
@@ -387,14 +512,14 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
       return (
         <div className="fixed inset-0 flex items-center justify-center bg-black/90 z-50 font-exo">
           <div className="text-center p-8 rounded-2xl" style={{ background: '#0c1016', border: '1px solid rgba(239,68,68,0.3)' }}>
-            <div className="text-red-400 text-2xl mb-3 font-orbitron">⚠ Game Error</div>
+            <div className="text-red-400 text-2xl mb-3 font-orbitron">{t('gameError')}</div>
             <div className="text-white/50 text-sm mb-4 max-w-xs">{this.state.error}</div>
             <button
               onClick={() => window.location.reload()}
               className="px-6 py-2 rounded-lg text-sm font-orbitron"
               style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171' }}
             >
-              Reload Game
+              {t('reloadGame')}
             </button>
           </div>
         </div>

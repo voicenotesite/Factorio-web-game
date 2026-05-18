@@ -24,6 +24,7 @@ export class GameEngine {
   lastTime = 0;
   tickAccumulator = 0;
   onStateChange?: (state: GameState) => void;
+  onBuildingAction?: (action: 'place' | 'remove', type: string, x: number, y: number, dir: string) => void;
   hoveredTile: { x: number; y: number } | null = null;
   notifications: { text: string; timer: number; type?: string }[] = [];
   isPlayerMoving = false;
@@ -464,10 +465,9 @@ export class GameEngine {
       if (this.selectedBuilding) {
         if (!canAffordBuilding(this.state, this.selectedBuilding)) {
           this.addNotification('Not enough resources!', 'error');
-          // Don't clear selection so player can see what they need
         } else if (placeBuilding(this.state, this.selectedBuilding, x, y, this.selectedDirection)) {
           this.addNotification(`Placed ${this.selectedBuilding.replace(/_/g, ' ')}`, 'success');
-          // Keep selected to allow placing multiple (Shift+click or just click again)
+          this.onBuildingAction?.('place', this.selectedBuilding, x, y, this.selectedDirection);
         }
       } else {
         const dist = Math.sqrt((x - this.state.player.x) ** 2 + (y - this.state.player.y) ** 2);
@@ -504,9 +504,10 @@ export class GameEngine {
         for (const item of [...building.inventory, ...building.outputInventory]) {
           addItemToPlayer(this.state, item.itemId, item.count);
         }
+        const removedType = building.type;
         if (removeBuilding(this.state, building.x, building.y)) {
-          this.addNotification('Removed ' + building.type.replace(/_/g, ' '));
-          // Also cancel any queued build at this position
+          this.addNotification('Removed ' + removedType.replace(/_/g, ' '));
+          this.onBuildingAction?.('remove', removedType, building.x, building.y, building.direction);
           this.state.buildQueue = this.state.buildQueue.filter(q => !(q.x === x && q.y === y));
         }
       } else if (!this.selectedBuilding) {
@@ -705,6 +706,21 @@ export class GameEngine {
 
   removeCoopVisitor(id: string) {
     this.state.coopVisitors?.delete(id);
+  }
+
+  placeBuildingFromCoop(type: string, x: number, y: number, dir: string) {
+    const success = placeBuilding(this.state, type, x, y, dir, true);
+    if (success) {
+      this.addNotification(`Co-op: ${type.replace(/_/g, ' ')} placed`, 'success');
+    }
+  }
+
+  removeBuildingFromCoop(x: number, y: number) {
+    const building = this.state.buildings.get(`${x},${y}`);
+    if (building) {
+      removeBuilding(this.state, x, y);
+      this.addNotification(`Co-op: ${building.type.replace(/_/g, ' ')} removed`, 'info');
+    }
   }
 
   loadWorldData(worldData: { buildings: [string, unknown][]; seed: number }) {

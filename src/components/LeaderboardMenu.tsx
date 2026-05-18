@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { t } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 
 interface LeaderboardEntry {
@@ -77,8 +78,8 @@ export default function LeaderboardMenu({ onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between mb-4 pb-3 flex-shrink-0" style={{ borderBottom: '1px solid rgba(251,191,36,0.15)' }}>
           <div>
-            <h2 className="font-orbitron font-bold text-lg tracking-wider" style={{ color: '#fbbf24' }}>RANKS & ACHIEVEMENTS</h2>
-            <p className="text-xs text-white/30 mt-1">Top factory builders & milestones</p>
+            <h2 className="font-orbitron font-bold text-lg tracking-wider" style={{ color: '#fbbf24' }}>{t('rankings')}</h2>
+            <p className="text-xs text-white/30 mt-1">{t('leaderboardSubtitle')}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-all text-sm font-orbitron">✕</button>
         </div>
@@ -102,20 +103,20 @@ export default function LeaderboardMenu({ onClose }: Props) {
           {loading ? (
             <div className="flex items-center justify-center py-12 flex-col gap-3">
               <div className="w-8 h-8 rounded-full border-2 border-amber-500/30 border-t-amber-500 animate-spin" />
-              <div className="text-white/25 text-sm font-exo">Loading...</div>
+              <div className="text-white/25 text-sm font-exo">{t('leaderboardLoading')}</div>
             </div>
           ) : tab === 'leaderboard' ? (
             leaderboard.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-white/20">
                 <div className="text-4xl mb-3">🏆</div>
-                <div className="text-sm font-exo">No entries yet</div>
-                <div className="text-xs text-white/10 mt-1">Be the first on the leaderboard!</div>
+                <div className="text-sm font-exo">{t('leaderboardEmpty')}</div>
+                <div className="text-xs text-white/10 mt-1">{t('leaderboardEmptyHint')}</div>
               </div>
             ) : (
               <div>
                 <div className="grid grid-cols-[44px_1fr_60px_90px_70px_60px] gap-2 px-3 pb-2 text-[9px] font-orbitron text-white/20 uppercase tracking-widest border-b border-white/[0.05]">
-                  <span>#</span><span>Player</span><span className="text-right">Lv</span>
-                  <span className="text-right">Score</span><span className="text-right">Time</span><span className="text-right">Blds</span>
+                  <span>{t('leaderboardRank')}</span><span>{t('leaderboardPlayer')}</span><span className="text-right">{t('leaderboardLevel')}</span>
+                  <span className="text-right">{t('leaderboardScore')}</span><span className="text-right">{t('leaderboardTime')}</span><span className="text-right">{t('leaderboardBuildings')}</span>
                 </div>
                 <div className="space-y-0.5 mt-1">
                   {leaderboard.map((entry, index) => {
@@ -147,7 +148,7 @@ export default function LeaderboardMenu({ onClose }: Props) {
               {/* Progress bar */}
               <div className="mb-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-white/35 font-exo">Achievement Progress</span>
+                  <span className="text-xs text-white/35 font-exo">{t('achievementProgress')}</span>
                   <span className="text-xs text-amber-400/70 font-mono font-bold">{unlockedAchievements.size} / {ACHIEVEMENTS.length}</span>
                 </div>
                 <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.4)' }}>
@@ -183,7 +184,7 @@ export default function LeaderboardMenu({ onClose }: Props) {
                       {unlocked && (
                         <span className="text-[9px] font-orbitron px-2 py-0.5 rounded-full flex-shrink-0"
                           style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)' }}>
-                          DONE
+                          {t('achievementDone')}
                         </span>
                       )}
                     </div>

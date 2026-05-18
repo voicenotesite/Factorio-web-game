@@ -66,18 +66,18 @@ export default function GuideMenu({ onClose }: Props) {
           <div className="px-6 py-5 space-y-8">
 
             {/* Section 1: Getting Started */}
-            <Section title="1. Getting Started" icon="🚀">
+            <Section title={t('guideGettingStarted')} icon="🚀">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
                 Welcome to <span className="text-amber-400 font-semibold">Novactorio</span> — a factory-building game where you mine resources, build production chains, research technology, and defend against enemies.
               </p>
               <DiagramBox>
                 <div className="font-mono text-xs text-center space-y-1">
-                  <div className="text-white/50">Movement</div>
+                  <div className="text-white/50">{t('guideMovement')}</div>
                   <div className="text-amber-400">W</div>
                   <div className="flex justify-center gap-2 text-amber-400">
                     <span>A</span><span>S</span><span>D</span>
                   </div>
-                  <div className="text-white/30 mt-2">Hold <span className="text-sky-400">LMB</span> to mine · Place buildings from Build menu</div>
+                  <div className="text-white/30 mt-2"><span className="text-sky-400">{t('guideHoldMine')}</span></div>
                 </div>
               </DiagramBox>
               <p className="text-xs text-white/40 mt-2">
@@ -86,7 +86,7 @@ export default function GuideMenu({ onClose }: Props) {
             </Section>
 
             {/* Section 2: Resource Chain */}
-            <Section title="2. Resource Chain" icon="⛓️">
+            <Section title={t('guideResourceChain')} icon="⛓️">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
                 Build a production chain to automatically process raw resources into finished goods.
               </p>
@@ -111,7 +111,7 @@ export default function GuideMenu({ onClose }: Props) {
             </Section>
 
             {/* Section 3: Power */}
-            <Section title="3. Power System" icon="⚡">
+            <Section title={t('guidePowerSystem')} icon="⚡">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
                 Most buildings require electricity. Build a power network to keep your factory running.
               </p>
@@ -134,7 +134,7 @@ export default function GuideMenu({ onClose }: Props) {
             </Section>
 
             {/* Section 4: Research */}
-            <Section title="4. Research" icon="🔬">
+            <Section title={t('guideResearchSection')} icon="🔬">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
                 Unlock new buildings and upgrades by researching technology.
               </p>
@@ -155,7 +155,7 @@ export default function GuideMenu({ onClose }: Props) {
             </Section>
 
             {/* Section 5: Defense */}
-            <Section title="5. Defense" icon="🛡️">
+            <Section title={t('guideDefense')} icon="🛡️">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
                 Enemies will attack your factory. Build defenses to protect it.
               </p>
@@ -176,7 +176,7 @@ export default function GuideMenu({ onClose }: Props) {
             </Section>
 
             {/* Section 6: Buildings Reference */}
-            <Section title="6. Buildings Reference" icon="🏗️">
+            <Section title={t('guideBuildingsRef')} icon="🏗️">
               <div className="grid grid-cols-2 gap-2">
                 {buildings.map(b => (
                   <div

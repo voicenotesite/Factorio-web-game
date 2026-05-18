@@ -3,6 +3,7 @@ import { BUILDING_COLORS } from '../game/constants';
 import { GameEngine } from '../game/engine';
 import { getBuildingCost, canAffordBuilding } from '../game/systems';
 import { GameState } from '../game/types';
+import { t } from '../lib/i18n';
 
 interface Props {
   engine: GameEngine;
@@ -11,24 +12,24 @@ interface Props {
 }
 
 const BUILDABLE_ITEMS = [
-  { type: 'conveyor', name: 'Conveyor Belt', desc: 'Transports items', color: BUILDING_COLORS.conveyor, category: 'Logistics' },
-  { type: 'inserter', name: 'Inserter', desc: 'Moves items to/from belts', color: BUILDING_COLORS.inserter, category: 'Logistics' },
-  { type: 'splitter', name: 'Splitter', desc: 'Splits belt into two lanes', color: BUILDING_COLORS.splitter, category: 'Logistics' },
-  { type: 'underground_belt', name: 'Underground Belt', desc: 'Routes under obstacles', color: BUILDING_COLORS.underground_belt, category: 'Logistics' },
-  { type: 'pipe', name: 'Pipe', desc: 'Transports fluids', color: BUILDING_COLORS.pipe, category: 'Logistics' },
-  { type: 'miner', name: 'Mining Drill', desc: 'Auto-mines resources', color: BUILDING_COLORS.miner, category: 'Production' },
-  { type: 'furnace', name: 'Furnace', desc: 'Smelts ores to plates', color: BUILDING_COLORS.furnace, category: 'Production' },
-  { type: 'assembler', name: 'Assembler', desc: 'Crafts items from recipes', color: BUILDING_COLORS.assembler, category: 'Production' },
-  { type: 'pumpjack', name: 'Pumpjack', desc: 'Extracts crude oil', color: BUILDING_COLORS.pumpjack, category: 'Oil' },
-  { type: 'refinery', name: 'Refinery', desc: 'Refines oil into chemicals', color: BUILDING_COLORS.refinery, category: 'Oil' },
-  { type: 'chemical_plant', name: 'Chemical Plant', desc: 'Processes chemicals', color: BUILDING_COLORS.chemical_plant, category: 'Oil' },
-  { type: 'boiler', name: 'Boiler', desc: 'Burns coal for power', color: BUILDING_COLORS.boiler, category: 'Power' },
-  { type: 'power_pole', name: 'Power Pole', desc: 'Distributes electricity', color: BUILDING_COLORS.power_pole, category: 'Power' },
-  { type: 'storage', name: 'Storage Chest', desc: 'Stores 48 item stacks', color: BUILDING_COLORS.storage, category: 'Storage' },
-  { type: 'lab', name: 'Lab', desc: 'Researches technologies', color: BUILDING_COLORS.lab, category: 'Research' },
-  { type: 'radar', name: 'Radar', desc: 'Reveals map area', color: BUILDING_COLORS.radar, category: 'Research' },
-  { type: 'turret', name: 'Gun Turret', desc: 'Auto-attacks enemies', color: BUILDING_COLORS.turret, category: 'Defense' },
-  { type: 'wall', name: 'Wall', desc: 'Blocks enemy movement', color: BUILDING_COLORS.wall, category: 'Defense' },
+  { type: 'conveyor', name: 'buildingConveyorBelt', desc: 'Transports items', color: BUILDING_COLORS.conveyor, category: 'Logistics' },
+  { type: 'inserter', name: 'buildingInserter', desc: 'Moves items to/from belts', color: BUILDING_COLORS.inserter, category: 'Logistics' },
+  { type: 'splitter', name: 'buildingSplitter', desc: 'Splits belt into two lanes', color: BUILDING_COLORS.splitter, category: 'Logistics' },
+  { type: 'underground_belt', name: 'buildingUndergroundBelt', desc: 'Routes under obstacles', color: BUILDING_COLORS.underground_belt, category: 'Logistics' },
+  { type: 'pipe', name: 'buildingPipe', desc: 'Transports fluids', color: BUILDING_COLORS.pipe, category: 'Logistics' },
+  { type: 'miner', name: 'buildingMiner', desc: 'Auto-mines resources', color: BUILDING_COLORS.miner, category: 'Production' },
+  { type: 'furnace', name: 'buildingFurnace', desc: 'Smelts ores to plates', color: BUILDING_COLORS.furnace, category: 'Production' },
+  { type: 'assembler', name: 'buildingAssembler', desc: 'Crafts items from recipes', color: BUILDING_COLORS.assembler, category: 'Production' },
+  { type: 'pumpjack', name: 'buildingPumpjack', desc: 'Extracts crude oil', color: BUILDING_COLORS.pumpjack, category: 'Oil' },
+  { type: 'refinery', name: 'buildingRefinery', desc: 'Refines oil into chemicals', color: BUILDING_COLORS.refinery, category: 'Oil' },
+  { type: 'chemical_plant', name: 'buildingChemicalPlant', desc: 'Processes chemicals', color: BUILDING_COLORS.chemical_plant, category: 'Oil' },
+  { type: 'boiler', name: 'buildingBoiler', desc: 'Burns coal for power', color: BUILDING_COLORS.boiler, category: 'Power' },
+  { type: 'power_pole', name: 'buildingPowerPole', desc: 'Distributes electricity', color: BUILDING_COLORS.power_pole, category: 'Power' },
+  { type: 'storage', name: 'buildingStorage', desc: 'Stores 48 item stacks', color: BUILDING_COLORS.storage, category: 'Storage' },
+  { type: 'lab', name: 'buildingLab', desc: 'Researches technologies', color: BUILDING_COLORS.lab, category: 'Research' },
+  { type: 'radar', name: 'buildingRadar', desc: 'Reveals map area', color: BUILDING_COLORS.radar, category: 'Research' },
+  { type: 'turret', name: 'buildingTurret', desc: 'Auto-attacks enemies', color: BUILDING_COLORS.turret, category: 'Defense' },
+  { type: 'wall', name: 'buildingWall', desc: 'Blocks enemy movement', color: BUILDING_COLORS.wall, category: 'Defense' },
 ];
 
 const CATEGORIES = ['Logistics', 'Production', 'Oil', 'Power', 'Storage', 'Research', 'Defense'];
@@ -43,6 +44,16 @@ const ITEM_NAMES: Record<string, string> = {
   gear: 'Gear', circuit: 'Circuit', ammo: 'Ammo',
   science_red: 'Red Sci', science_green: 'Green Sci', science_blue: 'Blue Sci',
   oil: 'Oil', uranium: 'Uranium',
+};
+
+const CATEGORY_KEYS: Record<string, string> = {
+  Logistics: 'categoryLogistics',
+  Production: 'categoryProduction',
+  Oil: 'categoryOil',
+  Power: 'categoryPower',
+  Storage: 'categoryStorage',
+  Research: 'categoryResearch',
+  Defense: 'categoryDefense',
 };
 
 export default function BuildMenu({ engine, state, onClose }: Props) {
@@ -67,10 +78,10 @@ export default function BuildMenu({ engine, state, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(42,54,66,0.8)' }}>
           <div>
-            <h2 className="font-orbitron font-bold text-lg text-white tracking-wider">BUILD MENU</h2>
+            <h2 className="font-orbitron font-bold text-lg text-white tracking-wider">{t('buildMenu')}</h2>
             <p className="text-xs text-white/30 mt-1">
-              Direction: <span className="text-amber-400 font-semibold">{engine.selectedDirection.toUpperCase()}</span>
-              <span className="text-white/20 ml-2">(Q to rotate)</span>
+              {t('directionLabel')} <span className="text-amber-400 font-semibold">{engine.selectedDirection.toUpperCase()}</span>
+              <span className="text-white/20 ml-2">{t('qToRotate')}</span>
             </p>
           </div>
           <button
@@ -85,7 +96,7 @@ export default function BuildMenu({ engine, state, onClose }: Props) {
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search buildings..."
+            placeholder={t('searchBuildings')}
             className="w-full px-3 py-2 text-xs rounded-lg outline-none font-exo"
             style={{
               background: 'rgba(255,255,255,0.04)',
@@ -100,7 +111,7 @@ export default function BuildMenu({ engine, state, onClose }: Props) {
         {CATEGORIES.map(category => {
           const q = searchQuery.toLowerCase();
           const items = BUILDABLE_ITEMS.filter(i => i.category === category && (
-            !q || i.name.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q) || i.type.includes(q)
+            !q || t(i.name).toLowerCase().includes(q) || i.desc.toLowerCase().includes(q) || i.type.includes(q)
           ));
           if (items.length === 0) return null;
           const catColor = CATEGORY_COLORS[category];
@@ -108,7 +119,7 @@ export default function BuildMenu({ engine, state, onClose }: Props) {
             <div key={category} className="mb-5">
               <div className="flex items-center gap-2 mb-2.5">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: catColor, boxShadow: `0 0 6px ${catColor}` }} />
-                <span className="text-[10px] font-orbitron tracking-[0.2em] uppercase" style={{ color: `${catColor}99` }}>{category}</span>
+                <span className="text-[10px] font-orbitron tracking-[0.2em] uppercase" style={{ color: `${catColor}99` }}>{t(CATEGORY_KEYS[category] || category)}</span>
                 <div className="flex-1 h-px" style={{ background: `linear-gradient(to right, ${catColor}20, transparent)` }} />
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -145,7 +156,7 @@ export default function BuildMenu({ engine, state, onClose }: Props) {
                         >
                           <div className="w-full h-full rounded-lg" style={{ background: item.color, opacity: 0.7, borderRadius: 'inherit' }} />
                         </div>
-                        <span className="text-sm font-medium text-white/85 leading-tight">{item.name}</span>
+                        <span className="text-sm font-medium text-white/85 leading-tight">{t(item.name)}</span>
                       </div>
                       <p className="text-white/25 text-[11px] leading-tight mb-1.5">{item.desc}</p>
                       <div className="flex flex-wrap gap-1">

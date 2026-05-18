@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import { GameState } from '../game/types';
 import { ACHIEVEMENT_CATALOG } from '../game/systems';
 
@@ -25,32 +26,32 @@ export default function StatsMenu({ state, onClose }: Props) {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(167,139,250,0.15)' }}>
-          <h2 className="font-orbitron font-bold text-lg tracking-wider" style={{ color: '#a78bfa' }}>STATISTICS</h2>
+          <h2 className="font-orbitron font-bold text-lg tracking-wider" style={{ color: '#a78bfa' }}>{t('statsTitle')}</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-all text-sm font-orbitron">✕</button>
         </div>
 
         <div className="space-y-5">
-          <Section title="General" color="#a78bfa">
-            <StatRow label="Time Played" value={formatTime(statistics.timePlayed)} />
-            <StatRow label="Buildings Placed" value={statistics.buildingsPlaced.toString()} />
-            <StatRow label="Enemies Killed" value={statistics.enemiesKilled.toString()} />
+          <Section title={t('statsGeneral')} color="#a78bfa">
+            <StatRow label={t('statsTimePlayed')} value={formatTime(statistics.timePlayed)} />
+            <StatRow label={t('statsBuildingsPlaced')} value={statistics.buildingsPlaced.toString()} />
+            <StatRow label={t('statsEnemiesKilled')} value={statistics.enemiesKilled.toString()} />
             <StatRow label="Evolution" value={`${(state.evolution * 100).toFixed(1)}%`} color="#f97316" />
             <StatRow label="Pollution" value={state.pollution.toFixed(0)} color="#eab308" />
           </Section>
 
-          <Section title="Player" color="#38bdf8">
-            <StatRow label="Level" value={player.level.toString()} color="#818cf8" />
-            <StatRow label="Experience" value={`${player.xp} / ${player.level * 500}`} />
-            <StatRow label="Gemy" value={`${player.gems} 💎`} color="#06b6d4" />
+          <Section title={t('statsPlayer')} color="#38bdf8">
+            <StatRow label={t('statsLevel')} value={player.level.toString()} color="#818cf8" />
+            <StatRow label={t('statsExperience')} value={`${player.xp} / ${player.level * 500}`} />
+            <StatRow label={t('gems')} value={`${player.gems} 💎`} color="#06b6d4" />
             <StatRow label="Saldo" value={`${player.premiumBalance.toFixed(2)} zł`} color="#22c55e" />
-            <StatRow label="Health" value={`${Math.ceil(player.health)} / ${player.maxHealth}`} color={player.health / player.maxHealth > 0.5 ? '#22c55e' : '#ef4444'} />
-            <StatRow label="Speed" value={player.speed.toFixed(2)} />
-            <StatRow label="Mining Speed" value={`×${player.miningSpeed.toFixed(1)}`} />
-            <StatRow label="Crafting Speed" value={`×${player.craftingSpeed.toFixed(1)}`} />
-            <StatRow label="Reach" value={`${player.reach} tiles`} />
+            <StatRow label={t('health')} value={`${Math.ceil(player.health)} / ${player.maxHealth}`} color={player.health / player.maxHealth > 0.5 ? '#22c55e' : '#ef4444'} />
+            <StatRow label={t('statsSpeed')} value={player.speed.toFixed(2)} />
+            <StatRow label={t('statsMiningSpeed')} value={`×${player.miningSpeed.toFixed(1)}`} />
+            <StatRow label={t('statsCraftingSpeed')} value={`×${player.craftingSpeed.toFixed(1)}`} />
+            <StatRow label={t('statsReach')} value={`${player.reach} tiles`} />
           </Section>
 
-          <Section title="Achievements" color="#fbbf24">
+          <Section title={t('statsAchievements')} color="#fbbf24">
             {ACHIEVEMENT_CATALOG.map(def => {
               const unlocked = player.achievements.includes(def.id);
               return (
@@ -64,16 +65,16 @@ export default function StatsMenu({ state, onClose }: Props) {
             })}
           </Section>
 
-          <Section title="World" color="#22c55e">
-            <StatRow label="Buildings" value={state.buildings.size.toString()} />
-            <StatRow label="NPCs" value={state.npcs.size.toString()} />
-            <StatRow label="Enemies" value={state.enemies.size.toString()} color="#ef4444" />
-            <StatRow label="Spawners" value={state.spawners.size.toString()} />
-            <StatRow label="Chunks Loaded" value={state.chunks.size.toString()} />
+          <Section title={t('statsWorld')} color="#22c55e">
+            <StatRow label={t('statsBuildings')} value={state.buildings.size.toString()} />
+            <StatRow label={t('statsNPCs')} value={state.npcs.size.toString()} />
+            <StatRow label={t('statsEnemies')} value={state.enemies.size.toString()} color="#ef4444" />
+            <StatRow label={t('statsSpawners')} value={state.spawners.size.toString()} />
+            <StatRow label={t('statsChunksLoaded')} value={state.chunks.size.toString()} />
           </Section>
 
           {Object.entries(statistics.itemsProduced).length > 0 && (
-            <Section title="Items Produced" color="#f97316">
+            <Section title={t('statsItemsProduced')} color="#f97316">
               {Object.entries(statistics.itemsProduced)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 10)
@@ -83,7 +84,7 @@ export default function StatsMenu({ state, onClose }: Props) {
             </Section>
           )}
 
-          <Section title="Research" color="#38bdf8">
+          <Section title={t('statsResearchTitle')} color="#38bdf8">
             {Array.from(state.research.entries()).filter(([, r]) => r.unlocked).map(([id, r]) => (
               <div key={id} className="text-xs py-0.5 flex items-center gap-2">
                 <span className="text-emerald-400/60">✓</span>
@@ -91,7 +92,7 @@ export default function StatsMenu({ state, onClose }: Props) {
               </div>
             ))}
             {Array.from(state.research.entries()).filter(([, r]) => r.unlocked).length === 0 && (
-              <div className="text-white/20 text-xs py-2">No research completed yet</div>
+              <div className="text-white/20 text-xs py-2">{t('statsNoResearch')}</div>
             )}
           </Section>
         </div>

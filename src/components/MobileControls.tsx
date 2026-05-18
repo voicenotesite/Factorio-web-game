@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { GameEngine } from '../game/engine';
 import { GameState } from '../game/types';
 import { BUILDING_COLORS, RESOURCE_COLORS } from '../game/constants';
+import { t } from '../lib/i18n';
 import LangSelector from './LangSelector';
 
 interface Props {
@@ -117,24 +118,103 @@ export default function MobileControls({
 
   const isAdmin = currentUser.toUpperCase() === 'ADMIN';
 
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   return (
     <div className="fixed inset-0 z-10 pointer-events-none" style={{ userSelect: 'none' }}>
 
-      {/* ── Top action bar ── */}
+      {/* ── Top action bar (essential gameplay actions only) ── */}
       <div
         className="absolute top-14 left-0 right-0 flex justify-center gap-2 pointer-events-auto px-3"
         style={{ zIndex: 11 }}
       >
-        <TopBtn label="BUILD" icon="🔨" color="#f59e0b" onClick={onBuild} />
-        <TopBtn label="CRAFT" icon="⚙️" color="#22c55e" onClick={onCraft} />
-        <TopBtn label="TECH" icon="🔬" color="#38bdf8" onClick={onResearch} />
-        <TopBtn label="STATS" icon="📊" color="#a78bfa" onClick={onStats} />
-        <TopBtn label="FRIENDS" icon="👥" color="#f472b6" onClick={onFriends} />
-        <TopBtn label="GUIDE" icon="📖" color="#22d3ee" onClick={onGuide} />
-        {isAdmin && (
-          <TopBtn label="ADMIN" icon="🛡️" color="#ef4444" onClick={onAdmin} />
-        )}
+        <TopBtn label={t('mobileBuild')} icon="🔨" color="#f59e0b" onClick={onBuild} />
+        <TopBtn label={t('mobileCraft')} icon="⚙️" color="#22c55e" onClick={onCraft} />
+        <TopBtn label={t('mobileTech')} icon="🔬" color="#38bdf8" onClick={onResearch} />
       </div>
+
+      {/* ── Drawer toggle button (menu icon) ── */}
+      <button
+        onClick={() => setDrawerOpen(p => !p)}
+        style={{
+          position: 'absolute',
+          top: '14px',
+          right: '14px',
+          width: '44px',
+          height: '44px',
+          borderRadius: '10px',
+          background: drawerOpen ? 'rgba(216,128,16,0.25)' : 'rgba(0,0,0,0.6)',
+          border: `1.5px solid ${drawerOpen ? 'rgba(216,128,16,0.6)' : 'rgba(255,255,255,0.15)'}`,
+          color: drawerOpen ? '#d88010' : 'rgba(255,255,255,0.6)',
+          fontSize: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          touchAction: 'none',
+          zIndex: 20,
+          pointerEvents: 'auto',
+          boxShadow: drawerOpen ? '0 0 15px rgba(216,128,16,0.3)' : 'none',
+          transition: 'all 0.2s ease',
+        }}
+      >
+        {drawerOpen ? '✕' : '☰'}
+      </button>
+
+      {/* ── Drawer overlay (non-essential features) ── */}
+      {drawerOpen && (
+        <>
+          <div
+            className="fixed inset-0 pointer-events-auto"
+            style={{ background: 'rgba(0,0,0,0.5)', zIndex: 18 }}
+            onClick={() => setDrawerOpen(false)}
+          />
+          <div
+            className="absolute pointer-events-auto"
+            style={{
+              top: '64px',
+              right: '14px',
+              zIndex: 19,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              animation: 'slide-up 0.15s ease',
+            }}
+          >
+            <DrawerBtn label={t('mobileStats')} icon="📊" color="#a78bfa" onClick={() => { onStats(); setDrawerOpen(false); }} />
+            <DrawerBtn label={t('mobileFriends')} icon="👥" color="#f472b6" onClick={() => { onFriends(); setDrawerOpen(false); }} />
+            <DrawerBtn label={t('mobileGuide')} icon="📖" color="#22d3ee" onClick={() => { onGuide(); setDrawerOpen(false); }} />
+            <DrawerBtn label={t('mobileSave')} icon="💾" color="#94a3b8" onClick={() => { onSave(); setDrawerOpen(false); }} />
+            {isAdmin && (
+              <DrawerBtn label={t('mobileAdmin')} icon="🛡️" color="#ef4444" onClick={() => { onAdmin(); setDrawerOpen(false); }} />
+            )}
+            <div style={{ padding: '4px 0' }}>
+              <LangSelector />
+            </div>
+            <button
+              onTouchEnd={(e) => { e.preventDefault(); onLogout(); }}
+              onClick={onLogout}
+              style={{
+                width: '100%',
+                height: '40px',
+                borderRadius: '10px',
+                background: 'rgba(239,68,68,0.15)',
+                border: '1px solid rgba(239,68,68,0.35)',
+                color: '#f87171',
+                fontSize: '10px',
+                fontFamily: 'Orbitron',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                touchAction: 'none',
+              }}
+            >
+              <span>⬡</span>
+              <span>{t('mobileLogout')}</span>
+            </button>
+          </div>
+        </>
+      )}
 
       {/* ── Minimap — above joystick, bottom-left ── */}
       <div
@@ -151,38 +231,8 @@ export default function MobileControls({
           zIndex: 12,
         }}
       >
-        <div className="absolute top-0.5 left-1.5 text-[6px] font-orbitron text-white/30 z-10 tracking-widest">MAP</div>
+        <div className="absolute top-0.5 left-1.5 text-[6px] font-orbitron text-white/30 z-10 tracking-widest">{t('hudMap')}</div>
         <MiniMapCanvas state={gameState} size={84} />
-      </div>
-
-      {/* ── Logout button — left side, above minimap ── */}
-      <div
-        className="absolute pointer-events-auto"
-        style={{ bottom: '240px', left: '16px' }}
-      >
-        <button
-          onTouchEnd={(e) => { e.preventDefault(); onLogout(); }}
-          onClick={onLogout}
-          style={{
-            width: '84px',
-            height: '32px',
-            borderRadius: '8px',
-            background: 'rgba(0,0,0,0.6)',
-            border: '1px solid rgba(239,68,68,0.3)',
-            color: 'rgba(248,113,113,0.8)',
-            fontSize: '10px',
-            fontFamily: 'Orbitron',
-            letterSpacing: '0.05em',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '4px',
-            touchAction: 'none',
-          }}
-        >
-          <span>⬡</span>
-          <span>LOGOUT</span>
-        </button>
       </div>
 
       {/* ── Virtual Joystick — bottom left ── */}
@@ -230,14 +280,12 @@ export default function MobileControls({
         <MineHoldBtn engine={engine} />
       </div>
 
-      {/* ── Save + Demolish buttons — right side, mid ── */}
+      {/* ── Demolish button — right side ── */}
       <div
         className="absolute pointer-events-auto flex flex-col gap-2"
         style={{ bottom: '160px', right: '20px' }}
       >
-        <LangSelector />
         <DemolishBtn engine={engine} />
-        <SideBtn icon="💾" color="#94a3b8" onClick={onSave} label="SAVE" />
       </div>
 
       {/* ── Cancel building banner ── */}
@@ -254,7 +302,7 @@ export default function MobileControls({
             zIndex: 15,
           }}
         >
-          <span className="text-xs text-white/50 font-exo">Placing:</span>
+          <span className="text-xs text-white/50 font-exo">{t('mobilePlacing')}</span>
           <span className="text-sm font-bold text-sky-400 font-exo">{selectedBuilding.replace(/_/g, ' ')}</span>
           <button
             className="ml-2 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
@@ -390,7 +438,7 @@ function DemolishBtn({ engine }: { engine: import('../game/engine').GameEngine }
       }}
     >
       <span>🗑</span>
-      <span style={{ fontSize: '6px', fontFamily: 'Orbitron', opacity: 0.6 }}>DEMO</span>
+      <span style={{ fontSize: '6px', fontFamily: 'Orbitron', opacity: 0.6 }}>{t('mobileDemolish')}</span>
     </button>
   );
 }
@@ -423,28 +471,29 @@ function TopBtn({ label, icon, color, onClick }: { label: string; icon: string; 
   );
 }
 
-function SideBtn({ icon, color, onClick, label }: { icon: string; color: string; onClick: () => void; label: string }) {
+function DrawerBtn({ label, icon, color, onClick }: { label: string; icon: string; color: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       style={{
-        width: '44px',
-        height: '44px',
+        width: '160px',
+        height: '40px',
         borderRadius: '10px',
-        background: 'rgba(0,0,0,0.65)',
+        background: 'rgba(0,0,0,0.8)',
         border: `1.5px solid ${color}44`,
         color,
-        fontSize: '18px',
+        fontSize: '14px',
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: '1px',
+        justifyContent: 'flex-start',
+        gap: '10px',
+        padding: '0 14px',
         touchAction: 'none',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
       }}
     >
-      <span>{icon}</span>
-      <span style={{ fontSize: '6px', fontFamily: 'Orbitron', opacity: 0.5 }}>{label}</span>
+      <span style={{ fontSize: '16px' }}>{icon}</span>
+      <span style={{ fontSize: '10px', fontFamily: 'Orbitron', letterSpacing: '0.05em', opacity: 0.8 }}>{label}</span>
     </button>
   );
 }

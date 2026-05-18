@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { t } from '../lib/i18n';
 import { GameEngine } from '../game/engine';
 import { saveGame, loadGame, deleteSave, getSaveInfo } from '../lib/saveSystem';
 import { getCurrentUser } from '../lib/auth';
@@ -6,48 +7,60 @@ import { getCurrentUser } from '../lib/auth';
 interface Props {
   engine: GameEngine;
   onClose: () => void;
+  saveCooldown: number;
+  onSave: () => void;
 }
 
-export default function SaveLoad({ engine, onClose }: Props) {
+export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Props) {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [localCooldown, setLocalCooldown] = useState(0);
+
+  useEffect(() => {
+    if (localCooldown <= 0) return;
+    const t = setInterval(() => setLocalCooldown(p => Math.max(0, p - 1)), 1000);
+    return () => clearInterval(t);
+  }, [localCooldown]);
 
   const username = getCurrentUser();
   const saveInfo = username ? getSaveInfo(username) : null;
+  const cooldown = Math.max(saveCooldown, localCooldown);
 
   const handleSave = () => {
-    if (!username) { setMessage('Not logged in'); return; }
-    setSaving(true);
-    try {
-      saveGame(username, engine.state);
-      setMessage('Game saved!');
-    } catch (e) {
-      setMessage('Save failed: ' + String(e));
-    }
-    setSaving(false);
+    if (!username) { setMessage(t('notLoggedIn')); return; }
+    if (cooldown > 0) { setMessage(t('cooldownMsg', { s: cooldown })); return; }
+    setLocalCooldown(10);
+    onSave();
+    setMessage(t('gameSaved'));
   };
 
   const handleLoad = () => {
-    if (!username) { setMessage('Not logged in'); return; }
+    if (!username) { setMessage(t('notLoggedIn')); return; }
     setLoading(true);
-    const save = loadGame(username);
-    if (!save) { setMessage('No save found'); setLoading(false); return; }
     try {
-      engine.loadFromSave(save);
-      setMessage('Loaded!');
+      const save = loadGame(username);
+      if (save && engine) {
+        engine.loadFromSave(save);
+        setMessage(t('gameLoaded'));
+      } else {
+        setMessage(t('noSaveData'));
+      }
     } catch (e) {
       setMessage('Load failed: ' + String(e));
     }
     setLoading(false);
-    setTimeout(onClose, 800);
   };
 
   const handleDelete = () => {
     if (!username) return;
-    if (!confirm('Delete your save? This cannot be undone.')) return;
-    deleteSave(username);
-    setMessage('Save deleted');
+    if (!confirm('Delete save for ' + username + '?')) return;
+    try {
+      deleteSave(username);
+      setMessage(t('saveDeleted'));
+    } catch (e) {
+      setMessage('Delete failed: ' + String(e));
+    }
   };
 
   return (
@@ -57,9 +70,35 @@ export default function SaveLoad({ engine, onClose }: Props) {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(148,163,184,0.15)' }}>
-          <h2 className="font-orbitron font-bold text-lg text-white/80 tracking-wider">SAVE / LOAD</h2>
+          <h2 className="font-orbitron font-bold text-lg text-white/80 tracking-wider">{t('saveLoadTitle')}</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-all text-sm font-orbitron">✕</button>
         </div>
+
+        {/* Save cooldown animation */}
+        {cooldown > 0 && (
+          <div className="mb-4 p-4 rounded-xl text-center animate-slide-up"
+            style={{
+              background: 'rgba(34,197,94,0.08)',
+              border: '1px solid rgba(34,197,94,0.2)',
+              boxShadow: '0 0 20px rgba(34,197,94,0.05)',
+            }}
+          >
+            <div className="font-orbitron font-bold text-xs tracking-[0.2em] text-green-400 mb-1">
+              ZAPISYWANIE STANU GRY
+            </div>
+            <div className="font-mono text-4xl font-black animate-pulse text-green-500">
+              {cooldown}s
+            </div>
+            <div className="w-full h-1.5 mt-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <div className="h-full rounded-full transition-all duration-1000 ease-linear"
+                style={{
+                  width: `${(cooldown / 10) * 100}%`,
+                  background: 'linear-gradient(90deg, #166534, #22c55e)',
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {username && (
           <div className="mb-4 text-xs text-white/30 font-mono text-center">
@@ -72,7 +111,7 @@ export default function SaveLoad({ engine, onClose }: Props) {
             className="mb-4 p-3 rounded-xl text-xs font-mono"
             style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
           >
-            <div className="text-white/50 mb-1">Last save:</div>
+            <div className="text-white/50 mb-1">{t('lastSave')}</div>
             <div className="text-white/70">Tick {saveInfo.tick} · {new Date(saveInfo.timestamp).toLocaleString()}</div>
           </div>
         )}
@@ -80,15 +119,15 @@ export default function SaveLoad({ engine, onClose }: Props) {
         <div className="space-y-2">
           <button
             onClick={handleSave}
-            disabled={saving || !username}
+            disabled={cooldown > 0 || !username}
             className="w-full py-3 text-sm font-bold rounded-xl transition-all disabled:opacity-40 hover:opacity-90 active:scale-95"
             style={{
-              background: 'linear-gradient(135deg, #166534, #22c55e)',
+              background: cooldown > 0 ? 'linear-gradient(135deg, #166534, #22c55e)' : 'linear-gradient(135deg, #166534, #22c55e)',
               color: 'white',
-              boxShadow: '0 0 20px rgba(34,197,94,0.2)',
+              boxShadow: cooldown > 0 ? '0 0 20px rgba(34,197,94,0.3)' : '0 0 10px rgba(34,197,94,0.1)',
             }}
           >
-            {saving ? '⏳ Saving...' : '💾 Save Game'}
+            {cooldown > 0 ? `⏳ ${cooldown}s` : saving ? '⏳ Saving...' : t('saveGame')}
           </button>
 
           {saveInfo && (
@@ -102,7 +141,7 @@ export default function SaveLoad({ engine, onClose }: Props) {
                 boxShadow: '0 0 20px rgba(14,165,233,0.2)',
               }}
             >
-              {loading ? '⏳ Loading...' : '📂 Load Save'}
+              {loading ? '⏳ Loading...' : t('loadGame')}
             </button>
           )}
 
@@ -116,7 +155,7 @@ export default function SaveLoad({ engine, onClose }: Props) {
                 border: '1px solid rgba(239,68,68,0.2)',
               }}
             >
-              🗑 Delete Save
+              {t('deleteSave')}
             </button>
           )}
         </div>
@@ -133,7 +172,7 @@ export default function SaveLoad({ engine, onClose }: Props) {
         )}
 
         <div className="mt-4 text-center text-[9px] text-white/15 font-exo">
-          Saves stored in browser localStorage
+          {t('saveStorage')}
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { GameState } from '../game/types';
 import { BUILDING_COLORS, RESOURCE_COLORS } from '../game/constants';
+import { t } from '../lib/i18n';
 
 interface Props {
   state: GameState;
@@ -63,9 +64,9 @@ export default function HUD({ state, notifications }: Props) {
           {/* Center: Day/Evol */}
           <div className="flex flex-col items-center gap-1">
             <span className="text-[9px] font-orbitron" style={{ color: isDay ? '#fbbf24' : '#818cf8' }}>
-              {isDay ? '☀ DAY' : '🌙 NIGHT'}
+              {isDay ? `☀ ${t('hudDay')}` : `🌙 ${t('hudNight')}`}
             </span>
-            <span className="text-[8px] text-orange-400/70 font-mono">EVOL {(state.evolution * 100).toFixed(1)}%</span>
+            <span className="text-[8px] text-orange-400/70 font-mono">{t('hudEvol')} {(state.evolution * 100).toFixed(1)}%</span>
           </div>
 
           {/* Right: Resources (top 5) */}
@@ -166,7 +167,7 @@ export default function HUD({ state, notifications }: Props) {
               </svg>
             )}
             <span className="text-[10px] font-orbitron" style={{ color: isDay ? '#fbbf24' : '#818cf8' }}>
-              {isDay ? 'DAY' : 'NIGHT'}
+              {isDay ? t('hudDay') : t('hudNight')}
             </span>
           </div>
 
@@ -176,9 +177,9 @@ export default function HUD({ state, notifications }: Props) {
 
         {/* Center: Key metrics */}
         <div className="flex items-center gap-4">
-          <MetricBadge label="TICK" value={state.tick.toString()} />
-          <MetricBadge label="EVOL" value={`${(state.evolution * 100).toFixed(1)}%`} color="#f97316" glow="rgba(249,115,22,0.4)" />
-          <MetricBadge label="SMOG" value={state.pollution.toFixed(0)} color="#eab308" glow="rgba(234,179,8,0.4)" />
+          <MetricBadge label={t('hudTick')} value={state.tick.toString()} />
+          <MetricBadge label={t('hudEvol')} value={`${(state.evolution * 100).toFixed(1)}%`} color="#f97316" glow="rgba(249,115,22,0.4)" />
+          <MetricBadge label={t('hudSmog')} value={state.pollution.toFixed(0)} color="#eab308" glow="rgba(234,179,8,0.4)" />
         </div>
 
         {/* Right: Resources */}
@@ -248,15 +249,15 @@ export default function HUD({ state, notifications }: Props) {
           backdropFilter: 'blur(8px)',
         }}
       >
-        <div className="absolute top-1 left-2 text-[8px] font-orbitron text-white/20 tracking-widest z-10">MAP</div>
+        <div className="absolute top-1 left-2 text-[8px] font-orbitron text-white/20 tracking-widest z-10">{t('hudMap')}</div>
         <Minimap state={state} />
       </div>
 
       {/* Controls hint — fades out after 30 s */}
       {hintsVisible && (
         <div className="absolute bottom-16 left-4 text-[9px] text-white/15 pointer-events-none space-y-0.5 font-exo transition-opacity duration-1000">
-          <div>WASD Move · Q Rotate · B Build · R Research · I Inventory</div>
-          <div>LMB Mine/Place · RMB Remove · Scroll Zoom · Tab Stats</div>
+          <div>{t('hudControls1')}</div>
+          <div>{t('hudControls2')}</div>
         </div>
       )}
     </div>

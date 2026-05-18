@@ -72,7 +72,7 @@ export default function AuthScreen({ onAuth }: Props) {
           >
             NOVACTORIO
           </div>
-          <div className="text-xs font-exo tracking-[0.3em] text-white/20">BUILD. AUTOMATE. SURVIVE.</div>
+          <div className="text-xs font-exo tracking-[0.3em] text-white/20">{t('authSubtitle')}</div>
         </div>
 
         {/* Card */}
@@ -106,13 +106,13 @@ export default function AuthScreen({ onAuth }: Props) {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-[10px] font-orbitron tracking-widest text-white/30 mb-1.5 uppercase">
-                Commander ID
+                {t('commanderId')}
               </label>
               <input
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                placeholder="enter username"
+                placeholder={t('enterUsername')}
                 className="w-full px-3 py-2.5 text-sm font-exo rounded-lg outline-none transition-all"
                 style={{
                   background: 'rgba(255,255,255,0.03)',
@@ -127,13 +127,13 @@ export default function AuthScreen({ onAuth }: Props) {
 
             <div>
               <label className="block text-[10px] font-orbitron tracking-widest text-white/30 mb-1.5 uppercase">
-                Access Code
+                {t('accessCode')}
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="enter password"
+                placeholder={t('enterPassword')}
                 className="w-full px-3 py-2.5 text-sm font-exo rounded-lg outline-none transition-all"
                 style={{
                   background: 'rgba(255,255,255,0.03)',
@@ -171,7 +171,7 @@ export default function AuthScreen({ onAuth }: Props) {
           </form>
 
           <div className="mt-4 text-center text-[9px] text-white/15 font-exo">
-            Powered by Supabase · Saves stored in cloud
+            {t('authFooter')}
           </div>
         </div>
         <div className="mt-4 flex justify-center">

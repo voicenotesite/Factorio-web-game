@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { t } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { getCurrentUser, getCurrentUserId } from '../lib/auth';
 import { GameEngine } from '../game/engine';
@@ -102,22 +103,22 @@ export default function VisitWorldView({ friendId, friendName, onClose }: Props)
     <div className="fixed inset-0 z-40">
       {status === 'loading' && (
         <div className="fixed inset-0 flex items-center justify-center bg-black z-50">
-          <div className="text-white/60 font-orbitron text-sm animate-pulse">🌍 Loading {friendName}'s world...</div>
+          <div className="text-white/60 font-orbitron text-sm animate-pulse">🌍 {t('loadingWorld')}</div>
         </div>
       )}
       {status === 'noSave' && (
         <div className="fixed inset-0 flex items-center justify-center bg-black z-50">
           <div className="text-center space-y-4">
-            <div className="text-white/50 font-orbitron text-sm">{friendName} hasn't saved a world yet.</div>
-            <button onClick={onClose} className="px-6 py-2 rounded-xl font-orbitron text-sm text-white/60 border border-white/10 hover:text-white/80">← Back</button>
+            <div className="text-white/50 font-orbitron text-sm">{friendName} {t('noSaveWorld')}</div>
+            <button onClick={onClose} className="px-6 py-2 rounded-xl font-orbitron text-sm text-white/60 border border-white/10 hover:text-white/80">{t('backBtn')}</button>
           </div>
         </div>
       )}
       {status === 'error' && (
         <div className="fixed inset-0 flex items-center justify-center bg-black z-50">
           <div className="text-center space-y-4">
-            <div className="text-red-400 font-orbitron text-sm">Failed to load world</div>
-            <button onClick={onClose} className="px-6 py-2 rounded-xl font-orbitron text-sm text-white/60 border border-white/10">← Back</button>
+            <div className="text-red-400 font-orbitron text-sm">{t('failedLoadWorld')}</div>
+            <button onClick={onClose} className="px-6 py-2 rounded-xl font-orbitron text-sm text-white/60 border border-white/10">{t('backBtn')}</button>
           </div>
         </div>
       )}
@@ -130,8 +131,8 @@ export default function VisitWorldView({ friendId, friendName, onClose }: Props)
             className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 rounded-xl font-orbitron text-xs"
             style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(56,189,248,0.3)', color: 'rgba(56,189,248,0.9)' }}
           >
-            🌍 Visiting: <span className="font-bold text-white">{friendName}</span>
-            {visitorCount > 0 && <span className="text-green-400">· {visitorCount + 1} online</span>}
+            {t('visiting')} <span className="font-bold text-white">{friendName}</span>
+            {visitorCount > 0 && <span className="text-green-400">· {visitorCount + 1} {t('online')}</span>}
           </div>
 
           <button
@@ -139,12 +140,12 @@ export default function VisitWorldView({ friendId, friendName, onClose }: Props)
             className="fixed top-4 right-4 z-50 px-4 py-2 rounded-xl font-orbitron text-xs text-white/60 hover:text-white/90 transition-colors"
             style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}
           >
-            ✕ Leave
+            {t('leaveBtn')}
           </button>
 
           {!isMobile && (
             <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 text-[10px] text-white/25 font-orbitron">
-              WASD to move · Read-only visit mode
+              {t('visitMode')}
             </div>
           )}
         </>

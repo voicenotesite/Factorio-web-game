@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LangCode, setLang, getLang } from '../lib/i18n';
+import { t, LangCode, setLang, getLang } from '../lib/i18n';
 
 const LANGUAGES: { code: LangCode; flag: string; name: string }[] = [
   { code: 'en', flag: '🇬🇧', name: 'EN' },
@@ -54,7 +54,7 @@ export default function LangSelector({ fixed = false }: Props) {
           border: '1px solid rgba(216,128,16,0.25)',
           color: 'rgba(255,255,255,0.5)',
         }}
-        title="Language"
+        title={t('language')}
       >
         <span>{current.flag}</span>
         <span className="tracking-wider">{current.name}</span>

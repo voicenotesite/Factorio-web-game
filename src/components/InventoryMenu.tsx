@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import { GameState } from '../game/types';
 import { RESOURCE_COLORS, RECIPES } from '../game/constants';
 import { GameEngine } from '../game/engine';
@@ -56,8 +57,8 @@ export default function InventoryMenu({ engine, state, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(216,128,16,0.18)' }}>
           <div>
-            <h2 className="font-orbitron font-bold text-lg text-white tracking-wider">INVENTORY <span className="text-white/30 font-light">& CRAFTING</span></h2>
-            <p className="text-xs text-white/30 mt-1">Manage items and craft components</p>
+            <h2 className="font-orbitron font-bold text-lg text-white tracking-wider">{t('inventoryTitle')}</h2>
+            <p className="text-xs text-white/30 mt-1">{t('inventorySubtitle')}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-all text-sm font-orbitron">✕</button>
         </div>
@@ -103,8 +104,8 @@ export default function InventoryMenu({ engine, state, onClose }: Props) {
               ))}
               {player.inventory.length === 0 && (
                 <div className="col-span-5 text-center py-10">
-                  <div className="text-white/15 text-sm font-exo">Empty inventory</div>
-                  <div className="text-white/10 text-xs mt-1">Mine resources to fill it up</div>
+                  <div className="text-white/15 text-sm font-exo">{t('inventoryEmpty')}</div>
+                  <div className="text-white/10 text-xs mt-1">{t('inventoryEmptyHint')}</div>
                 </div>
               )}
             </div>
@@ -158,7 +159,7 @@ export default function InventoryMenu({ engine, state, onClose }: Props) {
                                    boxShadow: '0 0 10px rgba(216,128,16,0.2)',
                                 }}
                               >
-                                Craft
+                                {t('craftButton')}
                               </button>
                             )}
                           </div>

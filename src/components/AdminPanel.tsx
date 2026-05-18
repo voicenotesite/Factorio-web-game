@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { t } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { getCurrentUserId } from '../lib/auth';
 import { GameEngine } from '../game/engine';
@@ -124,10 +125,10 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
   };
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'overview', label: 'Overview', icon: '📊' },
-    { id: 'players', label: 'Players', icon: '👥' },
-    { id: 'chat', label: 'Chat Logs', icon: '💬' },
-    { id: 'world', label: 'World', icon: '🌍' },
+    { id: 'overview', label: t('adminOverview'), icon: '📊' },
+    { id: 'players', label: t('adminPlayersTab'), icon: '👥' },
+    { id: 'chat', label: t('adminChatLogs'), icon: '💬' },
+    { id: 'world', label: t('adminWorldTab'), icon: '🌍' },
   ];
 
   return (
@@ -148,7 +149,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
           <div className="flex items-center gap-3">
             <span className="text-lg">🛡️</span>
             <div>
-              <h2 className="font-orbitron font-bold text-sm text-red-400 tracking-wider">ADMIN PANEL</h2>
+              <h2 className="font-orbitron font-bold text-sm text-red-400 tracking-wider">{t('adminPanel')}</h2>
               <p className="text-[10px] text-white/30 font-orbitron">Novactorio Debug Console</p>
             </div>
           </div>
@@ -177,15 +178,15 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { label: 'Tick', value: state.tick.toLocaleString() },
-                  { label: 'Evolution', value: (state.evolution * 100).toFixed(2) + '%' },
-                  { label: 'Pollution', value: state.pollution.toFixed(1) },
-                  { label: 'Buildings', value: state.buildings.size },
-                  { label: 'NPCs', value: state.npcs.size },
-                  { label: 'Build Queue', value: state.buildQueue.length },
-                  { label: 'Player HP', value: `${state.player.health}/${state.player.maxHealth}` },
+                  { label: t('adminTick'), value: state.tick.toLocaleString() },
+                  { label: t('evolution'), value: (state.evolution * 100).toFixed(2) + '%' },
+                  { label: t('adminPollution'), value: state.pollution.toFixed(1) },
+                  { label: t('adminBuildings'), value: state.buildings.size },
+                  { label: t('adminNPCs'), value: state.npcs.size },
+                  { label: t('adminBuildQueue'), value: state.buildQueue.length },
+                  { label: t('adminPlayerHP'), value: `${state.player.health}/${state.player.maxHealth}` },
                   { label: 'Level', value: state.player.level },
-                  { label: 'Position', value: `${Math.floor(state.player.x)},${Math.floor(state.player.y)}` },
+                  { label: t('adminPosition'), value: `${Math.floor(state.player.x)},${Math.floor(state.player.y)}` },
                 ].map(s => (
                   <div key={s.label} className="p-2.5 rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div className="text-[10px] text-white/30 font-orbitron">{s.label}</div>
@@ -195,40 +196,40 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
               </div>
 
               <div className="space-y-2">
-                <p className="text-[10px] text-white/30 font-orbitron uppercase tracking-wider">Quick Actions</p>
+                <p className="text-[10px] text-white/30 font-orbitron uppercase tracking-wider">{t('adminQuickActions')}</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <AdminBtn onClick={wipeEvolution} color="#ef4444" label="🔴 Reset Evolution & Pollution" />
-                  <AdminBtn onClick={giveResources} color="#22c55e" label="📦 +500 All Resources" />
-                  <AdminBtn onClick={unlockAllResearch} color="#38bdf8" label="🔬 Unlock All Research" />
-                  <AdminBtn onClick={maxLevel} color="#a78bfa" label="⭐ Set Level 100" />
+                  <AdminBtn onClick={wipeEvolution} color="#ef4444" label={t('adminResetEvo')} />
+                  <AdminBtn onClick={giveResources} color="#22c55e" label={t('adminAddResources')} />
+                  <AdminBtn onClick={unlockAllResearch} color="#38bdf8" label={t('adminUnlockResearch')} />
+                  <AdminBtn onClick={maxLevel} color="#a78bfa" label={t('adminSetLevel100')} />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <p className="text-[10px] text-white/30 font-orbitron uppercase tracking-wider">Time of Day</p>
+                <p className="text-[10px] text-white/30 font-orbitron uppercase tracking-wider">{t('adminTimeOfDay')}</p>
                 <div className="grid grid-cols-4 gap-2">
-                  <AdminBtn onClick={() => timeOfDay(0.25)} color="#fbbf24" label="🌅 Dawn" />
-                  <AdminBtn onClick={() => timeOfDay(0.5)} color="#f59e0b" label="☀️ Noon" />
-                  <AdminBtn onClick={() => timeOfDay(0.75)} color="#f97316" label="🌇 Dusk" />
-                  <AdminBtn onClick={() => timeOfDay(0)} color="#6366f1" label="🌙 Night" />
+                  <AdminBtn onClick={() => timeOfDay(0.25)} color="#fbbf24" label={t('adminDawn')} />
+                  <AdminBtn onClick={() => timeOfDay(0.5)} color="#f59e0b" label={t('adminNoon')} />
+                  <AdminBtn onClick={() => timeOfDay(0.75)} color="#f97316" label={t('adminDusk')} />
+                  <AdminBtn onClick={() => timeOfDay(0)} color="#6366f1" label={t('adminNight')} />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <p className="text-[10px] text-white/30 font-orbitron uppercase tracking-wider">Server Broadcast</p>
+                <p className="text-[10px] text-white/30 font-orbitron uppercase tracking-wider">{t('adminServerBroadcast')}</p>
                 <div className="flex gap-2">
                   <input
                     value={broadcast}
                     onChange={e => setBroadcast(e.target.value)}
                     onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') sendBroadcast(); }}
-                    placeholder="Message to all players..."
+                    placeholder={t('adminMessagePlaceholder')}
                     className="flex-1 px-3 py-2 text-xs rounded-lg outline-none"
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
                   />
                   <button onClick={sendBroadcast} disabled={!broadcast.trim() || loading}
                     className="px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-40"
                     style={{ background: 'rgba(220,38,38,0.2)', color: '#ef4444', border: '1px solid rgba(220,38,38,0.3)' }}>
-                    📢 Send
+                    📢 {t('adminSend')}
                   </button>
                 </div>
               </div>
@@ -239,8 +240,8 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
           {tab === 'players' && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] text-white/30 font-orbitron">Total registered: {players.length}</p>
-                <button onClick={loadPlayers} className="text-[10px] text-white/30 hover:text-white/60 font-orbitron">↻ Refresh</button>
+                <p className="text-[10px] text-white/30 font-orbitron">{t('adminTotalRegistered')}: {players.length}</p>
+                <button onClick={loadPlayers} className="text-[10px] text-white/30 hover:text-white/60 font-orbitron">↻ {t('adminRefresh')}</button>
               </div>
               {players.map(p => {
                 const mins = Math.floor(p.tick / 3600);
@@ -254,14 +255,14 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
                     </div>
                     <div className="text-right">
                       <div className={`text-[10px] font-orbitron ${ago < 5 ? 'text-green-400' : 'text-white/25'}`}>
-                        {ago < 5 ? '🟢 online' : `${ago}m ago`}
+                        {ago < 5 ? `🟢 ${t('adminOnline')}` : `${ago}${t('adminMinAgo')}`}
                       </div>
                       <div className="text-[10px] text-white/20">tick {p.tick.toLocaleString()}</div>
                     </div>
                   </div>
                 );
               })}
-              {players.length === 0 && <div className="text-center text-white/20 text-xs py-8 font-orbitron">No players yet</div>}
+              {players.length === 0 && <div className="text-center text-white/20 text-xs py-8 font-orbitron">{t('adminNoPlayers')}</div>}
             </div>
           )}
 
@@ -269,8 +270,8 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
           {tab === 'chat' && (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] text-white/30 font-orbitron">Last 100 messages</p>
-                <button onClick={loadChat} className="text-[10px] text-white/30 hover:text-white/60 font-orbitron">↻ Refresh</button>
+                <p className="text-[10px] text-white/30 font-orbitron">{t('adminLastMessages')}</p>
+                <button onClick={loadChat} className="text-[10px] text-white/30 hover:text-white/60 font-orbitron">↻ {t('adminRefresh')}</button>
               </div>
               {chatLogs.map(m => (
                 <div key={m.id} className="flex items-start justify-between p-2.5 rounded-lg group"
@@ -286,7 +287,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
                   </button>
                 </div>
               ))}
-              {chatLogs.length === 0 && <div className="text-center text-white/20 text-xs py-8 font-orbitron">No messages</div>}
+              {chatLogs.length === 0 && <div className="text-center text-white/20 text-xs py-8 font-orbitron">{t('adminNoMessages')}</div>}
             </div>
           )}
 
@@ -294,17 +295,17 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
           {tab === 'world' && (
             <div className="space-y-3">
               <div className="space-y-2">
-                <p className="text-[10px] text-white/30 font-orbitron uppercase tracking-wider">World State</p>
+                <p className="text-[10px] text-white/30 font-orbitron uppercase tracking-wider">{t('adminWorldState')}</p>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   {[
-                    ['World Seed', state.worldSeed],
-                    ['Chunks loaded', state.chunks.size],
-                    ['Enemies', state.enemies.size],
-                    ['Spawners', state.spawners.size],
-                    ['Particles', state.particles.length],
-                    ['Weather', state.weather],
-                    ['Day phase', ((state.dayTime / state.dayLength) * 100).toFixed(1) + '%'],
-                    ['Conveyors', state.conveyors.size],
+                    [t('adminWorldSeed'), state.worldSeed],
+                    [t('adminChunksLoaded'), state.chunks.size],
+                    [t('adminEnemies'), state.enemies.size],
+                    [t('adminSpawners'), state.spawners.size],
+                    [t('adminParticles'), state.particles.length],
+                    [t('adminWeather'), state.weather],
+                    [t('adminDayPhase'), ((state.dayTime / state.dayLength) * 100).toFixed(1) + '%'],
+                    [t('adminConveyors'), state.conveyors.size],
                   ].map(([k, v]) => (
                     <div key={String(k)} className="flex justify-between p-2 rounded-lg"
                       style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -316,7 +317,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
               </div>
 
               <div className="space-y-2">
-                <p className="text-[10px] text-white/30 font-orbitron uppercase tracking-wider">Research Status</p>
+                <p className="text-[10px] text-white/30 font-orbitron uppercase tracking-wider">{t('adminResearchStatus')}</p>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {Array.from(state.research.entries()).map(([key, r]) => (
                     <div key={key} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg"

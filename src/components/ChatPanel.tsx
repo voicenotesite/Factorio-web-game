@@ -96,7 +96,7 @@ export default function ChatPanel({ onClose }: Props) {
 
     if (error) {
       // Non-fatal: message was broadcast already, just warn about history
-      setSendError('⚠ Not saved to history');
+      setSendError('⚠ ' + t('chatHistoryError'));
       setTimeout(() => setSendError(''), 3000);
     }
 
@@ -153,7 +153,7 @@ export default function ChatPanel({ onClose }: Props) {
       }}
     >
       <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <span className="font-orbitron text-xs tracking-wider" style={{ color: 'rgba(216,128,16,0.8)' }}>💬 GLOBAL CHAT</span>
+        <span className="font-orbitron text-xs tracking-wider" style={{ color: 'rgba(216,128,16,0.8)' }}>💬 {t('globalChat')}</span>
         <div className="flex gap-1">
           <button onClick={() => setMinimized(true)} className="text-white/30 hover:text-white/60 text-xs px-1">—</button>
           {onClose && <button onClick={onClose} className="text-white/30 hover:text-white/60 text-xs px-1">✕</button>}
@@ -162,7 +162,7 @@ export default function ChatPanel({ onClose }: Props) {
 
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}>
         {messages.length === 0 && (
-          <div className="text-center text-white/20 text-xs mt-4 font-orbitron">No messages yet...</div>
+          <div className="text-center text-white/20 text-xs mt-4 font-orbitron">{t('chatEmpty')}</div>
         )}
         {messages.map(msg => {
           const isOwn = msg.username === username;
@@ -184,7 +184,7 @@ export default function ChatPanel({ onClose }: Props) {
                 <span style={{ color: 'rgba(205,197,178,0.8)' }}>{msg.message}</span>
                 {isOwn && (
                   <span className="font-semibold ml-1.5" style={{ color: '#d88010' }}>
-                    me
+                    {t('chatMe')}
                   </span>
                 )}
               </div>
@@ -201,7 +201,7 @@ export default function ChatPanel({ onClose }: Props) {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey}
-            placeholder={username ? t('typeMessage') : 'Login to chat'}
+            placeholder={username ? t('typeMessage') : t('chatLoginToChat')}
             disabled={!username}
             className="flex-1 px-2 py-1.5 text-xs rounded-lg outline-none"
             style={{

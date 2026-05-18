@@ -180,7 +180,7 @@ export default function StartScreen({ onStart }: Props) {
         {/* Status badge */}
         <div style={{ ...vis(2), marginBottom: '28px', display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '6px 16px', background: 'rgba(216,128,16,0.08)', border: '1px solid rgba(216,128,16,0.25)', borderRadius: '2px' }}>
           <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#d88010', boxShadow: '0 0 8px #d88010' }} />
-          <span className="font-orbitron" style={{ fontSize: '8px', letterSpacing: '0.55em', color: 'rgba(216,128,16,0.8)' }}>SYSTEM ONLINE</span>
+          <span className="font-orbitron" style={{ fontSize: '8px', letterSpacing: '0.55em', color: 'rgba(216,128,16,0.8)' }}>{t('systemOnline')}</span>
         </div>
 
         {/* Main title */}
@@ -207,7 +207,7 @@ export default function StartScreen({ onStart }: Props) {
         {/* Tagline */}
         <div style={{ ...vis(2, 0.25), marginTop: '18px', marginBottom: '32px' }}>
           <span className="font-orbitron" style={{ fontSize: '9px', letterSpacing: '0.55em', color: 'rgba(205,197,178,0.25)' }}>
-            BUILD · AUTOMATE · SURVIVE
+            {t('tagline')}
           </span>
         </div>
 
@@ -242,19 +242,19 @@ export default function StartScreen({ onStart }: Props) {
             }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
-            INITIALIZE
+            {t('initialize')}
           </button>
           <p style={{ marginTop: '14px', color: 'rgba(205,197,178,0.15)', fontSize: '11px', fontFamily: 'Exo 2, sans-serif', letterSpacing: '0.08em' }}>
-            Press <kbd style={{ padding: '2px 6px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '2px', color: 'rgba(205,197,178,0.3)', fontSize: '9px', fontFamily: 'Orbitron, sans-serif' }}>ENTER</kbd> to begin
+            {t('pressEnter')}
           </p>
         </div>
 
         {/* Controls */}
         <div style={{ ...vis(3, 0.2), marginTop: '32px' }}>
           <div style={{ display: 'inline-block', padding: '14px 20px', background: 'rgba(7,9,11,0.92)', border: '1px solid rgba(42,54,66,0.8)', borderRadius: '2px' }}>
-            <div className="font-orbitron" style={{ fontSize: '8px', letterSpacing: '0.4em', color: 'rgba(216,128,16,0.35)', marginBottom: '10px' }}>CONTROL REFERENCE</div>
+            <div className="font-orbitron" style={{ fontSize: '8px', letterSpacing: '0.4em', color: 'rgba(216,128,16,0.35)', marginBottom: '10px' }}>{t('controlReference')}</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, auto)', gap: '6px 28px' }}>
-              {[['WASD','Move'],['B','Build'],['R','Research'],['I','Inventory'],['Q','Rotate'],['LMB','Mine/Place'],['RMB','Remove'],['Scroll','Zoom']].map(([k,a]) => (
+              {[['WASD',t('ctrlMove')],['B',t('ctrlBuild')],['R',t('ctrlResearch')],['I',t('ctrlInventory')],['Q',t('ctrlRotate')],['LMB',t('ctrlMine')],['RMB',t('ctrlRemove')],['Scroll',t('ctrlZoom')]].map(([k,a]) => (
                 <div key={k} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <kbd style={{ padding: '1px 5px', background: 'rgba(216,128,16,0.07)', border: '1px solid rgba(216,128,16,0.18)', borderRadius: '2px', color: 'rgba(216,128,16,0.55)', fontSize: '8px', fontFamily: 'Orbitron, sans-serif', minWidth: '24px', textAlign: 'center' as const, display: 'inline-block' }}>{k}</kbd>
                   <span style={{ fontSize: '11px', color: 'rgba(205,197,178,0.22)', fontFamily: 'Exo 2, sans-serif' }}>{a}</span>
