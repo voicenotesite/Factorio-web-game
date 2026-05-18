@@ -148,6 +148,7 @@ const translations = {
     direction: 'Dir:',
     rotateHint: '(Q rotate · ESC cancel)',
     coopActive: 'COOP ACTIVE',
+    gameTitle: 'Novactorio',
     gameError: '⚠ Game Error',
     reloadGame: 'Reload Game',
     // Mobile
@@ -515,6 +516,7 @@ const translations = {
     direction: 'Kier:',
     rotateHint: '(Q obróć · ESC anuluj)',
     coopActive: '🌐 COOP AKTYWNY',
+    gameTitle: 'Novactorio',
     gameError: '⚠ Błąd gry',
     reloadGame: 'Przeładuj grę',
     // Mobile
