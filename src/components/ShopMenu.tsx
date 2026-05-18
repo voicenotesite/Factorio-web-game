@@ -38,29 +38,6 @@ const BOOST_PACKS = [
   { id: 'shield', nameKey: 'boostShield', descKey: 'boostShieldDesc', gemCost: 5, zlCost: 8, icon: '🛡', color: '#38bdf8', priceId: 'price_1TYW4OK4E5IHLVVAcBO5zYoN' },
 ];
 
-const HAT_TYPES = [
-  { id: 'none', nameKey: 'hatNone', name: 'None', gemCost: 0, zlCost: 0 },
-  { id: 'hardhat', nameKey: 'hatHardHat', name: 'Hard Hat', gemCost: 8, zlCost: 10 },
-  { id: 'crown', nameKey: 'hatCrown', name: 'Crown', gemCost: 0, zlCost: 50 },
-  { id: 'beret', nameKey: 'hatBeret', name: 'Beret', gemCost: 10, zlCost: 12 },
-  { id: 'helmet', nameKey: 'hatMilHelmet', name: 'Mil. Helmet', gemCost: 15, zlCost: 20 },
-];
-
-const TRAIL_EFFECTS = [
-  { id: 'none', nameKey: 'trailNone', name: 'None', gemCost: 0, zlCost: 0 },
-  { id: 'sparkle', nameKey: 'trailSparkle', name: 'Sparkle', gemCost: 10, zlCost: 12 },
-  { id: 'flame', nameKey: 'trailFlame', name: 'Flame', gemCost: 0, zlCost: 20 },
-  { id: 'electric', nameKey: 'trailElectric', name: 'Electric', gemCost: 0, zlCost: 30 },
-  { id: 'rainbow', nameKey: 'trailRainbow', name: 'Rainbow', gemCost: 0, zlCost: 50 },
-];
-
-const BOOST_PACKS = [
-  { id: 'speed_boost', nameKey: 'boostSpeed', descKey: 'boostSpeedDesc', name: 'Speed Boost', desc: '+5% movement (once)', gemCost: 3, zlCost: 5, icon: '⚡', color: '#fbbf24' },
-  { id: 'mining_boost', nameKey: 'boostMining', descKey: 'boostMiningDesc', name: 'Mining Boost', desc: '+10% mining (once)', gemCost: 3, zlCost: 5, icon: '⛏', color: '#f97316' },
-  { id: 'xp_boost', nameKey: 'boostXP', descKey: 'boostXPDesc', name: 'XP Boost', desc: '+20% crafting speed', gemCost: 5, zlCost: 8, icon: '⭐', color: '#a78bfa' },
-  { id: 'shield', nameKey: 'boostShield', descKey: 'boostShieldDesc', name: 'Shield', desc: 'Restore 25% HP', gemCost: 5, zlCost: 8, icon: '🛡', color: '#38bdf8' },
-];
-
 const PREMIUM_TIERS = [
   {
     id: 'free' as const,
