@@ -14,6 +14,7 @@ interface Props {
   onResearch: () => void;
   onStats: () => void;
   onSave: () => void;
+  onCoop: () => void;
   onFriends: () => void;
   onAdmin: () => void;
   onGuide: () => void;
@@ -21,7 +22,7 @@ interface Props {
 }
 
 export default function MobileControls({
-  engine, gameState, currentUser, onBuild, onCraft, onResearch, onStats, onSave, onFriends, onAdmin, onGuide, onLogout,
+  engine, gameState, currentUser, onBuild, onCraft, onResearch, onStats, onSave, onCoop, onFriends, onAdmin, onGuide, onLogout,
 }: Props) {
   const joystickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
@@ -181,6 +182,7 @@ export default function MobileControls({
             }}
           >
             <DrawerBtn label={t('mobileStats')} icon="📊" color="#a78bfa" onClick={() => { onStats(); setDrawerOpen(false); }} />
+            <DrawerBtn label={t('mobileCoop')} icon="🌐" color="#f472b6" onClick={() => { onCoop(); setDrawerOpen(false); }} />
             <DrawerBtn label={t('mobileFriends')} icon="👥" color="#f472b6" onClick={() => { onFriends(); setDrawerOpen(false); }} />
             <DrawerBtn label={t('mobileGuide')} icon="📖" color="#22d3ee" onClick={() => { onGuide(); setDrawerOpen(false); }} />
             <DrawerBtn label={t('mobileSave')} icon="💾" color="#94a3b8" onClick={() => { onSave(); setDrawerOpen(false); }} />

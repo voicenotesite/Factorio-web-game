@@ -18,6 +18,7 @@ import MobileControls from './components/MobileControls';
 import PremiumPopup from './components/PremiumPopup';
 import AdminPanel from './components/AdminPanel';
 import GuideMenu from './components/GuideMenu';
+import CoopMenu from './components/CoopMenu';
 import LangSelector from './components/LangSelector';
 import { GameEngine } from './game/engine';
 import { GameState } from './game/types';
@@ -49,15 +50,14 @@ function App() {
   const [hasSaveData, setHasSaveData] = useState(false);
   const [showPremiumPopup, setShowPremiumPopup] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showCoop, setShowCoop] = useState(false);
   const [saveCooldown, setSaveCooldown] = useState(0);
   const [showSaveOverlay, setShowSaveOverlay] = useState(false);
   const [coopMode, setCoopMode] = useState(false);
   const [coopOnline, setCoopOnline] = useState(0);
   const coopChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const coopPosIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const saveCooldownRef = useRef(0);
   const coopModeRef = useRef(false);
-  saveCooldownRef.current = saveCooldown;
   coopModeRef.current = coopMode;
 
   const engine = engineRef.current;
@@ -125,8 +125,7 @@ function App() {
   useEffect(() => {
     if (!started || !currentUser) return;
     const interval = setInterval(() => {
-      if (engineRef.current && saveCooldownRef.current <= 0) {
-        setSaveCooldown(10);
+      if (engineRef.current) {
         saveGame(currentUser, engineRef.current.state);
       }
     }, 10000);
@@ -178,6 +177,14 @@ function App() {
     setShowSaveOverlay(true);
     saveGame(currentUser, engineRef.current.state);
   }, [currentUser, saveCooldown]);
+
+  const handleToggleCoop = useCallback(() => {
+    if (coopMode && coopChannelRef.current) {
+      const myId = getCurrentUserId();
+      coopChannelRef.current.send({ type: 'broadcast', event: 'leave', payload: { id: myId } });
+    }
+    setCoopMode(p => !p);
+  }, [coopMode]);
 
   // Co-op: real-time multiplayer via Supabase Realtime
   useEffect(() => {
@@ -257,6 +264,7 @@ function App() {
           onResearch={() => setShowResearch(true)}
           onStats={() => setShowStats(true)}
           onSave={() => setShowSaveLoad(true)}
+          onCoop={() => setShowCoop(true)}
           onFriends={() => setShowFriends(true)}
           onAdmin={() => setShowAdmin(true)}
           onGuide={() => setShowGuide(true)}
@@ -311,13 +319,7 @@ function App() {
           <ActionBarBtn label={t('actionLoad')} shortcut="" onClick={() => setShowSaveLoad(true)} active={showSaveLoad}
             icon={<span>📂</span>} color="#60a5fa" />
           <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
-          <ActionBarBtn label={t(coopMode ? 'actionCoopOn' : 'actionCoop')} shortcut="" onClick={() => {
-            if (coopMode && coopChannelRef.current) {
-              const myId = getCurrentUserId();
-              coopChannelRef.current.send({ type: 'broadcast', event: 'leave', payload: { id: myId } });
-            }
-            setCoopMode(p => !p);
-          }} active={coopMode}
+          <ActionBarBtn label={t('actionCoop')} shortcut="" onClick={() => setShowCoop(true)} active={coopMode}
             icon={<span>🌐</span>} color="#f472b6" />
           <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
           <button
@@ -368,6 +370,7 @@ function App() {
       {showSaveLoad && engine && <SaveLoad engine={engine} onClose={() => setShowSaveLoad(false)} saveCooldown={saveCooldown} onSave={triggerSave} />}
       {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} />}
       {showAdmin && engine && gameState && <AdminPanel engine={engine} state={gameState} onClose={() => setShowAdmin(false)} />}
+      {showCoop && engine && <CoopMenu engine={engine} coopMode={coopMode} onToggleCoop={handleToggleCoop} onClose={() => setShowCoop(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} />}
       {visitingWorld && <VisitWorldView friendId={visitingWorld.id} friendName={visitingWorld.name} onClose={() => setVisitingWorld(null)} />}
       {showGuide && <GuideMenu onClose={() => setShowGuide(false)} />}
       {showPremiumPopup && (
