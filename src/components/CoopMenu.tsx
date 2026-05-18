@@ -8,13 +8,11 @@ interface Props {
   coopMode: boolean;
   onToggleCoop: () => void;
   onClose: () => void;
-  onVisitWorld: (friendId: string, friendName: string) => void;
 }
 
-export default function CoopMenu({ engine, coopMode, onToggleCoop, onClose, onVisitWorld }: Props) {
+export default function CoopMenu({ engine, coopMode, onToggleCoop, onClose }: Props) {
   const myId = getCurrentUserId();
   const [copied, setCopied] = useState(false);
-  const [joinId, setJoinId] = useState('');
   const [visitors, setVisitors] = useState<{ username: string; color: string }[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -34,12 +32,6 @@ export default function CoopMenu({ engine, coopMode, onToggleCoop, onClose, onVi
       navigator.clipboard.writeText(myId);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const handleJoin = () => {
-    if (joinId.trim()) {
-      onVisitWorld(joinId.trim(), joinId.trim());
     }
   };
 
@@ -114,26 +106,6 @@ export default function CoopMenu({ engine, coopMode, onToggleCoop, onClose, onVi
                 </div>
               ))
             )}
-          </div>
-
-          {/* Join World */}
-          <div className="flex gap-2">
-            <input
-              value={joinId}
-              onChange={e => setJoinId(e.target.value)}
-              onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') handleJoin(); }}
-              placeholder={t('joinWorldPlaceholder')}
-              className="flex-1 px-3 py-2 text-xs rounded-lg outline-none"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
-            />
-            <button
-              onClick={handleJoin}
-              disabled={!joinId.trim()}
-              className="px-3 py-2 text-xs font-bold rounded-lg disabled:opacity-40 transition-all"
-              style={{ background: 'linear-gradient(135deg, rgba(180,90,0,0.9), rgba(216,128,16,0.9))', color: 'white', border: '1px solid rgba(216,128,16,0.4)' }}
-            >
-              🌍 {t('joinWorld')}
-            </button>
           </div>
         </div>
       </div>

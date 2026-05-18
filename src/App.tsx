@@ -370,7 +370,7 @@ function App() {
       {showSaveLoad && engine && <SaveLoad engine={engine} onClose={() => setShowSaveLoad(false)} saveCooldown={saveCooldown} onSave={triggerSave} />}
       {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} />}
       {showAdmin && engine && gameState && <AdminPanel engine={engine} state={gameState} onClose={() => setShowAdmin(false)} />}
-      {showCoop && engine && <CoopMenu engine={engine} coopMode={coopMode} onToggleCoop={handleToggleCoop} onClose={() => setShowCoop(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} />}
+      {showCoop && engine && <CoopMenu engine={engine} coopMode={coopMode} onToggleCoop={handleToggleCoop} onClose={() => setShowCoop(false)} />}
       {visitingWorld && <VisitWorldView friendId={visitingWorld.id} friendName={visitingWorld.name} onClose={() => setVisitingWorld(null)} />}
       {showGuide && <GuideMenu onClose={() => setShowGuide(false)} />}
       {showPremiumPopup && (
