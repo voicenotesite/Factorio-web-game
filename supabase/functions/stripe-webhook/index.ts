@@ -14,6 +14,17 @@ const supabase = createClient(
 
 const endpointSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
 
+const SUBSCRIPTION_PRICE_IDS = new Set([
+  "price_1TYW6EK4E5IHLVVAW4SaLTXU", // Starter -> starter
+  "price_1TYW9LK4E5IHLVVAZrXNVjWk", // Premium -> premium
+]);
+
+function tierFromPriceId(priceId: string): string {
+  if (priceId === "price_1TYW6EK4E5IHLVVAW4SaLTXU") return "starter";
+  if (priceId === "price_1TYW9LK4E5IHLVVAZrXNVjWk") return "premium";
+  return "free";
+}
+
 console.info("stripe-webhook started");
 
 export default {
@@ -39,31 +50,39 @@ export default {
           const session = event.data.object as Stripe.Checkout.Session;
           const userId = session.metadata?.user_id;
           const username = session.metadata?.username;
-          const tier = session.metadata?.tier ?? "premium";
+          const priceId = session.metadata?.price_id ?? "";
+          const isSubscription = session.mode === "subscription";
 
           if (!userId) {
             console.error("No user_id in session metadata");
             break;
           }
 
-          await supabase.from("profiles").upsert({
-            id: userId,
-            username: username ?? "unknown",
-            premium_tier: tier,
-            premium_updated_at: new Date().toISOString(),
-          });
-
+          // Record payment
           await supabase.from("payments").insert({
             user_id: userId,
             username: username ?? "unknown",
             stripe_session_id: session.id,
             amount: session.amount_total ? session.amount_total / 100 : 0,
             currency: session.currency ?? "pln",
-            tier: tier,
+            tier: isSubscription ? tierFromPriceId(priceId) : "free",
+            price_id: priceId,
             status: "completed",
           });
 
-          console.log(`Payment completed for ${username ?? userId}: ${tier}`);
+          // For subscriptions, upgrade profile tier
+          if (isSubscription) {
+            const tier = tierFromPriceId(priceId);
+            await supabase.from("profiles").upsert({
+              id: userId,
+              username: username ?? "unknown",
+              premium_tier: tier,
+              premium_updated_at: new Date().toISOString(),
+            });
+            console.log(`Subscription completed for ${username ?? userId}: ${tier}`);
+          } else {
+            console.log(`One-time purchase completed for ${username ?? userId}: ${priceId}`);
+          }
           break;
         }
 

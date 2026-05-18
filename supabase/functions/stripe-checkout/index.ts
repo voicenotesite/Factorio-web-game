@@ -13,6 +13,11 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const SUBSCRIPTION_PRICE_IDS = new Set([
+  "price_1TYW6EK4E5IHLVVAW4SaLTXU", // Starter
+  "price_1TYW9LK4E5IHLVVAZrXNVjWk", // Premium
+]);
+
 interface CheckoutPayload {
   priceId: string;
   userId: string;
@@ -39,25 +44,34 @@ export default {
         });
       }
 
-      const session = await stripe.checkout.sessions.create({
-        mode: "subscription",
-        payment_method_types: ["card", "blik", "p24"],
+      const isSubscription = SUBSCRIPTION_PRICE_IDS.has(priceId);
+
+      const sessionParams: Stripe.Checkout.SessionCreateParams = {
+        mode: isSubscription ? "subscription" : "payment",
+        payment_method_types: isSubscription ? ["card"] : ["card", "blik", "p24"],
         line_items: [{ price: priceId, quantity: 1 }],
         client_reference_id: userId,
         customer_email: `${username?.toLowerCase() ?? "user"}@novactorio.io`,
         metadata: {
           user_id: userId,
           username: username ?? "unknown",
-        },
-        subscription_data: {
-          metadata: {
-            user_id: userId,
-            username: username ?? "unknown",
-          },
+          price_id: priceId,
         },
         success_url: successUrl ?? "https://factoryworld.mmc29213.workers.dev/?checkout=success",
         cancel_url: cancelUrl ?? "https://factoryworld.mmc29213.workers.dev/?checkout=cancel",
-      });
+      };
+
+      if (isSubscription) {
+        sessionParams.subscription_data = {
+          metadata: {
+            user_id: userId,
+            username: username ?? "unknown",
+            price_id: priceId,
+          },
+        };
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionParams);
 
       return new Response(JSON.stringify({ url: session.url, sessionId: session.id }), {
         status: 200,
