@@ -4,24 +4,24 @@ import { t } from '../lib/i18n';
 const PREMIUM_TIERS = [
   {
     id: 'free' as const,
-    name: 'FREE',
-    price: '0 zł',
+    nameKey: 'FREE',
+    priceKey: 'priceFree',
     color: '#94a3b8',
-    features: ['Basic inventory (30 slots)', '1 save slot', '5 friends max', 'Standard chat'],
+    featureKeys: ['featureInventory30', 'featureSave1', 'featureFriends5', 'featureStandardChat'],
   },
   {
     id: 'starter' as const,
-    name: 'STARTER',
-    price: '9.99 zł/mies.',
+    nameKey: 'STARTER',
+    priceKey: 'priceStarter',
     color: '#f59e0b',
-    features: ['50 inventory slots', '3 save slots', '20 friends', 'Priority chat', '+1 gem/level'],
+    featureKeys: ['featureInventory50', 'featureSave3', 'featureFriends20', 'featurePriorityChat', 'featureGem1'],
   },
   {
     id: 'premium' as const,
-    name: 'PREMIUM',
-    price: '24.99 zł/mies.',
+    nameKey: 'PREMIUM',
+    priceKey: 'pricePremium',
     color: '#a78bfa',
-    features: ['Unlimited inventory', '10 save slots', 'Unlimited friends', 'Custom chat color', 'All cosmetics', '+2 gems/level'],
+    featureKeys: ['featureInventoryUnlimited', 'featureSave10', 'featureFriendsUnlimited', 'featureChatColor', 'featureAllCosmetics', 'featureGem2'],
   },
 ];
 
@@ -74,15 +74,15 @@ export default function PremiumPopup({ onClose, onDontAsk, onBuyPremium }: Props
                 className="font-orbitron font-bold text-[11px] tracking-wider mb-1"
                 style={{ color: tier.color }}
               >
-                {tier.name}
+                {t(tier.nameKey)}
               </div>
               <div className="font-mono text-[10px] mb-2" style={{ color: tier.color }}>
-                {tier.price}
+                {t(tier.priceKey)}
               </div>
               <ul className="space-y-0.5">
-                {tier.features.slice(0, 3).map((f, i) => (
+                {tier.featureKeys.slice(0, 3).map((fk, i) => (
                   <li key={i} className="text-[9px] text-white/30 leading-tight text-left">
-                    <span style={{ color: tier.color }}>✓ </span>{f}
+                    <span style={{ color: tier.color }}>✓ </span>{t(fk)}
                   </li>
                 ))}
               </ul>

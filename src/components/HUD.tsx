@@ -68,7 +68,7 @@ export default function HUD({ state, notifications }: Props) {
               <div className="w-24 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
                 <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-400 transition-all" style={{ width: `${xpPct}%` }} />
               </div>
-              <span className="text-[9px] text-violet-400/80 font-mono">Lv{state.player.level}</span>
+              <span className="text-[9px] text-violet-400/80 font-mono">{t('levelAbbr')}{state.player.level}</span>
             </div>
           </div>
 
@@ -156,7 +156,7 @@ export default function HUD({ state, notifications }: Props) {
               />
             </div>
             <span className="text-[10px] text-white/40 font-mono">
-              <span className="text-violet-400/80">Lv{state.player.level}</span>
+              <span className="text-violet-400/80">{t('levelAbbr')}{state.player.level}</span>
             </span>
           </div>
 

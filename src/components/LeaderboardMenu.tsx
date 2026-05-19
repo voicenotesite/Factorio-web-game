@@ -16,20 +16,20 @@ interface LeaderboardEntry {
 
 /** Definicje osiągnięć do sekcji achievements. */
 const ACHIEVEMENTS = [
-  { id: 'first_iron', name: 'First Iron', description: 'Mine your first iron ore', icon: '⛏' },
-  { id: 'first_plate', name: 'First Plate', description: 'Smelt your first iron plate', icon: '▣' },
-  { id: 'factory_10', name: 'Small Factory', description: 'Place 10 buildings', icon: '🏠' },
-  { id: 'factory_50', name: 'Medium Factory', description: 'Place 50 buildings', icon: '🏢' },
-  { id: 'factory_100', name: 'Large Factory', description: 'Place 100 buildings', icon: '🏭' },
-  { id: 'first_kill', name: 'First Blood', description: 'Kill your first enemy', icon: '⚔' },
-  { id: 'veteran', name: 'Veteran', description: 'Kill 100 enemies', icon: '🏅' },
-  { id: 'researcher', name: 'Researcher', description: 'Complete first research', icon: '🔬' },
-  { id: 'oil_baron', name: 'Oil Baron', description: 'Build a pumpjack', icon: '🏭' },
-  { id: 'level_5', name: 'Rising Star', description: 'Reach level 5', icon: '⭐' },
-  { id: 'level_10', name: 'Factory Master', description: 'Reach level 10', icon: '👑' },
-  { id: 'level_25', name: 'Industrial Titan', description: 'Reach level 25', icon: '💎' },
-  { id: 'marathon', name: 'Marathon', description: 'Play for 1 hour', icon: '⏱' },
-  { id: 'rocket_science', name: 'Rocket Science', description: 'Complete all research', icon: '🚀' },
+  { id: 'first_iron', nameKey: 'achFirstIron', descKey: 'achFirstIronDesc', icon: '⛏' },
+  { id: 'first_plate', nameKey: 'achFirstPlate', descKey: 'achFirstPlateDesc', icon: '▣' },
+  { id: 'factory_10', nameKey: 'achSmallFactory', descKey: 'achSmallFactoryDesc', icon: '🏠' },
+  { id: 'factory_50', nameKey: 'achMediumFactory', descKey: 'achMediumFactoryDesc', icon: '🏢' },
+  { id: 'factory_100', nameKey: 'achLargeFactory', descKey: 'achLargeFactoryDesc', icon: '🏭' },
+  { id: 'first_kill', nameKey: 'achFirstBlood', descKey: 'achFirstBloodDesc', icon: '⚔' },
+  { id: 'veteran', nameKey: 'achVeteran', descKey: 'achVeteranDesc', icon: '🏅' },
+  { id: 'researcher', nameKey: 'achResearcher', descKey: 'achResearcherDesc', icon: '🔬' },
+  { id: 'oil_baron', nameKey: 'achOilBaron', descKey: 'achOilBaronDesc', icon: '🏭' },
+  { id: 'level_5', nameKey: 'achRisingStar', descKey: 'achRisingStarDesc', icon: '⭐' },
+  { id: 'level_10', nameKey: 'achFactoryMaster', descKey: 'achFactoryMasterDesc', icon: '👑' },
+  { id: 'level_25', nameKey: 'achIndustrialTitan', descKey: 'achIndustrialTitanDesc', icon: '💎' },
+  { id: 'marathon', nameKey: 'achMarathon', descKey: 'achMarathonDesc', icon: '⏱' },
+  { id: 'rocket_science', nameKey: 'achRocketScience', descKey: 'achRocketScienceDesc', icon: '🚀' },
 ];
 
 /** Props rankingu/osiągnięć — callback zamknięcia. */
@@ -69,9 +69,9 @@ export default function LeaderboardMenu({ onClose }: Props) {
   /** Formatuje ticki na czytelny czas. */
   const formatTime = (ticks: number) => {
     const s = Math.floor(ticks / 60), m = Math.floor(s / 60), h = Math.floor(m / 60);
-    if (h > 0) return `${h}h ${m % 60}m`;
-    if (m > 0) return `${m}m ${s % 60}s`;
-    return `${s}s`;
+    if (h > 0) return `${h}${t('unitH')} ${m % 60}${t('unitM')}`;
+    if (m > 0) return `${m}${t('unitM')} ${s % 60}${t('unitS')}`;
+    return `${s}${t('unitS')}`;
   };
 
   const RANK_COLORS = ['#fbbf24', '#d1d5db', '#d97706', 'rgba(255,255,255,0.3)'];
@@ -100,7 +100,7 @@ export default function LeaderboardMenu({ onClose }: Props) {
                 color: tab === tabKey ? '#fbbf24' : 'rgba(255,255,255,0.35)',
                 border: `1px solid ${tab === tabKey ? 'rgba(251,191,36,0.3)' : 'transparent'}`,
               }}
-            >{tabKey}</button>
+            >{tabKey === 'leaderboard' ? t('tabLeaderboard') : t('tabAchievements')}</button>
           ))}
         </div>
 
@@ -182,8 +182,8 @@ export default function LeaderboardMenu({ onClose }: Props) {
                         {unlocked ? ach.icon : '?'}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-sm font-semibold" style={{ color: unlocked ? '#fbbf24' : 'rgba(255,255,255,0.3)' }}>{ach.name}</h3>
-                        <p className="text-[11px] text-white/25 mt-0.5 leading-tight">{ach.description}</p>
+                        <h3 className="text-sm font-semibold" style={{ color: unlocked ? '#fbbf24' : 'rgba(255,255,255,0.3)' }}>{t(ach.nameKey)}</h3>
+                        <p className="text-[11px] text-white/25 mt-0.5 leading-tight">{t(ach.descKey)}</p>
                       </div>
                       {unlocked && (
                         <span className="text-[9px] font-orbitron px-2 py-0.5 rounded-full flex-shrink-0"

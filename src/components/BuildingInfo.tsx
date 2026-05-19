@@ -75,9 +75,9 @@ export default function BuildingInfo({ engine, state }: Props) {
           <button
             onClick={() => {
               if (upgradeBuilding(state, hoveredTile!.x, hoveredTile!.y)) {
-                engine.addNotification('Building upgraded!');
+                engine.addNotification(t('buildingUpgraded'));
               } else {
-                engine.addNotification('Cannot afford upgrade');
+                engine.addNotification(t('cannotAffordUpgrade'));
               }
             }}
             disabled={!canUpgrade}
@@ -209,7 +209,7 @@ export default function BuildingInfo({ engine, state }: Props) {
       )}
 
       <div className="mt-2 pt-2 text-[9px] text-white/15" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-        Dir: <span className="text-white/25">{building.direction.toUpperCase()}</span>
+        {t('direction')} <span className="text-white/25">{building.direction.toUpperCase()}</span>
         {tile && (
           <span className="ml-2">
             · {tile.biome}

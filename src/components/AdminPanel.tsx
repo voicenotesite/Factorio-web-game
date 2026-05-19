@@ -103,7 +103,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
       user_id: getCurrentUserId(),
     });
     setBroadcast('');
-    setMsg('Broadcast sent!');
+    setMsg(t('broadcastSent'));
     setTimeout(() => setMsg(''), 2000);
     setLoading(false);
   };
@@ -112,7 +112,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
   const wipeEvolution = () => {
     engine.state.evolution = 0;
     engine.state.pollution = 0;
-    setMsg('Evolution & pollution reset to 0');
+    setMsg(t('cheatEvoReset'));
     setTimeout(() => setMsg(''), 2000);
   };
 
@@ -123,14 +123,14 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
       const slot = engine.state.player.inventory.find(s => s.itemId === r);
       if (slot) slot.count += 500; else engine.state.player.inventory.push({ itemId: r, count: 500 });
     }
-    setMsg('+500 of every resource');
+    setMsg(t('cheatResources'));
     setTimeout(() => setMsg(''), 2000);
   };
 
   /** Odblokowuje wszystkie badania (cheat). */
   const unlockAllResearch = () => {
     for (const [, r] of engine.state.research) { r.unlocked = true; r.progress = r.cost; }
-    setMsg('All research unlocked');
+    setMsg(t('cheatResearch'));
     setTimeout(() => setMsg(''), 2000);
   };
 
@@ -139,14 +139,14 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
     engine.state.player.level = 100;
     engine.state.player.xp = 999999;
     engine.state.player.gems = 100;
-    setMsg('Player set to level 100');
+    setMsg(t('cheatLevel100'));
     setTimeout(() => setMsg(''), 2000);
   };
 
   /** Ustawia porę dnia (phase 0..1: 0=night, 0.25=dawn, 0.5=noon, 0.75=dusk). */
   const timeOfDay = (phase: number) => {
     engine.state.dayTime = engine.state.dayLength * phase;
-    setMsg(`Time set`);
+    setMsg(t('cheatTimeSet'));
     setTimeout(() => setMsg(''), 1500);
   };
 

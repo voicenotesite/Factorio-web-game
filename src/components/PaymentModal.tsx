@@ -36,7 +36,7 @@ export default function PaymentModal({ onClose }: Props) {
         username: username ?? '',
       });
     } catch (e: any) {
-      setError(e.message || 'Payment error. Please try again.')
+      setError(e.message || t('paymentError'))
     } finally {
       setLoading(false);
     }
@@ -98,10 +98,10 @@ export default function PaymentModal({ onClose }: Props) {
                   }}
                 >
                   <div className="font-orbitron font-bold text-[11px] tracking-wider" style={{ color: p.color }}>
-                    {p.name}
+                    {t(p.name)}
                   </div>
                   <div className="font-mono text-sm font-bold mt-0.5" style={{ color: p.color }}>
-                    {p.price.toFixed(2)} zł/mies.
+                    {p.price.toFixed(2)}{t('perMonth')}
                   </div>
                 </button>
               ))}
@@ -116,7 +116,7 @@ export default function PaymentModal({ onClose }: Props) {
             }}
           >
             <span className="text-cyan-400">🔒</span> {t('paymentPaddle')} ·{' '}
-            {plan.name === 'PREMIUM' ? '24.99 zł/mies.' : '9.99 zł/mies.'} · {t('paymentCancelAnytime')}
+            {plan.id === 'premium' ? '24.99' + t('perMonth') : '9.99' + t('perMonth')} · {t('paymentCancelAnytime')}
           </div>
 
           <button
@@ -136,7 +136,7 @@ export default function PaymentModal({ onClose }: Props) {
                 {t('paymentRedirect')}
               </span>
             ) : (
-              `${t('payButton', { price: plan.price.toFixed(2) })} · ${plan.name}`
+              {t('payButton', { price: plan.price.toFixed(2) })} · {t(plan.name)}
             )}
           </button>
 

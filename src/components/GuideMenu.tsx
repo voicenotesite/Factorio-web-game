@@ -88,7 +88,7 @@ export default function GuideMenu({ onClose }: Props) {
 
             <Section title={t('guideResourceChain')} icon="⛓️">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
-                Build a production chain to automatically process raw resources into finished goods.
+                {t('guideChainDesc')}
               </p>
               <DiagramBox>
                 <div className="font-mono text-xs text-center">
@@ -112,15 +112,15 @@ export default function GuideMenu({ onClose }: Props) {
 
             <Section title={t('guidePowerSystem')} icon="⚡">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
-                Most buildings require electricity. Build a power network to keep your factory running.
+                {t('guidePowerDesc')}
               </p>
               <DiagramBox>
                 <div className="font-mono text-xs text-center">
                   <div className="flex items-center justify-center gap-1 flex-wrap">
                     <Chip color="#6b7280">💧 BOILER</Chip>
-                    <Arrow label="steam" />
+                    <Arrow label={t('guideSteam')} />
                     <Chip color="#fbbf24">⚡ ENGINE</Chip>
-                    <Arrow label="power" />
+                    <Arrow label={t('guidePower')} />
                     <Chip color="#facc15">🔌 POLE</Chip>
                     <Arrow />
                     <Chip color="#94a3b8">🏭 BUILDINGS</Chip>
@@ -134,13 +134,13 @@ export default function GuideMenu({ onClose }: Props) {
 
             <Section title={t('guideResearchSection')} icon="🔬">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
-                Unlock new buildings and upgrades by researching technology.
+                {t('guideResearchDesc')}
               </p>
               <DiagramBox>
                 <div className="font-mono text-xs text-center">
                   <div className="flex items-center justify-center gap-1 flex-wrap">
                     <Chip color="#a855f7">🔬 LAB</Chip>
-                    <span className="text-white/30 mx-1">needs</span>
+                    <span className="text-white/30 mx-1">{t('guideNeeds')}</span>
                     <Chip color="#ec4899">🧪 SCIENCE PACKS</Chip>
                     <Arrow />
                     <Chip color="#22d3ee">📋 TECH TREE</Chip>
@@ -154,7 +154,7 @@ export default function GuideMenu({ onClose }: Props) {
 
             <Section title={t('guideDefense')} icon="🛡️">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
-                Enemies will attack your factory. Build defenses to protect it.
+                {t('guideDefenseDesc')}
               </p>
               <DiagramBox>
                 <div className="font-mono text-xs text-center space-y-1">
@@ -162,7 +162,7 @@ export default function GuideMenu({ onClose }: Props) {
                     <Chip color="#6b7280">🧱 WALLS</Chip>
                     <span className="text-white/30">+</span>
                     <Chip color="#dc2626">🎯 TURRETS</Chip>
-                    <span className="text-white/30">need</span>
+                    <span className="text-white/30">{t('guideNeed')}</span>
                     <Chip color="#f59e0b">🔫 AMMO</Chip>
                   </div>
                 </div>

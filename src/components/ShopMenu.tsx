@@ -52,24 +52,24 @@ const BOOST_PACKS = [
 const PREMIUM_TIERS = [
   {
     id: 'free' as const,
-    name: t('free').toUpperCase(),
-    price: t('priceFree'),
+    nameKey: 'FREE',
+    priceKey: 'priceFree',
     color: '#94a3b8',
-    features: [t('featureInventory30'), t('featureSave1'), t('featureFriends5'), t('featureStandardChat')],
+    featureKeys: ['featureInventory30', 'featureSave1', 'featureFriends5', 'featureStandardChat'],
   },
   {
     id: 'starter' as const,
-    name: 'STARTER',
-    price: t('priceStarter'),
+    nameKey: 'STARTER',
+    priceKey: 'priceStarter',
     color: '#f59e0b',
-    features: [t('featureInventory50'), t('featureSave3'), t('featureFriends20'), t('featurePriorityChat'), t('featureStarterBadge'), t('featureGem1')],
+    featureKeys: ['featureInventory50', 'featureSave3', 'featureFriends20', 'featurePriorityChat', 'featureStarterBadge', 'featureGem1'],
   },
   {
     id: 'premium' as const,
-    name: 'PREMIUM',
-    price: t('pricePremium'),
+    nameKey: 'PREMIUM',
+    priceKey: 'pricePremium',
     color: '#a78bfa',
-    features: [t('featureInventoryUnlimited'), t('featureSave10'), t('featureFriendsUnlimited'), t('featureChatColor'), t('featureAllCosmetics'), t('featureRainbowTrail'), t('featureGem2'), t('featureEarlyAccess')],
+    featureKeys: ['featureInventoryUnlimited', 'featureSave10', 'featureFriendsUnlimited', 'featureChatColor', 'featureAllCosmetics', 'featureRainbowTrail', 'featureGem2', 'featureEarlyAccess'],
   },
 ];
 
@@ -390,16 +390,16 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-orbitron font-bold text-sm tracking-wider" style={{ color: tier.color }}>{tier.name}</span>
+                      <span className="font-orbitron font-bold text-sm tracking-wider" style={{ color: tier.color }}>{t(tier.nameKey)}</span>
                       {isCurrent && <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: `${tier.color}20`, color: tier.color }}>{t('currentPlan').toUpperCase()}</span>}
                     </div>
-                    <span className="font-mono text-sm font-bold" style={{ color: tier.color }}>{tier.price}</span>
+                    <span className="font-mono text-sm font-bold" style={{ color: tier.color }}>{t(tier.priceKey)}</span>
                   </div>
                   <ul className="space-y-1 mb-3">
-                    {tier.features.map((f, i) => (
+                    {tier.featureKeys.map((fk, i) => (
                       <li key={i} className="flex items-center gap-2 text-[11px]" style={{ color: isCurrent ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.35)' }}>
                         <span style={{ color: tier.color }}>✓</span>
-                        {f}
+                        {t(fk)}
                       </li>
                     ))}
                   </ul>

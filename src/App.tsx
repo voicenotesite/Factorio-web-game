@@ -405,7 +405,7 @@ function App() {
           <ActionBarBtn label={t('guide')} shortcut="" onClick={() => setShowGuide(true)} active={showGuide}
             icon={<span>📖</span>} color="#22d3ee" />
           <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
-          <ActionBarBtn label={saveCooldown > 0 ? `⏳ ${saveCooldown}s` : t('actionSave')} shortcut="" onClick={triggerSave} active={saveCooldown > 0}
+          <ActionBarBtn label={saveCooldown > 0 ? `⏳ ${saveCooldown}${t('unitS')}` : t('actionSave')} shortcut="" onClick={triggerSave} active={saveCooldown > 0}
             icon={<SaveIcon />} color={saveCooldown > 0 ? '#22c55e' : '#94a3b8'} />
           <ActionBarBtn label={t('actionLoad')} shortcut="" onClick={() => setShowSaveLoad(true)} active={showSaveLoad}
             icon={<span>📂</span>} color="#60a5fa" />
@@ -440,12 +440,12 @@ function App() {
           style={{ animationDelay: '1s' }}
         >
           {[
-            { href: 'pricing.html', label: 'Pricing', color: '#4ade80' },
-            { href: 'terms.html', label: 'Terms', color: '#06b6d4' },
-            { href: 'trade-terms.html', label: 'Trade', color: '#d88010' },
-            { href: 'privacy.html', label: 'Privacy', color: '#a78bfa' },
-            { href: 'refund.html', label: 'Refund', color: '#fbbf24' },
-          ].map(({ href, label, color }) => (
+            { href: 'pricing.html', labelKey: 'navPricing', color: '#4ade80' },
+            { href: 'terms.html', labelKey: 'navTerms', color: '#06b6d4' },
+            { href: 'trade-terms.html', labelKey: 'navTrade', color: '#d88010' },
+            { href: 'privacy.html', labelKey: 'navPrivacy', color: '#a78bfa' },
+            { href: 'refund.html', labelKey: 'navRefund', color: '#fbbf24' },
+          ].map(({ href, labelKey, color }) => (
             <a
               key={href}
               href={href}
@@ -468,7 +468,7 @@ function App() {
               onMouseEnter={e => { const el = e.currentTarget; el.style.color = color; el.style.background = `${color}08`; el.style.borderColor = `${color}25`; el.style.boxShadow = `0 0 10px ${color}10`; el.style.transform = 'translateY(-1px)'; }}
               onMouseLeave={e => { const el = e.currentTarget; el.style.color = 'rgba(255,255,255,0.12)'; el.style.background = 'rgba(255,255,255,0.01)'; el.style.borderColor = 'rgba(255,255,255,0.03)'; el.style.boxShadow = 'none'; el.style.transform = 'translateY(0)'; }}
             >
-              {label}
+              {t(labelKey)}
             </a>
           ))}
         </div>

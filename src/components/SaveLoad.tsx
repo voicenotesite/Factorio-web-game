@@ -52,7 +52,7 @@ export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Prop
         setMessage(t('noSaveData'));
       }
     } catch (e) {
-      setMessage('Load failed: ' + String(e));
+      setMessage(t('loadFailed') + String(e));
     }
     setLoading(false);
   };
@@ -60,12 +60,12 @@ export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Prop
   /** Usuwa zapis gry po potwierdzeniu. */
   const handleDelete = () => {
     if (!username) return;
-    if (!confirm('Delete save for ' + username + '?')) return;
+    if (!confirm(t('deleteSaveFor') + ' ' + username + '?')) return;
     try {
       deleteSave(username);
       setMessage(t('saveDeleted'));
     } catch (e) {
-      setMessage('Delete failed: ' + String(e));
+      setMessage(t('deleteFailed') + String(e));
     }
   };
 
@@ -107,7 +107,7 @@ export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Prop
 
         {username && (
           <div className="mb-4 text-xs text-white/30 font-mono text-center">
-            Logged in as <span className="text-amber-400/70">{username}</span>
+            {t('loggedInAs')} <span className="text-amber-400/70">{username}</span>
           </div>
         )}
 
@@ -132,7 +132,7 @@ export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Prop
               boxShadow: cooldown > 0 ? '0 0 20px rgba(34,197,94,0.3)' : '0 0 10px rgba(34,197,94,0.1)',
             }}
           >
-            {cooldown > 0 ? `⏳ ${cooldown}s` : saving ? '⏳ Saving...' : t('saveGame')}
+            {cooldown > 0 ? `⏳ ${cooldown}s` : saving ? t('saving') : t('saveGame')}
           </button>
 
           {saveInfo && (
@@ -146,7 +146,7 @@ export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Prop
                 boxShadow: '0 0 20px rgba(14,165,233,0.2)',
               }}
             >
-              {loading ? '⏳ Loading...' : t('loadGame')}
+              {loading ? t('loading') : t('loadGame')}
             </button>
           )}
 

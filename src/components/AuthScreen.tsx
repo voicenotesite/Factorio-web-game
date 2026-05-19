@@ -30,7 +30,7 @@ export default function AuthScreen({ onAuth }: Props) {
     setLoading(false);
 
     if (!result.success) {
-      setError(result.error || 'Unknown error');
+      setError(result.error || t('unknownError'));
       return;
     }
 
@@ -179,12 +179,12 @@ export default function AuthScreen({ onAuth }: Props) {
         {/* Policy links — animowane kafelki */}
         <div className="mt-4 flex items-center justify-center gap-2.5 flex-wrap">
           {[
-            { href: 'pricing.html', label: 'Pricing', color: '#4ade80' },
-            { href: 'terms.html', label: 'Terms', color: '#06b6d4' },
-            { href: 'trade-terms.html', label: 'Trade', color: '#d88010' },
-            { href: 'privacy.html', label: 'Privacy', color: '#a78bfa' },
-            { href: 'refund.html', label: 'Refund', color: '#fbbf24' },
-          ].map(({ href, label, color }) => (
+            { href: 'pricing.html', labelKey: 'navPricing', color: '#4ade80' },
+            { href: 'terms.html', labelKey: 'navTerms', color: '#06b6d4' },
+            { href: 'trade-terms.html', labelKey: 'navTrade', color: '#d88010' },
+            { href: 'privacy.html', labelKey: 'navPrivacy', color: '#a78bfa' },
+            { href: 'refund.html', labelKey: 'navRefund', color: '#fbbf24' },
+          ].map(({ href, labelKey, color }) => (
             <a
               key={href}
               href={href}
@@ -207,7 +207,7 @@ export default function AuthScreen({ onAuth }: Props) {
               onMouseEnter={e => { const el = e.currentTarget; el.style.color = color; el.style.background = `${color}10`; el.style.borderColor = `${color}30`; el.style.boxShadow = `0 0 12px ${color}15`; }}
               onMouseLeave={e => { const el = e.currentTarget; el.style.color = 'rgba(255,255,255,0.2)'; el.style.background = 'rgba(255,255,255,0.02)'; el.style.borderColor = 'rgba(255,255,255,0.04)'; el.style.boxShadow = 'none'; }}
             >
-              {label}
+              {t(labelKey)}
             </a>
           ))}
         </div>

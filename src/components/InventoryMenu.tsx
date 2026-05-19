@@ -70,7 +70,7 @@ export default function InventoryMenu({ engine, state, onClose }: Props) {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <div className="w-2 h-2 rounded-full" style={{ background: '#d88010', boxShadow: '0 0 6px #d88010' }} />
-              <span className="text-[10px] font-orbitron tracking-[0.2em] uppercase" style={{ color: 'rgba(216,128,16,0.6)' }}>Inventory</span>
+              <span className="text-[10px] font-orbitron tracking-[0.2em] uppercase" style={{ color: 'rgba(216,128,16,0.6)' }}>{t('inventory')}</span>
             </div>
             <div className="grid grid-cols-5 gap-1.5">
               {player.inventory.map((slot, i) => (
@@ -116,7 +116,7 @@ export default function InventoryMenu({ engine, state, onClose }: Props) {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <div className="w-2 h-2 rounded-full bg-amber-400" style={{ boxShadow: '0 0 6px #f59e0b' }} />
-              <span className="text-[10px] font-orbitron tracking-[0.2em] text-amber-400/60 uppercase">Crafting</span>
+              <span className="text-[10px] font-orbitron tracking-[0.2em] text-amber-400/60 uppercase">{t('crafting')}</span>
             </div>
             <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
               {categories.map(cat => {
