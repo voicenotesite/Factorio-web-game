@@ -418,6 +418,46 @@ function App() {
         </div>
       )}
 
+      {/* Policy links footer */}
+      {currentUser && started && !isMobile && (
+        <div
+          className="fixed bottom-4 right-4 z-20 flex items-center gap-1.5 animate-fade-in"
+          style={{ animationDelay: '1s' }}
+        >
+          {[
+            { href: 'pricing.html', label: 'Pricing', color: '#4ade80' },
+            { href: 'terms.html', label: 'Terms', color: '#06b6d4' },
+            { href: 'privacy.html', label: 'Privacy', color: '#a78bfa' },
+            { href: 'refund.html', label: 'Refund', color: '#fbbf24' },
+          ].map(({ href, label, color }) => (
+            <a
+              key={href}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-all duration-300"
+              style={{
+                padding: '3px 8px',
+                borderRadius: '5px',
+                fontSize: '7px',
+                fontFamily: 'Orbitron, sans-serif',
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                textDecoration: 'none',
+                color: 'rgba(255,255,255,0.12)',
+                border: '1px solid rgba(255,255,255,0.03)',
+                background: 'rgba(255,255,255,0.01)',
+              }}
+              onMouseEnter={e => { const el = e.currentTarget; el.style.color = color; el.style.background = `${color}08`; el.style.borderColor = `${color}25`; el.style.boxShadow = `0 0 10px ${color}10`; el.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={e => { const el = e.currentTarget; el.style.color = 'rgba(255,255,255,0.12)'; el.style.background = 'rgba(255,255,255,0.01)'; el.style.borderColor = 'rgba(255,255,255,0.03)'; el.style.boxShadow = 'none'; el.style.transform = 'translateY(0)'; }}
+            >
+              {label}
+            </a>
+          ))}
+        </div>
+      )}
+
       {/* Wskaźnik stawiania budynku */}
       {currentUser && engine?.selectedBuilding && (
         <div

@@ -175,6 +175,41 @@ export default function AuthScreen({ onAuth }: Props) {
         <div className="mt-4 flex justify-center">
           <LangSelector />
         </div>
+
+        {/* Policy links — animowane kafelki */}
+        <div className="mt-4 flex items-center justify-center gap-2.5 flex-wrap">
+          {[
+            { href: 'pricing.html', label: 'Pricing', color: '#4ade80' },
+            { href: 'terms.html', label: 'Terms', color: '#06b6d4' },
+            { href: 'privacy.html', label: 'Privacy', color: '#a78bfa' },
+            { href: 'refund.html', label: 'Refund', color: '#fbbf24' },
+          ].map(({ href, label, color }) => (
+            <a
+              key={href}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-all duration-300"
+              style={{
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '9px',
+                fontFamily: 'Orbitron, sans-serif',
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                textDecoration: 'none',
+                color: 'rgba(255,255,255,0.2)',
+                border: '1px solid rgba(255,255,255,0.04)',
+                background: 'rgba(255,255,255,0.02)',
+              }}
+              onMouseEnter={e => { const el = e.currentTarget; el.style.color = color; el.style.background = `${color}10`; el.style.borderColor = `${color}30`; el.style.boxShadow = `0 0 12px ${color}15`; }}
+              onMouseLeave={e => { const el = e.currentTarget; el.style.color = 'rgba(255,255,255,0.2)'; el.style.background = 'rgba(255,255,255,0.02)'; el.style.borderColor = 'rgba(255,255,255,0.04)'; el.style.boxShadow = 'none'; }}
+            >
+              {label}
+            </a>
+          ))}
+        </div>
       </div>
     </div>
   );
