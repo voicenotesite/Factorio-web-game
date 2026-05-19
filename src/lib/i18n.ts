@@ -330,7 +330,8 @@ const translations = {
     boostShieldDesc: 'Restore 25% HP',
     // Payment
     paymentStripe: 'Secure payment via Stripe',
-    paymentRedirect: 'Redirecting to Stripe...',
+    paymentPaddle: 'Secure payment via Paddle',
+    paymentRedirect: 'Opening checkout...',
     paymentLoginRequired: 'Log in to make a payment',
     paymentCancelAnytime: 'Cancel anytime',
     shopCheckoutSuccess: 'Payment successful!',
@@ -708,7 +709,8 @@ const translations = {
     boostShieldDesc: 'Przywróć 25% HP',
     // Payment
     paymentStripe: 'Bezpieczna płatność przez Stripe',
-    paymentRedirect: 'Przekierowanie do Stripe...',
+    paymentPaddle: 'Bezpieczna płatność przez Paddle',
+    paymentRedirect: 'Przekierowanie do Paddle...',
     paymentLoginRequired: 'Zaloguj się aby dokonać płatności',
     paymentCancelAnytime: 'Anuluj w każdej chwili',
     shopCheckoutSuccess: 'Płatność udana! Premium aktywowane.',

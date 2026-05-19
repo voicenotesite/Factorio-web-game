@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import type { GameState } from '../game/types';
 import { t } from '../lib/i18n';
-import { supabase } from '../lib/supabase';
 import { getCurrentUser, getCurrentUserId } from '../lib/auth';
+import { openPaddleCheckout } from '../lib/paddle';
 import PaymentModal from './PaymentModal';
 
 /** Minimalny interface silnika — tylko addNotification, którego sklep używa. */
@@ -12,40 +12,40 @@ interface Props {
   onClose: () => void;
 }
 
-/** Dostępne kolory skórek gracza — nazwa, cena w gemach i zł, Stripe priceId. */
+/** Dostępne kolory skórek gracza — nazwa, cena w gemach i zł, Paddle priceId. */
 const SKIN_COLORS = [
   { id: 'default', nameKey: 'skinSteelBlue', color: '#3388ee', gemCost: 0, zlCost: 0, priceId: '' },
-  { id: 'crimson', nameKey: 'skinCrimson', color: '#cc2233', gemCost: 5, zlCost: 5, priceId: 'price_1TYVfpK4E5IHLVVAA1SYmslG' },
-  { id: 'emerald', nameKey: 'skinEmerald', color: '#22aa55', gemCost: 5, zlCost: 5, priceId: 'price_1TYVv5K4E5IHLVVAXhT6osbx' },
-  { id: 'gold', nameKey: 'skinGold', color: '#cc9922', gemCost: 8, zlCost: 8, priceId: 'price_1TYVwBK4E5IHLVVAJfZUCG3K' },
-  { id: 'obsidian', nameKey: 'skinObsidian', color: '#334455', gemCost: 10, zlCost: 12, priceId: 'price_1TYVx4K4E5IHLVVAbo5r2MkW' },
-  { id: 'arctic', nameKey: 'skinArctic', color: '#88ccee', gemCost: 12, zlCost: 15, priceId: 'price_1TYVxcK4E5IHLVVAqTG2lyEO' },
+  { id: 'crimson', nameKey: 'skinCrimson', color: '#cc2233', gemCost: 5, zlCost: 5, priceId: 'pri_skin_crimson' },
+  { id: 'emerald', nameKey: 'skinEmerald', color: '#22aa55', gemCost: 5, zlCost: 5, priceId: 'pri_skin_emerald' },
+  { id: 'gold', nameKey: 'skinGold', color: '#cc9922', gemCost: 8, zlCost: 8, priceId: 'pri_skin_gold' },
+  { id: 'obsidian', nameKey: 'skinObsidian', color: '#334455', gemCost: 10, zlCost: 12, priceId: 'pri_skin_obsidian' },
+  { id: 'arctic', nameKey: 'skinArctic', color: '#88ccee', gemCost: 12, zlCost: 15, priceId: 'pri_skin_arctic' },
 ];
 
 /** Dostępne kapelusze kosmetyczne. */
 const HAT_TYPES = [
   { id: 'none', nameKey: 'hatNone', gemCost: 0, zlCost: 0, priceId: '' },
-  { id: 'hardhat', nameKey: 'hatHardHat', gemCost: 8, zlCost: 10, priceId: 'price_1TYVyUK4E5IHLVVAudubM5qg' },
-  { id: 'crown', nameKey: 'hatCrown', gemCost: 0, zlCost: 50, priceId: 'price_1TYVzJK4E5IHLVVAGeoq3G7O' },
-  { id: 'beret', nameKey: 'hatBeret', gemCost: 10, zlCost: 12, priceId: 'price_1TYVzoK4E5IHLVVAToFxaUUB' },
-  { id: 'helmet', nameKey: 'hatMilHelmet', gemCost: 15, zlCost: 20, priceId: 'price_1TYW0KK4E5IHLVVAqq91685S' },
+  { id: 'hardhat', nameKey: 'hatHardHat', gemCost: 8, zlCost: 10, priceId: 'pri_hat_hardhat' },
+  { id: 'crown', nameKey: 'hatCrown', gemCost: 0, zlCost: 50, priceId: 'pri_hat_crown' },
+  { id: 'beret', nameKey: 'hatBeret', gemCost: 10, zlCost: 12, priceId: 'pri_hat_beret' },
+  { id: 'helmet', nameKey: 'hatMilHelmet', gemCost: 15, zlCost: 20, priceId: 'pri_hat_helmet' },
 ];
 
 /** Dostępne efekty chodu (trail). */
 const TRAIL_EFFECTS = [
   { id: 'none', nameKey: 'trailNone', gemCost: 0, zlCost: 0, priceId: '' },
-  { id: 'sparkle', nameKey: 'trailSparkle', gemCost: 10, zlCost: 12, priceId: 'price_1TYW0zK4E5IHLVVActd503r0' },
-  { id: 'flame', nameKey: 'trailFlame', gemCost: 0, zlCost: 20, priceId: 'price_1TYW1UK4E5IHLVVAVnQdxNYy' },
-  { id: 'electric', nameKey: 'trailElectric', gemCost: 0, zlCost: 30, priceId: 'price_1TYW26K4E5IHLVVAV2y4L9r7' },
-  { id: 'rainbow', nameKey: 'trailRainbow', gemCost: 0, zlCost: 50, priceId: 'price_1TYW2ZK4E5IHLVVAKUdeeXRQ' },
+  { id: 'sparkle', nameKey: 'trailSparkle', gemCost: 10, zlCost: 12, priceId: 'pri_trail_sparkle' },
+  { id: 'flame', nameKey: 'trailFlame', gemCost: 0, zlCost: 20, priceId: 'pri_trail_flame' },
+  { id: 'electric', nameKey: 'trailElectric', gemCost: 0, zlCost: 30, priceId: 'pri_trail_electric' },
+  { id: 'rainbow', nameKey: 'trailRainbow', gemCost: 0, zlCost: 50, priceId: 'pri_trail_rainbow' },
 ];
 
 /** Boosty jednorazowe — speed, mining, XP, shield. */
 const BOOST_PACKS = [
-  { id: 'speed_boost', nameKey: 'boostSpeed', descKey: 'boostSpeedDesc', gemCost: 3, zlCost: 5, icon: '⚡', color: '#fbbf24', priceId: 'price_1TYW3AK4E5IHLVVAkj7iFjem' },
-  { id: 'mining_boost', nameKey: 'boostMining', descKey: 'boostMiningDesc', gemCost: 3, zlCost: 5, icon: '⛏', color: '#f97316', priceId: 'price_1TYW3eK4E5IHLVVAEQpIBt7z' },
-  { id: 'xp_boost', nameKey: 'boostXP', descKey: 'boostXPDesc', gemCost: 5, zlCost: 8, icon: '⭐', color: '#a78bfa', priceId: 'price_1TYW42K4E5IHLVVATGU8HJ2s' },
-  { id: 'shield', nameKey: 'boostShield', descKey: 'boostShieldDesc', gemCost: 5, zlCost: 8, icon: '🛡', color: '#38bdf8', priceId: 'price_1TYW4OK4E5IHLVVAcBO5zYoN' },
+  { id: 'speed_boost', nameKey: 'boostSpeed', descKey: 'boostSpeedDesc', gemCost: 3, zlCost: 5, icon: '⚡', color: '#fbbf24', priceId: 'pri_boost_speed' },
+  { id: 'mining_boost', nameKey: 'boostMining', descKey: 'boostMiningDesc', gemCost: 3, zlCost: 5, icon: '⛏', color: '#f97316', priceId: 'pri_boost_mining' },
+  { id: 'xp_boost', nameKey: 'boostXP', descKey: 'boostXPDesc', gemCost: 5, zlCost: 8, icon: '⭐', color: '#a78bfa', priceId: 'pri_boost_xp' },
+  { id: 'shield', nameKey: 'boostShield', descKey: 'boostShieldDesc', gemCost: 5, zlCost: 8, icon: '🛡', color: '#38bdf8', priceId: 'pri_boost_shield' },
 ];
 
 /** Plany subskrypcyjne — FREE, STARTER, PREMIUM. */
@@ -75,37 +75,30 @@ const PREMIUM_TIERS = [
 
 /**
  * Sklep — kosmetyki (skiny, kapelusze, traile), boosty (speed, mining, XP, shield)
- * i subskrypcje premium przez Stripe. Zarządza walutami: gems (free) i premiumBalance (płatne).
+ * i subskrypcje premium przez Paddle. Zarządza walutami: gems (free) i premiumBalance (płatne).
  */
 export default function ShopMenu({ engine, state, onClose }: Props) {
   /** Aktualna zakładka: cosmetics | boosts | premium. */
   const [tab, setTab] = useState<'cosmetics' | 'boosts' | 'premium'>('cosmetics');
   /** Komunikat zwrotny (sukces/porażka). */
   const [message, setMessage] = useState('');
-  /** Czy pokazać modal płatności Stripe. */
+  /** Czy pokazać modal płatności (subskrypcje). */
   const [showPayment, setShowPayment] = useState(false);
-  /** Który przycisk Stripe jest w trakcie ładowania (ID elementu). */
-  const [stripeLoading, setStripeLoading] = useState<string | null>(null);
+  /** Który przycisk Paddle jest w trakcie ładowania (ID elementu). */
+  const [paddleLoading, setPaddleLoading] = useState<string | null>(null);
 
-  /** Inicjuje Stripe Checkout dla podanego priceId. Przekierowuje na URL checkout. */
-  const handleStripeCheckout = async (priceId: string, label: string) => {
-    setStripeLoading(label);
+  /** Otwiera Paddle Checkout dla podanego priceId. */
+  const handlePaddleCheckout = async (priceId: string, label: string) => {
+    setPaddleLoading(label);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('stripe-checkout', {
-        body: {
-          priceId,
-          userId: getCurrentUserId(),
-          username: getCurrentUser(),
-          successUrl: window.location.origin + '?checkout=success',
-          cancelUrl: window.location.origin + '?checkout=cancel',
-        },
-      })
-      if (fnError) throw new Error(fnError.message)
-      if (!data?.url) throw new Error('No checkout URL')
-      window.location.href = data.url
+      await openPaddleCheckout(priceId, {
+        userId: getCurrentUserId() ?? '',
+        username: getCurrentUser() ?? '',
+      });
     } catch (e: any) {
-      setMessage(e.message || 'Stripe error')
-      setStripeLoading(null)
+      setMessage(e.message || 'Checkout error');
+    } finally {
+      setPaddleLoading(null);
     }
   };
 
@@ -222,11 +215,11 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                               {skin.zlCost.toFixed(2)} zł
                             </button>
                             {skin.priceId && (
-                              <button onClick={() => handleStripeCheckout(skin.priceId, skin.id)}
-                                disabled={stripeLoading === skin.id}
+                              <button onClick={() => handlePaddleCheckout(skin.priceId, skin.id)}
+                                disabled={paddleLoading === skin.id}
                                 className="text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95 disabled:opacity-50"
                                 style={{ background: 'rgba(168,85,247,0.12)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.25)' }}>
-                                {stripeLoading === skin.id ? '⏳' : '💳'}
+                                {paddleLoading === skin.id ? '⏳' : '💳'}
                               </button>
                             )}
                           </div>
@@ -268,11 +261,11 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                               {hat.zlCost.toFixed(2)} zł
                             </button>
                             {hat.priceId && (
-                              <button onClick={() => handleStripeCheckout(hat.priceId, hat.id)}
-                                disabled={stripeLoading === hat.id}
+                              <button onClick={() => handlePaddleCheckout(hat.priceId, hat.id)}
+                                disabled={paddleLoading === hat.id}
                                 className="text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95 disabled:opacity-50"
                                 style={{ background: 'rgba(168,85,247,0.12)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.25)' }}>
-                                {stripeLoading === hat.id ? '⏳' : '💳'}
+                                {paddleLoading === hat.id ? '⏳' : '💳'}
                               </button>
                             )}
                           </div>
@@ -313,11 +306,11 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                               {trail.zlCost.toFixed(2)} zł
                             </button>
                             {trail.priceId && (
-                              <button onClick={() => handleStripeCheckout(trail.priceId, trail.id)}
-                                disabled={stripeLoading === trail.id}
+                              <button onClick={() => handlePaddleCheckout(trail.priceId, trail.id)}
+                                disabled={paddleLoading === trail.id}
                                 className="text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95 disabled:opacity-50"
                                 style={{ background: 'rgba(168,85,247,0.12)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.25)' }}>
-                                {stripeLoading === trail.id ? '⏳' : '💳'}
+                                {paddleLoading === trail.id ? '⏳' : '💳'}
                               </button>
                             )}
                           </div>
@@ -366,11 +359,11 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                       {pack.zlCost.toFixed(2)} zł
                     </button>
                     {pack.priceId && (
-                      <button onClick={() => handleStripeCheckout(pack.priceId, pack.id)}
-                        disabled={stripeLoading === pack.id}
+                      <button onClick={() => handlePaddleCheckout(pack.priceId, pack.id)}
+                        disabled={paddleLoading === pack.id}
                         className="text-[10px] px-2 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95 disabled:opacity-50"
                         style={{ background: 'rgba(168,85,247,0.12)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.25)' }}>
-                        {stripeLoading === pack.id ? '⏳' : '💳'}
+                        {paddleLoading === pack.id ? '⏳' : '💳'}
                       </button>
                     )}
                   </div>
@@ -382,7 +375,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
 
         {tab === 'premium' && (
           <div className="space-y-3">
-            <p className="text-xs text-white/30 text-center mb-4 font-exo">{t('selectPlan')} · {t('paymentStripe')}</p>
+            <p className="text-xs text-white/30 text-center mb-4 font-exo">{t('selectPlan')} · {t('paymentPaddle')}</p>
             {PREMIUM_TIERS.map(tier => {
               const isCurrent = state.player.premiumTier === tier.id;
               return (

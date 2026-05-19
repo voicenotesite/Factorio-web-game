@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { t } from '../lib/i18n';
 import { getCurrentUser, getCurrentUserId } from '../lib/auth';
-import { supabase } from '../lib/supabase';
+import { openPaddleCheckout } from '../lib/paddle';
 
-/** Definicje planów subskrypcyjnych z cenami i Stripe Price ID. */
+/** Definicje planów subskrypcyjnych z cenami i Paddle Price ID. */
 const PLANS = [
-  { id: 'starter', name: 'STARTER', price: 9.99, color: '#f59e0b', priceId: 'price_1TYW6EK4E5IHLVVAW4SaLTXU' },
-  { id: 'premium', name: 'PREMIUM', price: 24.99, color: '#a78bfa', priceId: 'price_1TYW9LK4E5IHLVVAZrXNVjWk' },
+  { id: 'starter', name: 'STARTER', price: 9.99, color: '#f59e0b', priceId: 'pri_sub_starter' },
+  { id: 'premium', name: 'PREMIUM', price: 24.99, color: '#a78bfa', priceId: 'pri_sub_premium' },
 ];
 
 /** Props modala płatności — callback zamknięcia. */
@@ -14,7 +14,7 @@ interface Props {
   onClose: () => void;
 }
 
-/** Modal płatności Stripe — wybór planu (STARTER/PREMIUM) i przekierowanie do Stripe Checkout. */
+/** Modal płatności Paddle — wybór planu (STARTER/PREMIUM) i otwarcie Paddle Checkout. */
 export default function PaymentModal({ onClose }: Props) {
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'premium'>('starter');
   const [loading, setLoading] = useState(false);
@@ -25,29 +25,20 @@ export default function PaymentModal({ onClose }: Props) {
 
   const plan = PLANS.find(p => p.id === selectedPlan)!;
 
-  /** Wywołuje Edge Function stripe-checkout i redirectuje do Stripe. */
+  /** Otwiera Paddle Checkout dla wybranego planu. */
   const handleCheckout = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('stripe-checkout', {
-        body: {
-          priceId: plan.priceId,
-          userId,
-          username,
-          successUrl: window.location.origin + '?checkout=success',
-          cancelUrl: window.location.origin + '?checkout=cancel',
-        },
-      })
-
-      if (fnError) throw new Error(fnError.message)
-      if (!data?.url) throw new Error('No checkout URL returned')
-
-      window.location.href = data.url
+      await openPaddleCheckout(plan.priceId, {
+        userId: userId ?? '',
+        username: username ?? '',
+      });
     } catch (e: any) {
       setError(e.message || 'Payment error. Please try again.')
-      setLoading(false)
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -124,7 +115,7 @@ export default function PaymentModal({ onClose }: Props) {
               color: 'rgba(255,255,255,0.4)',
             }}
           >
-            <span className="text-cyan-400">🔒</span> {t('paymentStripe')} ·{' '}
+            <span className="text-cyan-400">🔒</span> {t('paymentPaddle')} ·{' '}
             {plan.name === 'PREMIUM' ? '24.99 zł/mies.' : '9.99 zł/mies.'} · {t('paymentCancelAnytime')}
           </div>
 
