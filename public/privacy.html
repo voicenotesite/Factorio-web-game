@@ -47,26 +47,37 @@ footer{position:relative;z-index:1;margin-top:1.5rem;font-size:.65rem;color:rgba
   <h1>Privacy Policy</h1>
   <p class="date">Last updated: 2026-05-19</p>
 
+  <h2>Data Controller</h2>
+  <p>The data controller is the Service operator (contact below). The Service is hosted and operated from Poland and complies with the <strong>Regulation (EU) 2016/679</strong> (GDPR / RODO).</p>
+
   <h2>Data We Collect</h2>
   <ul>
-    <li><strong>Email address</strong> (synthetic: username@novactorio.io) and password hash — for authentication via Supabase</li>
-    <li><strong>Username and game progress</strong> — for saves and leaderboard</li>
-    <li><strong>Payment data</strong> — processed entirely by Paddle.com, we never see your card details</li>
+    <li><strong>Account data</strong> — username, synthetic email (username@novactorio.io), password hash. Stored by Supabase (auth.provider).</li>
+    <li><strong>Game data</strong> — game progress, save files, inventory, building placements, chat messages, friend lists. Stored in Supabase PostgreSQL.</li>
+    <li><strong>Payment data</strong> — none. All payments are processed and stored by <strong>Paddle.com</strong>, which acts as an independent data controller. We never receive or store payment card details.</li>
+    <li><strong>Technical data</strong> — we may collect basic usage analytics (page load, game version) for performance monitoring. No IP addresses are logged persistently.</li>
   </ul>
 
-  <h2>How We Use Data</h2>
-  <p>Authentication, game saves, leaderboard rankings, friend lists, and chat. No data is sold or shared with third parties except Paddle for payment processing.</p>
+  <h2>Legal Basis (GDPR Art. 6)</h2>
+  <ul>
+    <li><strong>Performance of a contract</strong> (Art. 6(1)(b)) — account creation, game saves, friend lists, purchases.</li>
+    <li><strong>Legitimate interest</strong> (Art. 6(1)(f)) — anti-cheat enforcement, service security, community moderation.</li>
+    <li><strong>Consent</strong> (Art. 6(1)(a)) — optional cookies and analytics if implemented in the future.</li>
+  </ul>
 
-  <h2>Data Storage</h2>
-  <p>Data is stored on <strong>Supabase</strong> (PostgreSQL) servers. Game saves are also cached in your browser's localStorage.</p>
+  <h2>Data Sharing</h2>
+  <p>We do not sell personal data. We share data only with essential sub-processors: <strong>Supabase</strong> (PostgreSQL + Auth — GDPR-compliant, DPA in place) and <strong>Paddle.com</strong> (payment processing — independent controller).</p>
 
-  <h2>Your Rights</h2>
-  <p>You may request deletion of your account and associated data by contacting us.</p>
+  <h2>Data Retention</h2>
+  <p>Account data is retained until the User requests deletion. Game saves are retained in cloud storage (Supabase) during active account status. Upon account deletion, all associated data is erased within 30 days.</p>
+
+  <h2>Your Rights (GDPR)</h2>
+  <p>You have the right to: access, rectify, erase (right to be forgotten), restrict processing, data portability, and object to processing. To exercise these rights, contact us. We will respond within 30 days.</p>
 
   <h2>Cookies</h2>
-  <p>We use only essential cookies for authentication (Supabase). No tracking cookies.</p>
+  <p>We use only essential session cookies required for authentication (Supabase Auth). No tracking, advertising or third-party cookies are used.</p>
 
-  <h2>Contact</h2>
+  <h2>Contact &amp; DPO</h2>
   <p><a href="mailto:novactorio@tuta.io" style="color:#06b6d4;text-decoration:none">novactorio@tuta.io</a></p>
 </div>
 
