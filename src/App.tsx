@@ -427,6 +427,7 @@ function App() {
           {[
             { href: 'pricing.html', label: 'Pricing', color: '#4ade80' },
             { href: 'terms.html', label: 'Terms', color: '#06b6d4' },
+            { href: 'trade-terms.html', label: 'Trade', color: '#d88010' },
             { href: 'privacy.html', label: 'Privacy', color: '#a78bfa' },
             { href: 'refund.html', label: 'Refund', color: '#fbbf24' },
           ].map(({ href, label, color }) => (
