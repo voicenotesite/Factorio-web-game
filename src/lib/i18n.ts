@@ -336,6 +336,7 @@ const translations = {
     paymentCancelAnytime: 'Cancel anytime',
     shopCheckoutSuccess: 'Payment successful!',
     shopCheckoutCancel: 'Payment cancelled',
+    savingGameState: 'SAVING GAME STATE',
     // Guide
     guideTitle: 'GUIDE',
     guideGettingStarted: '1. Getting Started',
@@ -715,6 +716,7 @@ const translations = {
     paymentCancelAnytime: 'Anuluj w każdej chwili',
     shopCheckoutSuccess: 'Płatność udana! Premium aktywowane.',
     shopCheckoutCancel: 'Płatność anulowana',
+    savingGameState: 'ZAPISYWANIE STANU GRY',
     // Guide
     guideTitle: 'PORADNIK',
     guideGettingStarted: '1. Pierwsze kroki',

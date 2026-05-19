@@ -89,7 +89,7 @@ export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Prop
             }}
           >
             <div className="font-orbitron font-bold text-xs tracking-[0.2em] text-green-400 mb-1">
-              ZAPISYWANIE STANU GRY
+              {t('savingGameState')}
             </div>
             <div className="font-mono text-4xl font-black animate-pulse text-green-500">
               {cooldown}s

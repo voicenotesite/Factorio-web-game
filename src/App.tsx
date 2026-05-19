@@ -348,6 +348,21 @@ function App() {
         />
       )}
 
+      {/* Mobilne linki polityki */}
+      {currentUser && started && isMobile && (
+        <div className="fixed bottom-1 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1" style={{ opacity: 0.3 }}>
+          {[
+            { href: 'pricing.html', color: '#4ade80' },
+            { href: 'terms.html', color: '#06b6d4' },
+            { href: 'trade-terms.html', color: '#d88010' },
+            { href: 'privacy.html', color: '#a78bfa' },
+            { href: 'refund.html', color: '#fbbf24' },
+          ].map(({ href, color }) => (
+            <a key={href} href={href} target="_blank" rel="noopener noreferrer" style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block' }} />
+          ))}
+        </div>
+      )}
+
       {/* Czat */}
       {currentUser && started && <ChatPanel />}
 
@@ -510,7 +525,7 @@ function App() {
             backdropFilter: 'blur(8px)',
           }}>
             <div className="font-orbitron font-black text-sm tracking-[0.3em] mb-1" style={{ color: '#4ade80' }}>
-              ZAPISYWANIE STANU GRY
+              {t('savingGameState')}
             </div>
             <div className="font-mono text-5xl font-bold animate-pulse" style={{ color: '#22c55e' }}>
               {saveCooldown}s
