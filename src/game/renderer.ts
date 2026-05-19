@@ -732,6 +732,7 @@ export class GameRenderer {
     const h3 = ((tile.x * 49999 + tile.y * 86413) & 0xFFFF) / 65535;
 
     // 3–5 bryłek rudy na kafelek
+    const rockCount = 3 + Math.floor(h3 * 3);
     for (let i = 0; i < rockCount; i++) {
       const t = i / rockCount;
       const rx = x + ((h1 + t * 0.37) % 1) * (TILE_SIZE - 10) + 5;
