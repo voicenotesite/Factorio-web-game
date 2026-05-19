@@ -52,24 +52,24 @@ const BOOST_PACKS = [
 const PREMIUM_TIERS = [
   {
     id: 'free' as const,
-    name: 'FREE',
-    price: '0 zł',
+    name: t('free').toUpperCase(),
+    price: t('priceFree'),
     color: '#94a3b8',
-    features: ['Basic inventory (30 slots)', '1 save slot', '5 friends max', 'Standard chat'],
+    features: [t('featureInventory30'), t('featureSave1'), t('featureFriends5'), t('featureStandardChat')],
   },
   {
     id: 'starter' as const,
     name: 'STARTER',
-    price: '9.99 zł/mies.',
+    price: t('priceStarter'),
     color: '#f59e0b',
-    features: ['50 inventory slots', '3 save slots', '20 friends', 'Priority chat', 'Exclusive Starter badge', '+1 gem/level'],
+    features: [t('featureInventory50'), t('featureSave3'), t('featureFriends20'), t('featurePriorityChat'), t('featureStarterBadge'), t('featureGem1')],
   },
   {
     id: 'premium' as const,
     name: 'PREMIUM',
-    price: '24.99 zł/mies.',
+    price: t('pricePremium'),
     color: '#a78bfa',
-    features: ['Unlimited inventory', '10 save slots', 'Unlimited friends', 'Custom chat color', 'All cosmetics unlocked', 'Rainbow trail', '+2 gems/level', 'Early access features'],
+    features: [t('featureInventoryUnlimited'), t('featureSave10'), t('featureFriendsUnlimited'), t('featureChatColor'), t('featureAllCosmetics'), t('featureRainbowTrail'), t('featureGem2'), t('featureEarlyAccess')],
   },
 ];
 
@@ -143,7 +143,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-green-400 font-mono font-bold tabular-nums">{state.player.premiumBalance.toFixed(2)}</span>
-                <span className="text-white/20 text-xs">zł</span>
+                <span className="text-white/20 text-xs">{t('currencyZl')}</span>
               </div>
             </div>
           </div>
@@ -212,7 +212,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                             <button onClick={() => purchaseWithZl(skin.zlCost, cb)}
                               className="text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95"
                               style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.25)' }}>
-                              {skin.zlCost.toFixed(2)} zł
+                              {skin.zlCost.toFixed(2)} {t('currencyZl')}
                             </button>
                             {skin.priceId && (
                               <button onClick={() => handlePaddleCheckout(skin.priceId, skin.id)}
@@ -258,7 +258,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                             <button onClick={() => purchaseWithZl(hat.zlCost, cb)}
                               className="text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95"
                               style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.25)' }}>
-                              {hat.zlCost.toFixed(2)} zł
+                              {hat.zlCost.toFixed(2)} {t('currencyZl')}
                             </button>
                             {hat.priceId && (
                               <button onClick={() => handlePaddleCheckout(hat.priceId, hat.id)}
@@ -303,7 +303,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                             <button onClick={() => purchaseWithZl(trail.zlCost, cb)}
                               className="text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95"
                               style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.25)' }}>
-                              {trail.zlCost.toFixed(2)} zł
+                              {trail.zlCost.toFixed(2)} {t('currencyZl')}
                             </button>
                             {trail.priceId && (
                               <button onClick={() => handlePaddleCheckout(trail.priceId, trail.id)}
@@ -356,7 +356,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                     <button onClick={() => purchaseWithZl(pack.zlCost, applyBoost)}
                       className="text-[10px] px-2 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95"
                       style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.25)' }}>
-                      {pack.zlCost.toFixed(2)} zł
+                      {pack.zlCost.toFixed(2)} {t('currencyZl')}
                     </button>
                     {pack.priceId && (
                       <button onClick={() => handlePaddleCheckout(pack.priceId, pack.id)}

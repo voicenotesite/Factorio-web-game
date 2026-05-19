@@ -17,9 +17,9 @@ export default function StatsMenu({ state, onClose }: Props) {
     const seconds = Math.floor(ticks / 60);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
-    if (hours > 0) return `${hours}h ${minutes % 60}m`;
-    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-    return `${seconds}s`;
+    if (hours > 0) return `${hours}${t('unitH')} ${minutes % 60}${t('unitM')}`;
+    if (minutes > 0) return `${minutes}${t('unitM')} ${seconds % 60}${t('unitS')}`;
+    return `${seconds}${t('unitS')}`;
   };
 
   return (
@@ -38,20 +38,20 @@ export default function StatsMenu({ state, onClose }: Props) {
             <StatRow label={t('statsTimePlayed')} value={formatTime(statistics.timePlayed)} />
             <StatRow label={t('statsBuildingsPlaced')} value={statistics.buildingsPlaced.toString()} />
             <StatRow label={t('statsEnemiesKilled')} value={statistics.enemiesKilled.toString()} />
-            <StatRow label="Evolution" value={`${(state.evolution * 100).toFixed(1)}%`} color="#f97316" />
-            <StatRow label="Pollution" value={state.pollution.toFixed(0)} color="#eab308" />
+            <StatRow label={t('statEvolution')} value={`${(state.evolution * 100).toFixed(1)}%`} color="#f97316" />
+            <StatRow label={t('statPollution')} value={state.pollution.toFixed(0)} color="#eab308" />
           </Section>
 
           <Section title={t('statsPlayer')} color="#38bdf8">
             <StatRow label={t('statsLevel')} value={player.level.toString()} color="#818cf8" />
             <StatRow label={t('statsExperience')} value={`${player.xp} / ${player.level * 500}`} />
             <StatRow label={t('gems')} value={`${player.gems} 💎`} color="#06b6d4" />
-            <StatRow label="Saldo" value={`${player.premiumBalance.toFixed(2)} zł`} color="#22c55e" />
+            <StatRow label={t('statBalance')} value={`${player.premiumBalance.toFixed(2)} ${t('currencyZl')}`} color="#22c55e" />
             <StatRow label={t('health')} value={`${Math.ceil(player.health)} / ${player.maxHealth}`} color={player.health / player.maxHealth > 0.5 ? '#22c55e' : '#ef4444'} />
             <StatRow label={t('statsSpeed')} value={player.speed.toFixed(2)} />
             <StatRow label={t('statsMiningSpeed')} value={`×${player.miningSpeed.toFixed(1)}`} />
             <StatRow label={t('statsCraftingSpeed')} value={`×${player.craftingSpeed.toFixed(1)}`} />
-            <StatRow label={t('statsReach')} value={`${player.reach} tiles`} />
+            <StatRow label={t('statsReach')} value={`${player.reach} ${t('unitTiles')}`} />
           </Section>
 
           <Section title={t('statsAchievements')} color="#fbbf24">
