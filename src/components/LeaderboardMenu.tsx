@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { t } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 
+/** Wpis rankingu z Supabase leaderboards. */
 interface LeaderboardEntry {
   id: string;
   player_name: string;
@@ -13,6 +14,7 @@ interface LeaderboardEntry {
   research_completed: number;
 }
 
+/** Definicje osiągnięć do sekcji achievements. */
 const ACHIEVEMENTS = [
   { id: 'first_iron', name: 'First Iron', description: 'Mine your first iron ore', icon: '⛏' },
   { id: 'first_plate', name: 'First Plate', description: 'Smelt your first iron plate', icon: '▣' },
@@ -30,21 +32,25 @@ const ACHIEVEMENTS = [
   { id: 'rocket_science', name: 'Rocket Science', description: 'Complete all research', icon: '🚀' },
 ];
 
+/** Props rankingu/osiągnięć — callback zamknięcia. */
 interface Props {
   onClose: () => void;
 }
 
+/** Ranking graczy (leaderboard) z Supabase + lista osiągnięć z progress barem. */
 export default function LeaderboardMenu({ onClose }: Props) {
   const [tab, setTab] = useState<'leaderboard' | 'achievements'>('leaderboard');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [unlockedAchievements, setUnlockedAchievements] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
+  /** Przy zmianie zakładki ładuje dane z Supabase. */
   useEffect(() => {
     if (tab === 'leaderboard') fetchLeaderboard();
     else fetchAchievements();
   }, [tab]);
 
+  /** Pobiera top 20 graczy z leaderboards. */
   const fetchLeaderboard = async () => {
     setLoading(true);
     const { data, error } = await supabase.from('leaderboards').select('*').order('score', { ascending: false }).limit(20);
@@ -52,6 +58,7 @@ export default function LeaderboardMenu({ onClose }: Props) {
     setLoading(false);
   };
 
+  /** Pobiera odblokowane achievementy bieżącego gracza. */
   const fetchAchievements = async () => {
     setLoading(true);
     const { data, error } = await supabase.from('achievements').select('achievement_id');
@@ -59,6 +66,7 @@ export default function LeaderboardMenu({ onClose }: Props) {
     setLoading(false);
   };
 
+  /** Formatuje ticki na czytelny czas. */
   const formatTime = (ticks: number) => {
     const s = Math.floor(ticks / 60), m = Math.floor(s / 60), h = Math.floor(m / 60);
     if (h > 0) return `${h}h ${m % 60}m`;
@@ -75,7 +83,6 @@ export default function LeaderboardMenu({ onClose }: Props) {
         className="panel-glass rounded-2xl p-5 max-w-2xl w-full mx-4 max-h-[82vh] overflow-hidden animate-slide-up font-exo flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between mb-4 pb-3 flex-shrink-0" style={{ borderBottom: '1px solid rgba(251,191,36,0.15)' }}>
           <div>
             <h2 className="font-orbitron font-bold text-lg tracking-wider" style={{ color: '#fbbf24' }}>{t('rankings')}</h2>
@@ -84,7 +91,6 @@ export default function LeaderboardMenu({ onClose }: Props) {
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-all text-sm font-orbitron">✕</button>
         </div>
 
-        {/* Tab switcher */}
         <div className="flex gap-1 mb-4 p-1 rounded-xl flex-shrink-0" style={{ background: 'rgba(0,0,0,0.3)' }}>
           {(['leaderboard', 'achievements'] as const).map(tabKey => (
             <button key={tabKey} onClick={() => setTab(tabKey)}
@@ -98,7 +104,6 @@ export default function LeaderboardMenu({ onClose }: Props) {
           ))}
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto min-h-0">
           {loading ? (
             <div className="flex items-center justify-center py-12 flex-col gap-3">
@@ -145,7 +150,6 @@ export default function LeaderboardMenu({ onClose }: Props) {
             )
           ) : (
             <div>
-              {/* Progress bar */}
               <div className="mb-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs text-white/35 font-exo">{t('achievementProgress')}</span>

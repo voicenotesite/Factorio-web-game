@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { GameEngine } from '../game/engine';
 
+/** Props komponentu GameCanvas — ref do silnika i callback po inicjalizacji. */
 interface Props {
   engineRef: React.MutableRefObject<GameEngine | null>;
   onEngineReady: (engine: GameEngine) => void;
 }
 
+/** Główne płótno Canvas — tworzy GameEngine, zarządza resizingiem okna i czyści przy odmontowaniu. */
 export default function GameCanvas({ engineRef, onEngineReady }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 

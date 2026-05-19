@@ -4,9 +4,12 @@ import { getCurrentUser, getCurrentUserId } from '../lib/auth';
 import { t } from '../lib/i18n';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+/** Maksymalna długość wiadomości. */
 const MAX_MSG_LEN = 200;
+/** Limit historii wiadomości pobranych z bazy. */
 const HISTORY_LIMIT = 50;
 
+/** Pojedyncza wiadomość czatu z Supabase. */
 interface ChatMessage {
   id: string;
   username: string;
@@ -14,10 +17,12 @@ interface ChatMessage {
   created_at: string;
 }
 
+/** Props panelu czatu — opcjonalny callback zamknięcia. */
 interface Props {
   onClose?: () => void;
 }
 
+/** Panel czatu globalnego z Realtime broadcastem i historią z Supabase. */
 export default function ChatPanel({ onClose }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -33,8 +38,8 @@ export default function ChatPanel({ onClose }: Props) {
 
   useEffect(() => { minimizedRef.current = minimized; }, [minimized]);
 
+  /** Przy starcie ładuje historię z Supabase i subskrybuje Realtime channel. */
   useEffect(() => {
-    // Fetch last HISTORY_LIMIT messages from DB (global history)
     supabase
       .from('chat_messages')
       .select('id,username,message,created_at')
@@ -44,13 +49,11 @@ export default function ChatPanel({ onClose }: Props) {
         if (data) setMessages((data as ChatMessage[]).reverse());
       });
 
-    // Single channel instance — reused for both subscribe AND send
     const channel = supabase
       .channel('global-chat', { config: { broadcast: { self: true } } })
       .on('broadcast', { event: 'msg' }, ({ payload }) => {
         const msg = payload as ChatMessage;
         setMessages(prev => {
-          // Deduplicate by id (own message arrives via broadcast too now)
           if (prev.some(m => m.id === msg.id)) return prev;
           return [...prev.slice(-(HISTORY_LIMIT - 1)), msg];
         });
@@ -62,6 +65,7 @@ export default function ChatPanel({ onClose }: Props) {
     return () => { supabase.removeChannel(channel); channelRef.current = null; };
   }, []);
 
+  /** Auto-scroll na dół przy nowych wiadomościach (chyba że zminimalizowany). */
   useEffect(() => {
     if (!minimized) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -69,6 +73,7 @@ export default function ChatPanel({ onClose }: Props) {
     }
   }, [messages, minimized]);
 
+  /** Wysyła wiadomość: najpierw broadcast Realtime, potem persystuje do Supabase. */
   const sendMessage = useCallback(async () => {
     if (!input.trim() || !username || sending) return;
     const msg = input.trim().slice(0, MAX_MSG_LEN);
@@ -83,10 +88,8 @@ export default function ChatPanel({ onClose }: Props) {
       created_at: new Date().toISOString(),
     };
 
-    // 1. Broadcast via the subscribed channel (instant delivery to all online)
     channelRef.current?.send({ type: 'broadcast', event: 'msg', payload: newMsg });
 
-    // 2. Persist to DB for history (new players fetching on connect will see it)
     const { error } = await supabase.from('chat_messages').insert({
       id: newMsg.id,
       username,
@@ -95,7 +98,6 @@ export default function ChatPanel({ onClose }: Props) {
     });
 
     if (error) {
-      // Non-fatal: message was broadcast already, just warn about history
       setSendError('⚠ ' + t('chatHistoryError'));
       setTimeout(() => setSendError(''), 3000);
     }
@@ -103,6 +105,7 @@ export default function ChatPanel({ onClose }: Props) {
     setSending(false);
   }, [input, username, sending]);
 
+  /** Obsługa Enter do wysłania. */
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };

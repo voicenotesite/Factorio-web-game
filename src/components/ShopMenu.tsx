@@ -1,11 +1,18 @@
 import { useState } from 'react';
-import { GameEngine } from '../game/engine';
-import { GameState } from '../game/types';
+import type { GameState } from '../game/types';
 import { t } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { getCurrentUser, getCurrentUserId } from '../lib/auth';
 import PaymentModal from './PaymentModal';
 
+/** Minimalny interface silnika — tylko addNotification, którego sklep używa. */
+interface Props {
+  engine: { addNotification: (msg: string, type: string) => void };
+  state: GameState;
+  onClose: () => void;
+}
+
+/** Dostępne kolory skórek gracza — nazwa, cena w gemach i zł, Stripe priceId. */
 const SKIN_COLORS = [
   { id: 'default', nameKey: 'skinSteelBlue', color: '#3388ee', gemCost: 0, zlCost: 0, priceId: '' },
   { id: 'crimson', nameKey: 'skinCrimson', color: '#cc2233', gemCost: 5, zlCost: 5, priceId: 'price_1TYVfpK4E5IHLVVAA1SYmslG' },
@@ -15,6 +22,7 @@ const SKIN_COLORS = [
   { id: 'arctic', nameKey: 'skinArctic', color: '#88ccee', gemCost: 12, zlCost: 15, priceId: 'price_1TYVxcK4E5IHLVVAqTG2lyEO' },
 ];
 
+/** Dostępne kapelusze kosmetyczne. */
 const HAT_TYPES = [
   { id: 'none', nameKey: 'hatNone', gemCost: 0, zlCost: 0, priceId: '' },
   { id: 'hardhat', nameKey: 'hatHardHat', gemCost: 8, zlCost: 10, priceId: 'price_1TYVyUK4E5IHLVVAudubM5qg' },
@@ -23,6 +31,7 @@ const HAT_TYPES = [
   { id: 'helmet', nameKey: 'hatMilHelmet', gemCost: 15, zlCost: 20, priceId: 'price_1TYW0KK4E5IHLVVAqq91685S' },
 ];
 
+/** Dostępne efekty chodu (trail). */
 const TRAIL_EFFECTS = [
   { id: 'none', nameKey: 'trailNone', gemCost: 0, zlCost: 0, priceId: '' },
   { id: 'sparkle', nameKey: 'trailSparkle', gemCost: 10, zlCost: 12, priceId: 'price_1TYW0zK4E5IHLVVActd503r0' },
@@ -31,6 +40,7 @@ const TRAIL_EFFECTS = [
   { id: 'rainbow', nameKey: 'trailRainbow', gemCost: 0, zlCost: 50, priceId: 'price_1TYW2ZK4E5IHLVVAKUdeeXRQ' },
 ];
 
+/** Boosty jednorazowe — speed, mining, XP, shield. */
 const BOOST_PACKS = [
   { id: 'speed_boost', nameKey: 'boostSpeed', descKey: 'boostSpeedDesc', gemCost: 3, zlCost: 5, icon: '⚡', color: '#fbbf24', priceId: 'price_1TYW3AK4E5IHLVVAkj7iFjem' },
   { id: 'mining_boost', nameKey: 'boostMining', descKey: 'boostMiningDesc', gemCost: 3, zlCost: 5, icon: '⛏', color: '#f97316', priceId: 'price_1TYW3eK4E5IHLVVAEQpIBt7z' },
@@ -38,6 +48,7 @@ const BOOST_PACKS = [
   { id: 'shield', nameKey: 'boostShield', descKey: 'boostShieldDesc', gemCost: 5, zlCost: 8, icon: '🛡', color: '#38bdf8', priceId: 'price_1TYW4OK4E5IHLVVAcBO5zYoN' },
 ];
 
+/** Plany subskrypcyjne — FREE, STARTER, PREMIUM. */
 const PREMIUM_TIERS = [
   {
     id: 'free' as const,
@@ -62,12 +73,21 @@ const PREMIUM_TIERS = [
   },
 ];
 
+/**
+ * Sklep — kosmetyki (skiny, kapelusze, traile), boosty (speed, mining, XP, shield)
+ * i subskrypcje premium przez Stripe. Zarządza walutami: gems (free) i premiumBalance (płatne).
+ */
 export default function ShopMenu({ engine, state, onClose }: Props) {
+  /** Aktualna zakładka: cosmetics | boosts | premium. */
   const [tab, setTab] = useState<'cosmetics' | 'boosts' | 'premium'>('cosmetics');
+  /** Komunikat zwrotny (sukces/porażka). */
   const [message, setMessage] = useState('');
+  /** Czy pokazać modal płatności Stripe. */
   const [showPayment, setShowPayment] = useState(false);
+  /** Który przycisk Stripe jest w trakcie ładowania (ID elementu). */
   const [stripeLoading, setStripeLoading] = useState<string | null>(null);
 
+  /** Inicjuje Stripe Checkout dla podanego priceId. Przekierowuje na URL checkout. */
   const handleStripeCheckout = async (priceId: string, label: string) => {
     setStripeLoading(label);
     try {
@@ -76,8 +96,8 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
           priceId,
           userId: getCurrentUserId(),
           username: getCurrentUser(),
-          successUrl: 'https://factoryworld.mmc29213.workers.dev/?checkout=success',
-          cancelUrl: 'https://factoryworld.mmc29213.workers.dev/?checkout=cancel',
+          successUrl: window.location.origin + '?checkout=success',
+          cancelUrl: window.location.origin + '?checkout=cancel',
         },
       })
       if (fnError) throw new Error(fnError.message)
@@ -89,6 +109,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
     }
   };
 
+  /** Kupuje przedmiot za gems (waluta free). Odejmuje gems, wywołuje callback, pokazuje powiadomienie. */
   const purchaseWithGems = (gemCost: number, callback: () => void) => {
     if (state.player.gems < gemCost) { setMessage(t('insufficientGems')); return; }
     state.player.gems -= gemCost;
@@ -97,6 +118,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
     engine.addNotification(t('purchased'), 'success');
   };
 
+  /** Kupuje przedmiot za premiumBalance (waluta płatna). Analogicznie do purchaseWithGems. */
   const purchaseWithZl = (zlCost: number, callback: () => void) => {
     if (state.player.premiumBalance < zlCost) { setMessage(t('insufficientBalance')); return; }
     state.player.premiumBalance -= zlCost;
@@ -105,6 +127,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
     engine.addNotification(t('purchased'), 'success');
   };
 
+  /** Czy komunikat błędu (czerwony) vs sukcesu (zielony). */
   const isError = message === t('insufficientBalance') || message === t('insufficientGems');
 
   return (

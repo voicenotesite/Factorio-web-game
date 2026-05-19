@@ -3,15 +3,18 @@ import { RESEARCH_TREE, RESOURCE_COLORS } from '../game/constants';
 import { GameEngine } from '../game/engine';
 import { GameState } from '../game/types';
 
+/** Props menu badań — silnik, stan gry i callback zamknięcia. */
 interface Props {
   engine: GameEngine;
   state: GameState;
   onClose: () => void;
 }
 
+/** Drzewko badań — siatka technologii z progresem, kosztami, wymaganiami i przyciskiem rozpoczęcia. */
 export default function ResearchMenu({ engine, state, onClose }: Props) {
   const researchList = Object.values(RESEARCH_TREE);
 
+  /** Sprawdza czy wszystkie prerequisite są odblokowane. */
   const canResearch = (r: typeof researchList[0]) => {
     if (r.prerequisites.length === 0) return true;
     return r.prerequisites.every(p => state.research.get(p)?.unlocked);
@@ -23,7 +26,6 @@ export default function ResearchMenu({ engine, state, onClose }: Props) {
         className="panel-glass rounded-t-2xl sm:rounded-2xl p-4 sm:p-5 w-full sm:max-w-3xl sm:mx-4 max-h-[85vh] overflow-y-auto animate-slide-up font-exo"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(216,128,16,0.18)' }}>
           <div>
             <h2 className="font-orbitron font-bold text-lg tracking-wider" style={{ color: 'rgba(216,128,16,0.85)' }}>{t('researchTree')}</h2>
@@ -84,7 +86,6 @@ export default function ResearchMenu({ engine, state, onClose }: Props) {
                   )}
                 </div>
 
-                {/* Progress bar */}
                 {inProgress && (
                   <div className="w-full h-1.5 rounded-full mb-3 overflow-hidden" style={{ background: 'rgba(0,0,0,0.4)' }}>
                     <div
@@ -98,7 +99,6 @@ export default function ResearchMenu({ engine, state, onClose }: Props) {
                   </div>
                 )}
 
-                {/* Cost */}
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   {r.cost.map((c, i) => (
                     <div key={i} className="flex items-center gap-1 text-[11px]">
@@ -109,19 +109,16 @@ export default function ResearchMenu({ engine, state, onClose }: Props) {
                   <span className="text-[10px] text-white/20">· {Math.ceil(r.time / 60)}s</span>
                 </div>
 
-                {/* Prerequisites */}
                 {r.prerequisites.length > 0 && (
                   <div className="text-[10px] text-white/20 mb-2">
                     Needs: <span className="text-white/35">{r.prerequisites.map(p => RESEARCH_TREE[p]?.name || p).join(', ')}</span>
                   </div>
                 )}
 
-                {/* Effects */}
                 <div className="text-[10px] text-white/20 mb-3 font-mono">
                   {Object.entries(r.effects).map(([k, v]) => `${k}×${v}`).join(' · ')}
                 </div>
 
-                {/* Action */}
                 {available && (
                   <button
                     onClick={() => engine.startResearch(r.id)}

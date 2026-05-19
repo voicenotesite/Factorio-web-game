@@ -2,14 +2,17 @@ import { t } from '../lib/i18n';
 import { GameState } from '../game/types';
 import { ACHIEVEMENT_CATALOG } from '../game/systems';
 
+/** Props menu statystyk — stan gry i callback zamknięcia. */
 interface Props {
   state: GameState;
   onClose: () => void;
 }
 
+/** Menu statystyk — podsumowanie generalne, gracza, osiągnięcia, świat, itemy i badania. */
 export default function StatsMenu({ state, onClose }: Props) {
   const { statistics, player } = state;
 
+  /** Formatuje ticki na czytelny czas (xh ym zs). */
   const formatTime = (ticks: number) => {
     const seconds = Math.floor(ticks / 60);
     const minutes = Math.floor(seconds / 60);
@@ -101,6 +104,7 @@ export default function StatsMenu({ state, onClose }: Props) {
   );
 }
 
+/** Sekcja z nagłówkiem i linią dekoracyjną. */
 function Section({ title, color, children }: { title: string; color: string; children: React.ReactNode }) {
   return (
     <div>
@@ -114,6 +118,7 @@ function Section({ title, color, children }: { title: string; color: string; chi
   );
 }
 
+/** Pojedynczy wiersz statystyki z etykietą i wartością. */
 function StatRow({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="flex items-center justify-between text-xs py-0.5">

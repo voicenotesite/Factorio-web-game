@@ -27,14 +27,53 @@ import { saveGame, loadGame, hasSave } from './lib/saveSystem';
 import { supabase } from './lib/supabase';
 import { t } from './lib/i18n';
 
+/** Czy urządzenie jest mobilne (UA + szerokość ekranu < 768px). */
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
 
+/**
+ * Główny komponent aplikacji – zarządza routingiem ekranów (Auth → Start → Gra),
+ * stanem UI (menu, notyfikacje), logiką co-op (Supabase Realtime), autozapisem
+ * i paskiem akcji na dole.
+ */
 function App() {
+  /** Referencja do silnika gry. */
   const engineRef = useRef<GameEngine | null>(null);
 
   useEffect(() => { document.title = t('gameTitle'); }, []);
+
+  // Obsługa przekierowania powrotnego ze Stripe – wyświetla notyfikację
+  // i odświeża premiumTier z Supabase.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkoutResult = params.get('checkout');
+    if (checkoutResult !== 'success' && checkoutResult !== 'cancel') return;
+
+    // Czyścimy URL z query param (history.replace, bez przeładowania)
+    const cleanUrl = window.location.pathname + window.location.hash;
+    window.history.replaceState({}, '', cleanUrl);
+
+    if (checkoutResult === 'cancel') {
+      setNotifications(prev => [...prev, { text: t('shopCheckoutCancel'), timer: 5000, type: 'info' }]);
+      return;
+    }
+
+    setNotifications(prev => [...prev, { text: t('shopCheckoutSuccess'), timer: 8000, type: 'success' }]);
+
+    const uid = getCurrentUserId();
+    if (!uid) return;
+
+    // Odśwież premiumTier z bazy po udanej płatności
+    supabase.from('profiles').select('premium_tier').eq('id', uid).single().then(({ data }) => {
+      if (data?.premium_tier && data.premium_tier !== 'free' && engineRef.current) {
+        engineRef.current.state.player.premiumTier = data.premium_tier;
+      }
+    });
+  }, []);
+  /** Klon stanu gry do renderowania UI (aktualizowany przez onStateChange). */
   const [gameState, setGameState] = useState<GameState | null>(null);
+  /** Czy gra została rozpoczęta (ekran startowy pominięty). */
   const [started, setStarted] = useState(false);
+  /** Flagi widoczności poszczególnych menu. */
   const [showBuild, setShowBuild] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
@@ -44,24 +83,40 @@ function App() {
   const [showSaveLoad, setShowSaveLoad] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  /** Dane odwiedzanego świata (tryb podglądu). */
   const [visitingWorld, setVisitingWorld] = useState<{ id: string; name: string } | null>(null);
+  /** Lista notyfikacji (tekst + timer + typ). */
   const [notifications, setNotifications] = useState<{ text: string; timer: number; type?: string }[]>([]);
+  /** Nazwa zalogowanego użytkownika (lub null). */
   const [currentUser, setCurrentUser] = useState<string | null>(getCurrentUser);
+  /** Czy istnieje zapis gry dla tego użytkownika. */
   const [hasSaveData, setHasSaveData] = useState(false);
+  /** Czy pokazać popup Premium. */
   const [showPremiumPopup, setShowPremiumPopup] = useState(false);
+  /** Czy pokazać poradnik. */
   const [showGuide, setShowGuide] = useState(false);
+  /** Czy pokazać menu co-op. */
   const [showCoop, setShowCoop] = useState(false);
+  /** Cooldown zapisu w sekundach (0 = gotowy do zapisu). */
   const [saveCooldown, setSaveCooldown] = useState(0);
+  /** Czy pokazać nakładkę cooldownu zapisu. */
   const [showSaveOverlay, setShowSaveOverlay] = useState(false);
+  /** Czy tryb co-op jest aktywny. */
   const [coopMode, setCoopMode] = useState(false);
-  const [coopOnline, setCoopOnline] = useState(0);
+  /** Referencja do kanału Supabase Realtime dla co-op. */
   const coopChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  /** Interval nadawania pozycji w co-op. */
   const coopPosIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Ref do aktualnej wartości coopMode (do używania w callbackach). */
   const coopModeRef = useRef(false);
   coopModeRef.current = coopMode;
 
   const engine = engineRef.current;
 
+  /**
+   * Callback wywoływany gdy GameCanvas utworzy silnik.
+   * Podpina onStateChange (aktualizacja UI) i onBuildingAction (co-op broadcast).
+   */
   const handleEngineReady = useCallback((engine: GameEngine) => {
     engineRef.current = engine;
     engine.onStateChange = (state) => {
@@ -82,18 +137,30 @@ function App() {
     };
   }, []);
 
+  /**
+   * Callback po zalogowaniu – zapisuje nazwę użytkownika i ustawia seed świata.
+   */
   const handleAuth = useCallback((username: string, hasSaveDataArg: boolean) => {
     setCurrentUser(username);
     setHasSaveData(hasSaveDataArg);
-    // Set world seed based on username so each player gets a unique world
     if (engineRef.current) {
       engineRef.current.setSeedFromUsername(username);
     }
+
+    // Synchronizuj premiumTier z Supabase profiles po zalogowaniu
+    const uid = getCurrentUserId();
+    if (uid) {
+      supabase.from('profiles').select('premium_tier').eq('id', uid).single().then(({ data }) => {
+        if (data?.premium_tier && engineRef.current) {
+          engineRef.current.state.player.premiumTier = data.premium_tier;
+        }
+      });
+    }
   }, []);
 
+  // Globalne skróty klawiszowe (Tab = stats, L = leaderboard, P = shop, Enter = start, ESC = zamknij menu)
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      // Don't fire shortcuts when user is typing in any input/textarea
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
@@ -112,6 +179,7 @@ function App() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [started]);
 
+  // Popup Premium po 3 sekundach (dla darmowych użytkowników, chyba że zaznaczono "nie pytaj")
   useEffect(() => {
     if (currentUser && started && gameState) {
       const noPopup = localStorage.getItem('novactorio_no_premium_popup') === '1';
@@ -122,6 +190,7 @@ function App() {
     }
   }, [currentUser, started, gameState?.player.premiumTier]);
 
+  // Autozapis co 10 sekund + zapis przy beforeunload
   useEffect(() => {
     if (!started || !currentUser) return;
     const interval = setInterval(() => {
@@ -141,9 +210,9 @@ function App() {
     };
   }, [started, currentUser]);
 
+  // Wczytanie zapisu po starcie gry
   useEffect(() => {
     if (!started || !hasSaveData || !currentUser) return;
-    // Wait for engine to be ready (GameCanvas effect runs before App effects)
     const tryLoad = () => {
       const eng = engineRef.current;
       if (!eng) { setTimeout(tryLoad, 100); return; }
@@ -156,7 +225,7 @@ function App() {
     setHasSaveData(false);
   }, [started, hasSaveData, currentUser]);
 
-  // Save cooldown countdown effect
+  // Odliczanie cooldownu zapisu
   useEffect(() => {
     if (saveCooldown <= 0) return;
     const t2 = setInterval(() => {
@@ -171,6 +240,7 @@ function App() {
     return () => clearInterval(t2);
   }, [saveCooldown]);
 
+  /** Ręczny zapis z 10-sekundowym cooldownem. */
   const triggerSave = useCallback(() => {
     if (!currentUser || !engineRef.current || saveCooldown > 0) return;
     setSaveCooldown(10);
@@ -178,6 +248,7 @@ function App() {
     saveGame(currentUser, engineRef.current.state);
   }, [currentUser, saveCooldown]);
 
+  /** Przełącza tryb co-op. */
   const handleToggleCoop = useCallback(() => {
     if (coopMode && coopChannelRef.current) {
       const myId = getCurrentUserId();
@@ -186,7 +257,7 @@ function App() {
     setCoopMode(p => !p);
   }, [coopMode]);
 
-  // Co-op: real-time multiplayer via Supabase Realtime
+  // Co-op: subskrypcja kanału Supabase Realtime
   useEffect(() => {
     if (!started || !currentUser || !engine) return;
     const myId = getCurrentUserId();
@@ -219,7 +290,7 @@ function App() {
     };
   }, [started, currentUser, engine]);
 
-  // Co-op: periodic position broadcast
+  // Co-op: okresowe nadawanie pozycji gracza (co 200ms)
   useEffect(() => {
     if (!started || !currentUser || !coopMode || !engine) return;
     const myId = getCurrentUserId();
@@ -243,17 +314,22 @@ function App() {
 
   return (
     <div className="w-screen h-screen overflow-hidden select-none font-exo" style={{ background: 'var(--bg)' }}>
+      {/* Ekran logowania */}
       {!currentUser && <AuthScreen onAuth={handleAuth} />}
+      {/* Ekran startowy */}
       {currentUser && !started && <StartScreen onStart={() => setStarted(true)} />}
+      {/* Canvas gry */}
       {currentUser && started && (
         <ErrorBoundary>
           <GameCanvas engineRef={engineRef} onEngineReady={handleEngineReady} />
         </ErrorBoundary>
       )}
+      {/* HUD */}
       {currentUser && started && gameState && <HUD state={gameState} notifications={notifications} />}
+      {/* Info o budynku pod kursorem */}
       {currentUser && started && gameState && engine && <BuildingInfo engine={engine} state={gameState} />}
 
-      {/* Mobile controls */}
+      {/* Mobilne sterowanie */}
       {currentUser && started && isMobile && engine && gameState && (
         <MobileControls
           engine={engine}
@@ -272,10 +348,10 @@ function App() {
         />
       )}
 
-      {/* Chat */}
+      {/* Czat */}
       {currentUser && started && <ChatPanel />}
 
-      {/* Bottom action bar */}
+      {/* Dolny pasek akcji (desktop) */}
       {currentUser && started && !isMobile && (
         <div
           className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 animate-slide-up"
@@ -342,7 +418,7 @@ function App() {
         </div>
       )}
 
-      {/* Placing indicator */}
+      {/* Wskaźnik stawiania budynku */}
       {currentUser && engine?.selectedBuilding && (
         <div
           className="fixed bottom-20 left-1/2 -translate-x-1/2 z-20 text-sm px-5 py-2.5 rounded-xl font-exo animate-fade-in"
@@ -360,7 +436,7 @@ function App() {
         </div>
       )}
 
-      {/* Menus */}
+      {/* Menu */}
       {showBuild && engine && gameState && <BuildMenu engine={engine} state={gameState} onClose={() => setShowBuild(false)} />}
       {showResearch && engine && gameState && <ResearchMenu engine={engine} state={gameState} onClose={() => setShowResearch(false)} />}
       {showInventory && engine && gameState && <InventoryMenu engine={engine} state={gameState} onClose={() => setShowInventory(false)} />}
@@ -381,7 +457,7 @@ function App() {
         />
       )}
 
-      {/* Save cooldown overlay */}
+      {/* Nakładka cooldownu zapisu */}
       {showSaveOverlay && (
         <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
           <div className="animate-slide-up text-center" style={{
@@ -411,7 +487,7 @@ function App() {
         </div>
       )}
 
-      {/* COOP mode indicator */}
+      {/* Wskaźnik trybu COOP */}
       {coopMode && started && currentUser && (
         <div className="fixed bottom-24 left-4 z-20 px-3 py-1.5 rounded-xl text-[10px] font-orbitron tracking-wider"
           style={{
@@ -428,6 +504,10 @@ function App() {
   );
 }
 
+/**
+ * Przycisk paska akcji – ikona + etykieta + skrót klawiszowy.
+ * Podświetla się gdy jest aktywny.
+ */
 function ActionBarBtn({ label, shortcut, onClick, icon, color, active }: {
   label: string; shortcut: string; onClick: () => void; icon: React.ReactNode; color: string; active?: boolean;
 }) {
@@ -507,6 +587,10 @@ const FriendsIcon = () => (
 
 export default App;
 
+/**
+ * Granica błędów React – łapie nieobsłużone błędy w komponentach potomnych
+ * i wyświetla ekran błędu z przyciskiem przeładowania.
+ */
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
   constructor(props: { children: ReactNode }) {
     super(props);
@@ -536,4 +620,3 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
     return this.props.children;
   }
 }
-

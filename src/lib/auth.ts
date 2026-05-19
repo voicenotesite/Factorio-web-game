@@ -1,13 +1,18 @@
 import { supabase } from './supabase';
 
-export interface Account {
-  username: string;
-  passwordHash: string;
-}
-
+/** Klucz localStorage dla nazwy aktualnie zalogowanego użytkownika. */
 const CURRENT_USER_KEY = 'novactorio_current_user';
+/** Klucz localStorage dla ID aktualnie zalogowanego użytkownika (Supabase UID). */
 const CURRENT_USER_ID_KEY = 'novactorio_current_user_id';
 
+/**
+ * Rejestruje nowego użytkownika przez Supabase Auth.
+ * Używa syntetycznego e-maila (username@novactorio.io) jako identyfikatora.
+ * Po rejestracji zapisuje nazwę i ID w localStorage oraz tworzy profil.
+ * @param username Nazwa użytkownika (min. 3 znaki).
+ * @param password Hasło (min. 4 znaki).
+ * @returns Obiekt z success i opcjonalnym error.
+ */
 export async function register(username: string, password: string): Promise<{ success: boolean; error?: string }> {
   const trimmed = username.trim();
   if (!trimmed || trimmed.length < 3) return { success: false, error: 'Username must be 3+ characters' };
@@ -37,6 +42,13 @@ export async function register(username: string, password: string): Promise<{ su
   return { success: true };
 }
 
+/**
+ * Loguje użytkownika przez Supabase Auth (email = username@novactorio.io).
+ * Zapisuje nazwę i ID w localStorage.
+ * @param username Nazwa użytkownika.
+ * @param password Hasło.
+ * @returns Obiekt z success i opcjonalnym error.
+ */
 export async function login(username: string, password: string): Promise<{ success: boolean; error?: string }> {
   const fakeEmail = `${username.trim().toLowerCase()}@novactorio.io`;
   const { data, error } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
@@ -54,19 +66,21 @@ export async function login(username: string, password: string): Promise<{ succe
   return { success: true };
 }
 
+/** Wylogowuje użytkownika (Supabase signOut + czyszczenie localStorage). */
 export function logout(): void {
   supabase.auth.signOut();
   localStorage.removeItem(CURRENT_USER_KEY);
   localStorage.removeItem(CURRENT_USER_ID_KEY);
 }
 
+/** Zwraca nazwę aktualnie zalogowanego użytkownika (lub null). */
 export function getCurrentUser(): string | null {
   return localStorage.getItem(CURRENT_USER_KEY);
 }
 
+/** Zwraca Supabase UID aktualnego użytkownika (lub null). */
 export function getCurrentUserId(): string | null {
   return localStorage.getItem(CURRENT_USER_ID_KEY);
 }
 
-// Legacy compatibility
-export function getAccounts(): Account[] { return []; }
+

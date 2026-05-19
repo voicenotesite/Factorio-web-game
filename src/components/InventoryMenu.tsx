@@ -3,15 +3,18 @@ import { GameState } from '../game/types';
 import { RESOURCE_COLORS, RECIPES } from '../game/constants';
 import { GameEngine } from '../game/engine';
 
+/** Props menu ekwipunku — silnik, stan gry i callback zamknięcia. */
 interface Props {
   engine: GameEngine;
   state: GameState;
   onClose: () => void;
 }
 
+/** Menu ekwipunku i craftingu — siatka inventory + lista przepisów z możliwością craftowania. */
 export default function InventoryMenu({ engine, state, onClose }: Props) {
   const { player } = state;
 
+  /** Próbuje wykonać przepis: sprawdza inputy, odejmuje je i dodaje outputy. */
   const handleCraft = (recipeId: string) => {
     const recipe = RECIPES[recipeId];
     if (!recipe) return;
@@ -33,6 +36,7 @@ export default function InventoryMenu({ engine, state, onClose }: Props) {
     engine.addNotification(`Crafted ${recipe.name}`);
   };
 
+  /** Sprawdza czy gracz ma wszystkie wymagane surowce dla przepisu. */
   const canCraft = (recipeId: string) => {
     const recipe = RECIPES[recipeId];
     if (!recipe) return false;
@@ -54,7 +58,6 @@ export default function InventoryMenu({ engine, state, onClose }: Props) {
         className="panel-glass rounded-t-2xl sm:rounded-2xl p-4 sm:p-5 w-full sm:max-w-4xl sm:mx-4 max-h-[85vh] overflow-y-auto animate-slide-up font-exo"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(216,128,16,0.18)' }}>
           <div>
             <h2 className="font-orbitron font-bold text-lg text-white tracking-wider">{t('inventoryTitle')}</h2>
@@ -64,7 +67,6 @@ export default function InventoryMenu({ engine, state, onClose }: Props) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Inventory */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <div className="w-2 h-2 rounded-full" style={{ background: '#d88010', boxShadow: '0 0 6px #d88010' }} />
@@ -111,7 +113,6 @@ export default function InventoryMenu({ engine, state, onClose }: Props) {
             </div>
           </div>
 
-          {/* Crafting */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <div className="w-2 h-2 rounded-full bg-amber-400" style={{ boxShadow: '0 0 6px #f59e0b' }} />

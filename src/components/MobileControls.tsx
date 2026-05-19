@@ -5,6 +5,7 @@ import { BUILDING_COLORS, RESOURCE_COLORS } from '../game/constants';
 import { t } from '../lib/i18n';
 import LangSelector from './LangSelector';
 
+/** Props mobilnych kontrolek — silnik, stan, callbacki wszystkich akcji. */
 interface Props {
   engine: GameEngine;
   gameState: GameState;
@@ -21,6 +22,10 @@ interface Props {
   onLogout: () => void;
 }
 
+/**
+ * Nakładka dotykowa dla urządzeń mobilnych — wirtualny joystick, przyciski mine/attack,
+ * demolish, drawer z dodatkowymi opcjami i pasek akcji na górze.
+ */
 export default function MobileControls({
   engine, gameState, currentUser, onBuild, onCraft, onResearch, onStats, onSave, onCoop, onFriends, onAdmin, onGuide, onLogout,
 }: Props) {
@@ -34,6 +39,10 @@ export default function MobileControls({
   const joystickActiveRef = useRef(false);
   const joystickTouchId = useRef<number | null>(null);
 
+  /**
+   * Pętla silnika joysticka — co klatkę przesuwa gracza w kierunku wychylenia.
+   * Działa niezależnie od React state (optymalizacja wydajności dotyku).
+   */
   useEffect(() => {
     const tick = () => {
       if (joystickActiveRef.current && engine) {
@@ -42,15 +51,15 @@ export default function MobileControls({
         if (Math.abs(x) > 0.05 || Math.abs(y) > 0.05) {
           engine.state.player.x += x * speed;
           engine.state.player.y += y * speed;
-          // camera is handled by engine.updateCamera() — do NOT set it here
         }
       }
       animFrameRef.current = requestAnimationFrame(tick);
     };
     animFrameRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [engine]); // only re-run if engine changes, not on joystick toggle
+  }, [engine]);
 
+  /** Obsługa startu dotyku na joysticku — zapamiętuje origin i ID palca. */
   const handleJoystickStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
     const touch = e.changedTouches[0];
@@ -61,10 +70,13 @@ export default function MobileControls({
     setJoystickActive(true);
   }, []);
 
+  /**
+   * Obsługa ruchu palcem na joysticku — wylicza znormalizowany wektor
+   * z clampem do maxDist (multi-touch safe).
+   */
   const handleJoystickMove = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
     if (!joystickActiveRef.current) return;
-    // Find the specific finger that started the joystick (multi-touch safe)
     let touch: Touch | undefined;
     for (let i = 0; i < e.touches.length; i++) {
       if (e.touches[i].identifier === joystickTouchId.current) {
@@ -87,9 +99,9 @@ export default function MobileControls({
     }
   }, [joystickActive]);
 
+  /** Obsługa puszczenia palca — reset joysticka (multi-touch safe). */
   const handleJoystickEnd = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
-    // Only end if the joystick finger was lifted
     let joystickFingerLifted = false;
     for (let i = 0; i < e.changedTouches.length; i++) {
       if (e.changedTouches[i].identifier === joystickTouchId.current) {
@@ -109,7 +121,7 @@ export default function MobileControls({
 
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
 
-  // Poll engine for selected building
+  /** Polluje engine.selectedBuilding co 100ms dla UI. */
   useEffect(() => {
     const id = setInterval(() => {
       setSelectedBuilding(engine.selectedBuilding);
@@ -124,7 +136,6 @@ export default function MobileControls({
   return (
     <div className="fixed inset-0 z-10 pointer-events-none" style={{ userSelect: 'none' }}>
 
-      {/* ── Top action bar (essential gameplay actions only) ── */}
       <div
         className="absolute top-14 left-0 right-0 flex justify-center gap-2 pointer-events-auto px-3"
         style={{ zIndex: 11 }}
@@ -134,7 +145,6 @@ export default function MobileControls({
         <TopBtn label={t('mobileTech')} icon="🔬" color="#38bdf8" onClick={onResearch} />
       </div>
 
-      {/* ── Drawer toggle button (menu icon) ── */}
       <button
         onClick={() => setDrawerOpen(p => !p)}
         style={{
@@ -161,7 +171,6 @@ export default function MobileControls({
         {drawerOpen ? '✕' : '☰'}
       </button>
 
-      {/* ── Drawer overlay (non-essential features) ── */}
       {drawerOpen && (
         <>
           <div
@@ -218,7 +227,6 @@ export default function MobileControls({
         </>
       )}
 
-      {/* ── Minimap — above joystick, bottom-left ── */}
       <div
         className="absolute rounded-xl overflow-hidden pointer-events-none"
         style={{
@@ -237,7 +245,6 @@ export default function MobileControls({
         <MiniMapCanvas state={gameState} size={84} />
       </div>
 
-      {/* ── Virtual Joystick — bottom left ── */}
       <div
         ref={joystickRef}
         className="absolute pointer-events-auto"
@@ -273,7 +280,6 @@ export default function MobileControls({
         />
       </div>
 
-      {/* ── Mine + Attack buttons — bottom right ── */}
       <div
         className="absolute pointer-events-auto flex flex-col gap-3"
         style={{ bottom: '28px', right: '20px' }}
@@ -282,7 +288,6 @@ export default function MobileControls({
         <MineHoldBtn engine={engine} />
       </div>
 
-      {/* ── Demolish button — right side ── */}
       <div
         className="absolute pointer-events-auto flex flex-col gap-2"
         style={{ bottom: '160px', right: '20px' }}
@@ -290,7 +295,6 @@ export default function MobileControls({
         <DemolishBtn engine={engine} />
       </div>
 
-      {/* ── Cancel building banner ── */}
       {selectedBuilding && (
         <div
           className="absolute pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-2xl"
@@ -325,6 +329,7 @@ export default function MobileControls({
   );
 }
 
+/** Przycisk ataku (hold) — wywołuje engine.attackNearestEnemy() co 350ms z efektem flash. */
 function AttackHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [pressed, setPressed] = useState(false);
@@ -363,6 +368,7 @@ function AttackHoldBtn({ engine }: { engine: import('../game/engine').GameEngine
   );
 }
 
+/** Przycisk mine (hold) — wywołuje engine.mineInFront() co 200ms. */
 function MineHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [pressed, setPressed] = useState(false);
@@ -407,7 +413,7 @@ function MineHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }
   );
 }
 
-
+/** Przycisk usuwania najbliższego building — tap, flash przy sukcesie. */
 function DemolishBtn({ engine }: { engine: import('../game/engine').GameEngine }) {
   const [flash, setFlash] = useState(false);
 
@@ -445,6 +451,7 @@ function DemolishBtn({ engine }: { engine: import('../game/engine').GameEngine }
   );
 }
 
+/** Przycisk akcji w górnym pasku (build/craft/research). */
 function TopBtn({ label, icon, color, onClick }: { label: string; icon: string; color: string; onClick: () => void }) {
   return (
     <button
@@ -473,6 +480,7 @@ function TopBtn({ label, icon, color, onClick }: { label: string; icon: string; 
   );
 }
 
+/** Przycisk w drawerze (statystyki, coop, friends, guide, save, admin). */
 function DrawerBtn({ label, icon, color, onClick }: { label: string; icon: string; color: string; onClick: () => void }) {
   return (
     <button
@@ -500,6 +508,7 @@ function DrawerBtn({ label, icon, color, onClick }: { label: string; icon: strin
   );
 }
 
+/** Minimapa rysowana na Canvas — chunki, budynki, surowce, wrogowie i gracz. */
 function MiniMapCanvas({ state, size }: { state: GameState; size: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -549,7 +558,6 @@ function MiniMapCanvas({ state, size }: { state: GameState; size: number }) {
       }
     }
 
-    // Enemies (red dots)
     for (const [, enemy] of state.enemies) {
       const ex = (enemy.x - px) * scale + cx;
       const ey = (enemy.y - py) * scale + cy;
@@ -558,7 +566,6 @@ function MiniMapCanvas({ state, size }: { state: GameState; size: number }) {
       ctx.fillRect(ex - 1, ey - 1, 2, 2);
     }
 
-    // Player dot
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 5);
     g.addColorStop(0, 'rgba(56,189,248,0.9)');
     g.addColorStop(1, 'rgba(56,189,248,0)');
@@ -572,4 +579,3 @@ function MiniMapCanvas({ state, size }: { state: GameState; size: number }) {
 
   return <canvas ref={canvasRef} width={size} height={size} style={{ width: size, height: size }} />;
 }
-

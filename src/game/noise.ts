@@ -1,26 +1,45 @@
-// Simplex-like noise for procedural generation
-// Fast, deterministic, no external dependencies
+/**
+ * Szum Simplex 2D/3D do proceduralnej generacji świata.
+ * Szybki, deterministyczny, bez zewnętrznych zależności.
+ * Implementacja wzorowana na oryginalnym algorytmie K. Perlina.
+ */
 
+/** Stała F2 dla simplex 2D – (sqrt(3)-1)/2. */
 const F2 = 0.5 * (Math.sqrt(3) - 1);
+/** Stała G2 dla simplex 2D – (3-sqrt(3))/6. */
 const G2 = (3 - Math.sqrt(3)) / 6;
+/** Stała F3 dla simplex 3D – 1/3. */
 const F3 = 1 / 3;
+/** Stała G3 dla simplex 3D – 1/6. */
 const G3 = 1 / 6;
 
+/** Wektory gradientowe dla 12 kierunków (używane w 2D i 3D). */
 const grad3 = [
   [1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],
   [1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],
   [0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1],
 ];
 
+/**
+ * Generator szumu Simplex z deterministyczną permutacją (seed).
+ * Obsługuje 2D, 3D i oktawy 2D.
+ */
 class SimplexNoise {
+  /** Tablica permutacji (podwójna – 512 dla uniknięcia modulo w pętli). */
   private perm: Uint8Array;
+  /** perm % 12 – indeks gradientu, prekalkulowany. */
   private permMod12: Uint8Array;
 
+  /**
+   * Tworzy nowy generator z danym seedem.
+   * Tablica permutacji jest tasowana algorytmem Fisher-Yates z LCG seedem.
+   * @param seed Dowolna liczba całkowita.
+   */
   constructor(seed: number) {
     const p = new Uint8Array(256);
     for (let i = 0; i < 256; i++) p[i] = i;
 
-    // Fisher-Yates shuffle with seed
+    // Fisher-Yates shuffle z LCG
     let s = seed;
     for (let i = 255; i > 0; i--) {
       s = (s * 16807 + 0) % 2147483647;
@@ -36,6 +55,12 @@ class SimplexNoise {
     }
   }
 
+  /**
+   * Szum Simplex 2D. Zwraca wartość w zakresie ~[-1, 1].
+   * @param x Współrzędna X.
+   * @param y Współrzędna Y.
+   * @returns Wartość szumu.
+   */
   noise2D(x: number, y: number): number {
     const s = (x + y) * F2;
     const i = Math.floor(x + s);
@@ -84,6 +109,13 @@ class SimplexNoise {
     return 70 * (n0 + n1 + n2);
   }
 
+  /**
+   * Szum Simplex 3D. Zwraca wartość w zakresie ~[-1, 1].
+   * @param x Współrzędna X.
+   * @param y Współrzędna Y.
+   * @param z Współrzędna Z.
+   * @returns Wartość szumu.
+   */
   noise3D(x: number, y: number, z: number): number {
     const s = (x + y + z) * F3;
     const i = Math.floor(x + s);
@@ -157,6 +189,15 @@ class SimplexNoise {
     return 32 * (n0 + n1 + n2 + n3);
   }
 
+  /**
+   * Szum oktawowy 2D – nakłada multiple oktawy szumu z rosnącą częstotliwością
+   * i malejącą amplitudą (persistence). Wynik normalizowany do ~[-1, 1].
+   * @param x Współrzędna X.
+   * @param y Współrzędna Y.
+   * @param octaves Liczba oktaw.
+   * @param persistence Współczynnik wygaszania amplitudy (domyślnie 0.5).
+   * @returns Wartość szumu oktawowego.
+   */
   octave2D(x: number, y: number, octaves: number, persistence: number = 0.5): number {
     let total = 0;
     let frequency = 1;

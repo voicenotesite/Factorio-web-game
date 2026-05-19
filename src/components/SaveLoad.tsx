@@ -4,6 +4,7 @@ import { GameEngine } from '../game/engine';
 import { saveGame, loadGame, deleteSave, getSaveInfo } from '../lib/saveSystem';
 import { getCurrentUser } from '../lib/auth';
 
+/** Props menu save/load — silnik, cooldown i callbacki. */
 interface Props {
   engine: GameEngine;
   onClose: () => void;
@@ -11,12 +12,14 @@ interface Props {
   onSave: () => void;
 }
 
+/** Panel zapisu/odczytu gry z cooldownem, informacją o ostatnim save i przyciskiem usuwania. */
 export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Props) {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [localCooldown, setLocalCooldown] = useState(0);
 
+  /** Odlicza localCooldown co sekundę. */
   useEffect(() => {
     if (localCooldown <= 0) return;
     const t = setInterval(() => setLocalCooldown(p => Math.max(0, p - 1)), 1000);
@@ -27,6 +30,7 @@ export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Prop
   const saveInfo = username ? getSaveInfo(username) : null;
   const cooldown = Math.max(saveCooldown, localCooldown);
 
+  /** Zapisuje grę z 10s cooldownem. */
   const handleSave = () => {
     if (!username) { setMessage(t('notLoggedIn')); return; }
     if (cooldown > 0) { setMessage(t('cooldownMsg', { s: cooldown })); return; }
@@ -35,6 +39,7 @@ export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Prop
     setMessage(t('gameSaved'));
   };
 
+  /** Ładuje zapisaną grę z localStorage. */
   const handleLoad = () => {
     if (!username) { setMessage(t('notLoggedIn')); return; }
     setLoading(true);
@@ -52,6 +57,7 @@ export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Prop
     setLoading(false);
   };
 
+  /** Usuwa zapis gry po potwierdzeniu. */
   const handleDelete = () => {
     if (!username) return;
     if (!confirm('Delete save for ' + username + '?')) return;
@@ -74,7 +80,6 @@ export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Prop
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-all text-sm font-orbitron">✕</button>
         </div>
 
-        {/* Save cooldown animation */}
         {cooldown > 0 && (
           <div className="mb-4 p-4 rounded-xl text-center animate-slide-up"
             style={{
@@ -178,4 +183,3 @@ export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Prop
     </div>
   );
 }
-

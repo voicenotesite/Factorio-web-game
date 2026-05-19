@@ -2,6 +2,7 @@ import { GameState, Tile, Building, NPC, Enemy } from './types';
 import { CHUNK_SIZE, TILE_SIZE, BUILDING_SIZES, BUILDING_COLORS, RESOURCE_COLORS } from './constants';
 import { getTileColor, hasTreeAt, getYieldColor } from './world';
 
+/** Wektory przesunięcia dla kierunków (góra/dół/lewo/prawo). */
 const DIR_OFFSETS: Record<string, { dx: number; dy: number }> = {
   up: { dx: 0, dy: -1 },
   down: { dx: 0, dy: 1 },
@@ -9,32 +10,48 @@ const DIR_OFFSETS: Record<string, { dx: number; dy: number }> = {
   right: { dx: 1, dy: 0 },
 };
 
-const NPC_COLORS: Record<string, { body: string; accent: string }> = {
-  worker: { body: '#3b7ddd', accent: '#5a9bff' },
-  scout: { body: '#2ea043', accent: '#56d364' },
-  trader: { body: '#d4a017', accent: '#f0c040' },
-  guard: { body: '#c43b3b', accent: '#e85555' },
-  settler: { body: '#8b6bb5', accent: '#a88bd4' },
-};
-
+/**
+ * Główny renderer gry – rysuje świat, budynki, jednostki, efekty cząsteczkowe,
+ * oświetlenie nocne i pogodę na Canvas 2D.
+ * Wykorzystuje podwójny canvas (główny + lightCanvas) do nakładek świetlnych.
+ */
 export class GameRenderer {
+  /** Główny element canvas. */
   private canvas: HTMLCanvasElement;
+  /** Kontekst 2D głównego canvas (bez alpha – tło zawsze pełne). */
   private ctx: CanvasRenderingContext2D;
+  /** Licznik klatek – używany do animacji (waładowania, migotania, cząsteczek). */
   private frameCount = 0;
+  /** Canvas pomocniczy do efektów świetlnych (night lighting). */
   private lightCanvas: HTMLCanvasElement;
+  /** Kontekst 2D canvasa pomocniczego. */
   private lightCtx: CanvasRenderingContext2D;
+  /** Czy gracz aktualnie się porusza (wpływa na animację kroków). */
   isPlayerMoving = false;
+  /** Typ budynku w podglądzie stawiania (ghost preview). */
   ghostBuilding: string | null = null;
+  /** Pozycja kafelka podglądu budynku. */
   ghostTile: { x: number; y: number } | null = null;
+  /** Kierunek podglądu budynku. */
   ghostDirection = 'right';
+  /** Czy gracza stać na postawienie ghost building (wpływa na kolor podglądu). */
   ghostCanAfford = true;
-  private enemyHitFlash = new Map<string, number>(); // enemyId -> flashFrames remaining
+  /** Mapa ID wroga → liczba klatek białego flasha po trafieniu. */
+  private enemyHitFlash = new Map<string, number>();
+  /** Lista pływających napisów z obrażeniami. */
   private damageNumbers: { x: number; y: number; value: number; life: number; color: string }[] = [];
+  /** Mapa poprzedniego HP wroga – do wykrywania otrzymanych obrażeń. */
   private prevEnemyHealth = new Map<string, number>();
+  /** Przesunięcie X cienia słonecznego (wyliczane z pory dnia). */
   private sunShadowDX = 4;
+  /** Przesunięcie Y cienia słonecznego. */
   private sunShadowDY = 4;
+  /** Przezroczystość cienia słonecznego. */
   private sunShadowAlpha = 0.25;
 
+  /**
+   * @param canvas Główny element canvas do renderowania gry.
+   */
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false })!;
@@ -42,6 +59,14 @@ export class GameRenderer {
     this.lightCtx = this.lightCanvas.getContext('2d')!;
   }
 
+  /**
+   * Główna pętla renderująca – wywoływana co klatkę.
+   * Kolejność rysowania: niebo → podłoże → taśmociągi → budynki →
+   * połączenia energetyczne → encje (wrogowie/NPC/gracz) → goście co-op →
+   * ghost building → kolejka budowy → cząsteczki → obrażenia → poświaty →
+   * nakładka nocna → pogoda → winieta → efekt niskiego HP.
+   * @param state Aktualny stan gry.
+   */
   render(state: GameState) {
     this.frameCount++;
     const { ctx, canvas } = this;
@@ -50,68 +75,161 @@ export class GameRenderer {
     const dayFactor = Math.max(0.25, Math.sin(dayPhase * Math.PI * 2) * 0.5 + 0.5);
     const isNight = dayFactor < 0.5;
 
-    // Directional sun shadow based on time of day
-    {
-      // dayPhase: 0.25 = noon (dayFactor=1), 0.75 = midnight (dayFactor=0.25)
-      const dayAngle = (dayPhase - 0.25) * Math.PI * 2;
-      const shadowLength = isNight ? 0 : Math.max(1.5, (1.0 - dayFactor) * 14 + 1.5);
-      // Shadow opposite to sun: dawn (sun east) → shadow west (negative X), dusk → east (positive X)
-      this.sunShadowDX = -Math.sin(dayAngle) * shadowLength * 0.65;
-      this.sunShadowDY = Math.max(1.5, Math.abs(Math.cos(dayAngle)) * shadowLength * 0.35 + (isNight ? 0 : 1.8));
-      this.sunShadowAlpha = isNight ? 0 : Math.max(0, Math.min(0.38, (dayFactor - 0.33) * 0.55));
-    }
+    this.updateSunShadow(dayPhase, dayFactor, isNight);
+    this.renderSky(ctx, dayFactor);
+    this.renderStars(ctx, dayFactor);
 
-    // Sky — atmospheric industrial backdrop
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    const isDawnDusk = dayFactor > 0.38 && dayFactor < 0.62;
-    if (isDawnDusk) {
-      // Dawn / dusk: warm amber horizon glow
-      const t = 1 - Math.abs(dayFactor - 0.5) / 0.12;
-      skyGrad.addColorStop(0, `rgb(${Math.floor(8 + dayFactor * 12)},${Math.floor(8 + dayFactor * 12)},${Math.floor(18 + dayFactor * 20)})`);
-      skyGrad.addColorStop(0.6, `rgb(${Math.floor(30 + t * 80)},${Math.floor(15 + t * 35)},${Math.floor(5 + t * 10)})`);
-      skyGrad.addColorStop(1, `rgb(${Math.floor(20 + t * 60)},${Math.floor(10 + t * 25)},${Math.floor(3 + t * 8)})`);
-    } else if (dayFactor < 0.4) {
-      // Night
-      skyGrad.addColorStop(0, 'rgb(3,4,10)');
-      skyGrad.addColorStop(1, 'rgb(6,6,14)');
-    } else {
-      // Day
-      skyGrad.addColorStop(0, `rgb(${Math.floor(10 + dayFactor * 65)},${Math.floor(20 + dayFactor * 85)},${Math.floor(50 + dayFactor * 110)})`);
-      skyGrad.addColorStop(1, `rgb(${Math.floor(14 + dayFactor * 70)},${Math.floor(25 + dayFactor * 90)},${Math.floor(55 + dayFactor * 105)})`);
-    }
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Stars at night
-    if (dayFactor < 0.45) {
-      const starAlpha = Math.max(0, (0.45 - dayFactor) / 0.2);
-      ctx.fillStyle = `rgba(255,255,255,${starAlpha * 0.7})`;
-      for (let i = 0; i < 120; i++) {
-        const sx = ((i * 7919 + 13) % canvas.width);
-        const sy = ((i * 3571 + 29) % (canvas.height * 0.65));
-        const twinkle = Math.sin(this.frameCount * 0.02 + i) * 0.3 + 0.7;
-        ctx.globalAlpha = starAlpha * twinkle * 0.6;
-        ctx.fillRect(sx, sy, 1.5, 1.5);
-      }
-      ctx.globalAlpha = 1;
-    }
-
+    // Transformacja kamery – przesunięcie + zoom względem środka ekranu
     ctx.save();
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.scale(camera.zoom, camera.zoom);
     ctx.translate(-camera.x, -camera.y);
 
+    // Obliczenie widocznego obszaru w jednostkach świata
     const viewLeft = camera.x - canvas.width / 2 / camera.zoom;
     const viewTop = camera.y - canvas.height / 2 / camera.zoom;
     const viewRight = camera.x + canvas.width / 2 / camera.zoom;
     const viewBottom = camera.y + canvas.height / 2 / camera.zoom;
 
+    // Zakres chunków do wyrenderowania (z 1-chunkowym marginesem)
     const startCX = Math.floor(viewLeft / TILE_SIZE / CHUNK_SIZE) - 1;
     const startCY = Math.floor(viewTop / TILE_SIZE / CHUNK_SIZE) - 1;
     const endCX = Math.floor(viewRight / TILE_SIZE / CHUNK_SIZE) + 1;
     const endCY = Math.floor(viewBottom / TILE_SIZE / CHUNK_SIZE) + 1;
 
-    // Render ground layer
+    // Rysowanie warstwy podłoża – tylko widoczne kafelki w widocznych chunkach
+    this.renderGround(ctx, state, dayFactor, startCX, startCY, endCX, endCY, viewLeft, viewTop, viewRight, viewBottom);
+
+    // Rysowanie taśmociągów (pod budynkami – warstwa niżej)
+    this.renderConveyors(ctx, state, viewLeft, viewTop, viewRight, viewBottom);
+
+    // Rysowanie budynków z cieniami, posortowanych po Y (depth sorting)
+    const sortedBuildings = this.getVisibleBuildings(state, viewLeft, viewTop, viewRight, viewBottom);
+
+    for (const building of sortedBuildings) {
+      this.renderBuilding(ctx, building, state);
+    }
+
+    // Rysowanie połączeń energetycznych (rury, kable)
+    this.renderPowerConnections(ctx, state);
+
+    // Rysowanie encji z depth sortowaniem – wrogowie, NPC, gracz
+    this.renderSortedEntities(ctx, state, viewLeft, viewTop, viewRight, viewBottom);
+
+    // Rysowanie gości co-op (inni gracze w tym świecie)
+    this.renderCoopVisitors(ctx, state);
+
+    // Podgląd stawianego budynku (ghost preview)
+    if (this.ghostBuilding && this.ghostTile) {
+      this.renderGhostBuilding(ctx, state);
+    }
+
+    // Rysowanie kolejki budowy – rusztowania z paskiem postępu
+    this.renderBuildQueue(ctx, state);
+
+    // Rysowanie cząsteczek (dym, iskry, ogień, eksplozje)
+    this.renderParticles(ctx, state, viewLeft, viewTop, viewRight, viewBottom);
+
+    // Rysowanie pływających napisów obrażeń
+    this.renderDamageNumbers(ctx);
+
+    // Poświaty budynków (emisyjne – piec, laboratorium, bojler itp.)
+    for (const building of sortedBuildings) {
+      this.renderBuildingGlow(ctx, building);
+    }
+
+    ctx.restore();
+
+    // Nakładka oświetlenia nocnego (ciemność + źródła światła)
+    if (isNight) {
+      this.renderNightLighting(state, dayFactor);
+    }
+
+    // Nakładka pogody (deszcz, burza, mgła)
+    this.renderWeather(ctx, state);
+
+    // Winieta (przyciemnienie rogów + smog u dołu)
+    this.renderVignette(ctx);
+
+    // Czerwony pulsujący flash przy niskim HP gracza (<30%)
+    this.renderLowHealthFlash(ctx, state);
+  }
+
+  /**
+   * Wylicza kierunek, długość i przezroczystość cienia słonecznego na podstawie pory dnia.
+   * @param dayPhase Faza dnia (0-1).
+   * @param dayFactor Współczynnik dnia (0.25-1.0).
+   * @param isNight Czy jest noc.
+   */
+  private updateSunShadow(dayPhase: number, dayFactor: number, isNight: boolean) {
+    const dayAngle = (dayPhase - 0.25) * Math.PI * 2;
+    const shadowLength = isNight ? 0 : Math.max(1.5, (1.0 - dayFactor) * 14 + 1.5);
+    this.sunShadowDX = -Math.sin(dayAngle) * shadowLength * 0.65;
+    this.sunShadowDY = Math.max(1.5, Math.abs(Math.cos(dayAngle)) * shadowLength * 0.35 + (isNight ? 0 : 1.8));
+    this.sunShadowAlpha = isNight ? 0 : Math.max(0, Math.min(0.38, (dayFactor - 0.33) * 0.55));
+  }
+
+  /**
+   * Rysuje gradient nieba (dzień, świt/zmierzch, noc) na całym canvasie.
+   * @param ctx Kontekst 2D.
+   * @param dayFactor Współczynnik dnia.
+   */
+  private renderSky(ctx: CanvasRenderingContext2D, dayFactor: number) {
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
+    const isDawnDusk = dayFactor > 0.38 && dayFactor < 0.62;
+    if (isDawnDusk) {
+      const t = 1 - Math.abs(dayFactor - 0.5) / 0.12;
+      skyGrad.addColorStop(0, `rgb(${Math.floor(8 + dayFactor * 12)},${Math.floor(8 + dayFactor * 12)},${Math.floor(18 + dayFactor * 20)})`);
+      skyGrad.addColorStop(0.6, `rgb(${Math.floor(30 + t * 80)},${Math.floor(15 + t * 35)},${Math.floor(5 + t * 10)})`);
+      skyGrad.addColorStop(1, `rgb(${Math.floor(20 + t * 60)},${Math.floor(10 + t * 25)},${Math.floor(3 + t * 8)})`);
+    } else if (dayFactor < 0.4) {
+      skyGrad.addColorStop(0, 'rgb(3,4,10)');
+      skyGrad.addColorStop(1, 'rgb(6,6,14)');
+    } else {
+      skyGrad.addColorStop(0, `rgb(${Math.floor(10 + dayFactor * 65)},${Math.floor(20 + dayFactor * 85)},${Math.floor(50 + dayFactor * 110)})`);
+      skyGrad.addColorStop(1, `rgb(${Math.floor(14 + dayFactor * 70)},${Math.floor(25 + dayFactor * 90)},${Math.floor(55 + dayFactor * 105)})`);
+    }
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  }
+
+  /**
+   * Rysuje migoczące gwiazdy w nocy (przy dayFactor < 0.45).
+   * @param ctx Kontekst 2D.
+   * @param dayFactor Współczynnik dnia.
+   */
+  private renderStars(ctx: CanvasRenderingContext2D, dayFactor: number) {
+    if (dayFactor >= 0.45) return;
+    const starAlpha = Math.max(0, (0.45 - dayFactor) / 0.2);
+    ctx.fillStyle = `rgba(255,255,255,${starAlpha * 0.7})`;
+    for (let i = 0; i < 120; i++) {
+      const sx = ((i * 7919 + 13) % ctx.canvas.width);
+      const sy = ((i * 3571 + 29) % (ctx.canvas.height * 0.65));
+      const twinkle = Math.sin(this.frameCount * 0.02 + i) * 0.3 + 0.7;
+      ctx.globalAlpha = starAlpha * twinkle * 0.6;
+      ctx.fillRect(sx, sy, 1.5, 1.5);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Rysuje warstwę podłoża – iteruje po widocznych chunkach i kafelkach.
+   * @param ctx Kontekst 2D.
+   * @param state Stan gry.
+   * @param dayFactor Współczynnik dnia.
+   * @param startCX Początkowy chunk X.
+   * @param startCY Początkowy chunk Y.
+   * @param endCX Końcowy chunk X.
+   * @param endCY Końcowy chunk Y.
+   * @param viewLeft Lewa krawędź widoku.
+   * @param viewTop Górna krawędź widoku.
+   * @param viewRight Prawa krawędź widoku.
+   * @param viewBottom Dolna krawędź widoku.
+   */
+  private renderGround(ctx: CanvasRenderingContext2D, state: GameState, dayFactor: number,
+    startCX: number, startCY: number, endCX: number, endCY: number,
+    viewLeft: number, viewTop: number, viewRight: number, viewBottom: number
+  ) {
     for (let cy = startCY; cy <= endCY; cy++) {
       for (let cx = startCX; cx <= endCX; cx++) {
         const key = `${cx},${cy}`;
@@ -128,26 +246,38 @@ export class GameRenderer {
         }
       }
     }
+  }
 
-    // Render conveyors (below buildings)
-    this.renderConveyors(ctx, state, viewLeft, viewTop, viewRight, viewBottom);
-
-    // Render buildings with shadows
-    const sortedBuildings = Array.from(state.buildings.values())
+  /**
+   * Zwraca listę budynków widocznych na ekranie, posortowaną po Y (depth sorting).
+   * @param state Stan gry.
+   * @param viewLeft Lewa krawędź widoku.
+   * @param viewTop Górna krawędź widoku.
+   * @param viewRight Prawa krawędź widoku.
+   * @param viewBottom Dolna krawędź widoku.
+   */
+  private getVisibleBuildings(state: GameState, viewLeft: number, viewTop: number, viewRight: number, viewBottom: number): Building[] {
+    return Array.from(state.buildings.values())
       .filter(b => {
         const sx = b.x * TILE_SIZE;
         const sy = b.y * TILE_SIZE;
         return sx >= viewLeft - 100 && sx <= viewRight + 100 && sy >= viewTop - 100 && sy <= viewBottom + 100;
       })
       .sort((a, b) => a.y - b.y);
+  }
 
-    for (const building of sortedBuildings) {
-      this.renderBuilding(ctx, building, state);
-    }
-
-    this.renderPowerConnections(ctx, state);
-
-    // Render entities sorted bob Y for depth
+  /**
+   * Rysuje wrogów, NPC i gracza z depth sortowaniem po Y.
+   * @param ctx Kontekst 2D.
+   * @param state Stan gry.
+   * @param viewLeft Lewa krawędź widoku.
+   * @param viewTop Górna krawędź widoku.
+   * @param viewRight Prawa krawędź widoku.
+   * @param viewBottom Dolna krawędź widoku.
+   */
+  private renderSortedEntities(ctx: CanvasRenderingContext2D, state: GameState,
+    viewLeft: number, viewTop: number, viewRight: number, viewBottom: number
+  ) {
     const entities: { y: number; render: () => void }[] = [];
 
     for (const [, enemy] of state.enemies) {
@@ -164,43 +294,46 @@ export class GameRenderer {
       entities.push({ y: ny, render: () => this.renderNPC(ctx, npc, state) });
     }
 
-    // Player
     const py = state.player.y * TILE_SIZE;
     entities.push({ y: py, render: () => this.renderPlayer(ctx, state) });
 
     entities.sort((a, b) => a.y - b.y);
     for (const e of entities) e.render();
+  }
 
-    // Render co-op visitors (other players in this world)
-    if (state.coopVisitors) {
-      for (const [, visitor] of state.coopVisitors) {
-        const vx = visitor.x * TILE_SIZE - state.camera.x + canvas.width / 2;
-        const vy = visitor.y * TILE_SIZE - state.camera.y + canvas.height / 2;
-        ctx.save();
-        ctx.translate(vx, vy);
-        // Body
-        ctx.beginPath();
-        ctx.arc(0, -8, 8, 0, Math.PI * 2);
-        ctx.fillStyle = visitor.color;
-        ctx.fill();
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        // Name tag
-        ctx.font = 'bold 10px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = 'white';
-        ctx.fillText(visitor.username, 0, -22);
-        ctx.restore();
-      }
+  /**
+   * Rysuje gości co-op (innych graczy w tym świecie) jako kolorowe kropki z nazwą.
+   * @param ctx Kontekst 2D.
+   * @param state Stan gry.
+   */
+  private renderCoopVisitors(ctx: CanvasRenderingContext2D, state: GameState) {
+    if (!state.coopVisitors) return;
+    for (const [, visitor] of state.coopVisitors) {
+      const vx = visitor.x * TILE_SIZE - state.camera.x + ctx.canvas.width / 2;
+      const vy = visitor.y * TILE_SIZE - state.camera.y + ctx.canvas.height / 2;
+      ctx.save();
+      ctx.translate(vx, vy);
+      ctx.beginPath();
+      ctx.arc(0, -8, 8, 0, Math.PI * 2);
+      ctx.fillStyle = visitor.color;
+      ctx.fill();
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'white';
+      ctx.fillText(visitor.username, 0, -22);
+      ctx.restore();
     }
+  }
 
-    // Ghost building preview
-    if (this.ghostBuilding && this.ghostTile) {
-      this.renderGhostBuilding(ctx, state);
-    }
-
-    // Render build queue sites (construction scaffolding)
+  /**
+   * Rysuje kolejkę budowy – rusztowania z paskiem postępu i ikoną młotka.
+   * @param ctx Kontekst 2D.
+   * @param state Stan gry.
+   */
+  private renderBuildQueue(ctx: CanvasRenderingContext2D, state: GameState) {
     for (const task of state.buildQueue) {
       const bsize = BUILDING_SIZES[task.type] || { w: 1, h: 1 };
       const bx = task.x * TILE_SIZE;
@@ -209,34 +342,32 @@ export class GameRenderer {
       const bh = bsize.h * TILE_SIZE;
       const prog = task.constructionProgress / 100;
 
-      // Scaffolding frame
       ctx.strokeStyle = 'rgba(255,200,80,0.7)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 4]);
       ctx.strokeRect(bx + 1, bob + 1, bw - 2, bh - 2);
       ctx.setLineDash([]);
 
-      // Construction fill
       ctx.fillStyle = `rgba(255,200,80,${0.08 + prog * 0.18})`;
       ctx.fillRect(bx, bob, bw, bh * prog);
 
-      // Progress bar
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.fillRect(bx, bob + bh - 5, bw, 5);
       ctx.fillStyle = '#ffcc44';
       ctx.fillRect(bx, bob + bh - 5, bw * prog, 5);
 
-      // Build icon
       ctx.font = `${Math.min(bw, bh) * 0.5}px monospace`;
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(255,200,80,0.9)';
       ctx.fillText('🔨', bx + bw / 2, bob + bh / 2 + 4);
     }
+  }
 
-    // Render particles
-    this.renderParticles(ctx, state, viewLeft, viewTop, viewRight, viewBottom);
-
-    // Render floating damage numbers
+  /**
+   * Rysuje pływające napisy obrażeń (unoszą się w górę i znikają).
+   * @param ctx Kontekst 2D.
+   */
+  private renderDamageNumbers(ctx: CanvasRenderingContext2D) {
     for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
       const dn = this.damageNumbers[i];
       const alpha = dn.life / 40;
@@ -254,40 +385,35 @@ export class GameRenderer {
     }
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
-
-    // Render building glow effects (emissive)
-    for (const building of sortedBuildings) {
-      this.renderBuildingGlow(ctx, building);
-    }
-
-    ctx.restore();
-
-    // Night lighting overlay
-    if (isNight) {
-      this.renderNightLighting(state, dayFactor);
-    }
-
-    // Weather overlay
-    this.renderWeather(ctx, state);
-
-    // Vignette
-    this.renderVignette(ctx);
-
-    // Damage flash
-    if (state.player.health < state.player.maxHealth * 0.3) {
-      const pulse = Math.sin(this.frameCount * 0.1) * 0.5 + 0.5;
-      ctx.fillStyle = `rgba(200,0,0,${pulse * 0.08})`;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
   }
 
+  /**
+   * Rysuje czerwony pulsujący flash przy niskim HP gracza (<30%).
+   * @param ctx Kontekst 2D.
+   * @param state Stan gry.
+   */
+  private renderLowHealthFlash(ctx: CanvasRenderingContext2D, state: GameState) {
+    if (state.player.health >= state.player.maxHealth * 0.3) return;
+    const pulse = Math.sin(this.frameCount * 0.1) * 0.5 + 0.5;
+    ctx.fillStyle = `rgba(200,0,0,${pulse * 0.08})`;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  }
+
+  /**
+   * Rysuje pojedynczy kafelek podłoża: kolor biomu, szczegóły terenu, drzewa,
+   * surowce i zanieczyszczenie.
+   * Woda jest renderowana osobno w renderResource.
+   * @param ctx Kontekst 2D.
+   * @param tile Kafelek do narysowania.
+   * @param dayFactor Współczynnik pory dnia (0.25–1.0).
+   * @param state Stan gry (używany do zoomu siatki).
+   */
   private renderTile(ctx: CanvasRenderingContext2D, tile: Tile, dayFactor: number, state: GameState) {
     const x = tile.x * TILE_SIZE;
     const y = tile.y * TILE_SIZE;
 
-    // Water handled bob renderResource
     if (tile.resource !== 'water') {
-      // Biome base RGB
+      // Bazowy kolor RGB biomu
       const biomeRGB: Record<string, [number, number, number]> = {
         grass:    [54,  88, 46],
         forest:   [28,  60, 16],
@@ -298,7 +424,7 @@ export class GameRenderer {
       };
       const base = biomeRGB[tile.biome] || biomeRGB.grass;
 
-      // Multi-scale terrain variation — gives big visible patches + micro noise
+      // Wieloskalowa zmienność terenu – duże płaty (>>3) + średnie (>>2) + mikro (hash)
       const px = tile.x >> 3; // 8-tile macro patches
       const py = tile.y >> 3;
       const macroH = ((px * 374761393 + py * 1013904223) & 0x7FFFF) / 524287.0;
@@ -459,7 +585,7 @@ export class GameRenderer {
         }
       }
 
-      // Grid lines only when very zoomed in
+      // Siatka kafli tylko przy dużym przybliżeniu
       if (state.camera.zoom > 2.5) {
         ctx.strokeStyle = 'rgba(0,0,0,0.08)';
         ctx.lineWidth = 0.5;
@@ -467,17 +593,17 @@ export class GameRenderer {
       }
     }
 
-    // Trees
+    // Drzewa (jeśli biom ma drzewo na tej pozycji i nie ma budynku)
     if (hasTreeAt(tile.x, tile.y, tile.biome) && !tile.building) {
       this.renderTree(ctx, x, y, tile.biome, dayFactor);
     }
 
-    // Resources
+    // Surowce (ruda, woda, ropa) – jeśli nie zasłonięte budynkiem
     if (tile.resource && tile.resourceAmount > 0 && !tile.building) {
       this.renderResource(ctx, tile);
     }
 
-    // Pollution overlay
+    // Nakładka zanieczyszczenia
     if (tile.pollution > 0) {
       const pAlpha = Math.min(0.35, tile.pollution * 0.012);
       ctx.fillStyle = `rgba(120,90,50,${pAlpha})`;
@@ -485,13 +611,23 @@ export class GameRenderer {
     }
   }
 
+  /**
+   * Rysuje drzewo na pozycji (x,y) – pień, warstwy korony, cień kierunkowy,
+   * animację kołysania (sway) i podświetlenie słoneczne.
+   * Rozmiar drzewa jest deterministyczny (hash pozycji).
+   * @param ctx Kontekst 2D.
+   * @param x Pozycja X kafelka w px.
+   * @param y Pozycja Y kafelka w px.
+   * @param biom Typ biomu (forest = ciemniejsze drzewa).
+   * @param dayFactor Współczynnik dnia (wpływa na podświetlenie).
+   */
   private renderTree(ctx: CanvasRenderingContext2D, x: number, y: number, biome: string, dayFactor: number) {
     const cx = x + TILE_SIZE / 2;
     const treeBase = y + TILE_SIZE / 2 + 4;
     const h = ((Math.floor(x / TILE_SIZE) * 7919 + Math.floor(y / TILE_SIZE) * 104729) & 0xFFFF) / 65535;
-    const scale = 0.82 + h * 0.36; // size variation
+    const scale = 0.82 + h * 0.36;
 
-    // Directional tree shadow
+    // Cień kierunkowy drzewa (zgodny z cieniem słonecznym)
     const sShadowDX = this.sunShadowDX * 0.5 + 2;
     const sShadowDY = this.sunShadowDY * 0.4 + 3;
     const shadowW = (9 + Math.abs(this.sunShadowDX) * 0.4) * scale;
@@ -540,21 +676,26 @@ export class GameRenderer {
     ctx.fill();
   }
 
+  /**
+   * Rysuje surowiec na kafelku: wodę (animowane fale + refleksy), ropę (plama + połysk),
+   * lub rudę (wielokątne bryłki z cieniem, podświetleniem, iskrzeniem i wskaźnikiem wydajności).
+   * @param ctx Kontekst 2D.
+   * @param tile Kafelek z surowcem.
+   */
   private renderResource(ctx: CanvasRenderingContext2D, tile: Tile) {
     const x = tile.x * TILE_SIZE;
     const y = tile.y * TILE_SIZE;
     const color = RESOURCE_COLORS[tile.resource!] || '#ffffff';
 
     if (tile.resource === 'water') {
-      // Deep water
       ctx.fillStyle = '#1a4a8a';
       ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-      // Water surface with animated waves
+      // Animowane fale na powierzchni
       const wave1 = Math.sin(this.frameCount * 0.04 + tile.x * 0.7 + tile.y * 0.3) * 0.12;
       const wave2 = Math.sin(this.frameCount * 0.06 + tile.x * 0.3 - tile.y * 0.5) * 0.08;
       ctx.fillStyle = `rgba(60,140,220,${0.25 + wave1 + wave2})`;
       ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-      // Specular highlight
+      // Refleks świetlny
       const specX = x + 8 + Math.sin(this.frameCount * 0.03 + tile.x) * 4;
       const specY = y + 8 + Math.cos(this.frameCount * 0.04 + tile.y) * 3;
       ctx.fillStyle = 'rgba(180,220,255,0.15)';
@@ -577,22 +718,20 @@ export class GameRenderer {
       return;
     }
 
-    // Parse ore color components
     const rC = parseInt(color.slice(1, 3), 16);
     const gC = parseInt(color.slice(3, 5), 16);
     const bC = parseInt(color.slice(5, 7), 16);
 
-    // Tile-wide ore ground tint — makes the patch clearly visible even when zoomed out
+    // Prześwit rudy na całym kafelku – widoczny nawet przy oddaleniu
     ctx.fillStyle = `rgba(${Math.floor(rC * 0.35)},${Math.floor(gC * 0.35)},${Math.floor(bC * 0.35)},0.6)`;
     ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
 
-    // Deterministic hash for rock positions
+    // Deterministyczne hasze do pozycji bryłek
     const h1 = ((tile.x * 7919 + tile.y * 104729) & 0xFFFF) / 65535;
     const h2 = ((tile.x * 104729 + tile.y * 7919) & 0xFFFF) / 65535;
     const h3 = ((tile.x * 49999 + tile.y * 86413) & 0xFFFF) / 65535;
 
-    // Draw 3–5 ore rock chunks per tile
-    const rockCount = 3 + Math.floor(h3 * 3);
+    // 3–5 bryłek rudy na kafelek
     for (let i = 0; i < rockCount; i++) {
       const t = i / rockCount;
       const rx = x + ((h1 + t * 0.37) % 1) * (TILE_SIZE - 10) + 5;
@@ -658,6 +797,13 @@ export class GameRenderer {
     }
   }
 
+  /**
+   * Rysuje budynek z cieniem kierunkowym, cieniem otoczenia (AO), gradientem
+   * korpusu, obramowaniem, nitami, strzałką kierunku, paskiem postępu,
+   * paskiem zdrowia i wskaźnikiem statusu.
+   * @param ctx Kontekst 2D.
+   * @param building Budynek do narysowania.
+   */
   private renderBuilding(ctx: CanvasRenderingContext2D, building: Building, _state: GameState) {
     const x = building.x * TILE_SIZE;
     const y = building.y * TILE_SIZE;
@@ -666,15 +812,14 @@ export class GameRenderer {
     const h = size.h * TILE_SIZE;
     const color = BUILDING_COLORS[building.type] || '#888';
 
-    // Directional sun shadow + ambient contact shadow
+    // Cień kierunkowy (od słońca)
     if (this.sunShadowAlpha > 0.02) {
-      // Hard shadow (direction from sun)
       ctx.fillStyle = `rgba(0,0,0,${this.sunShadowAlpha})`;
       ctx.beginPath();
       ctx.roundRect(x + this.sunShadowDX, y + this.sunShadowDY, w, h, 2);
       ctx.fill();
     }
-    // Soft ambient occlusion contact shadow (always present)
+    // Miękki cień otoczenia (ambient occlusion) – zawsze obecny
     {
       const aoGrad = ctx.createRadialGradient(x + w * 0.5, y + h * 0.85, 0, x + w * 0.5, y + h * 0.85, Math.max(w, h) * 0.8);
       aoGrad.addColorStop(0, 'rgba(0,0,0,0.22)');
@@ -686,7 +831,7 @@ export class GameRenderer {
       ctx.fill();
     }
 
-    // Building body with gradient (dark industrial look, lit from above-left)
+    // Korpus budynku – ciemny industrialny gradient (oświetlenie z góry-lewej)
     const grad = ctx.createLinearGradient(x, y, x + w * 0.3, y + h);
     grad.addColorStop(0, lightenColor(color, 28));
     grad.addColorStop(0.4, lightenColor(color, 8));
@@ -814,12 +959,20 @@ export class GameRenderer {
     this.renderBuildingDetails(ctx, building, x, y, w, h);
   }
 
+  /**
+   * Rysuje połączenia energetyczne: pomarańczowe rury parowe między bojlerami
+   * a silnikami parowymi (z animowaną kropką pary) oraz żółte kable między
+   * słupami energetycznymi (z krzywizną zwisu). Pokazuje też subtelny zakres
+   * słupów.
+   * @param ctx Kontekst 2D.
+   * @param state Stan gry.
+   */
   private renderPowerConnections(ctx: CanvasRenderingContext2D, state: GameState) {
     const boilers = Array.from(state.buildings.values()).filter(b => b.type === 'boiler');
     const steamEngines = Array.from(state.buildings.values()).filter(b => b.type === 'steam_engine');
     const powerPoles = Array.from(state.buildings.values()).filter(b => b.type === 'power_pole');
 
-    // Draw orange steam pipes connecting boilers to nearby steam engines
+    // Rury parowe – linie przerywane między bojlerem a silnikiem parowym (w zas. 12 kafelków)
     for (const boiler of boilers) {
       for (const engine of steamEngines) {
         const dx = engine.x - boiler.x;
@@ -839,7 +992,7 @@ export class GameRenderer {
           ctx.lineTo(ex, ey);
           ctx.stroke();
           ctx.setLineDash([]);
-          // Animated steam flow dot
+          // Animowana kropka płynącej pary
           if (boiler.isActive) {
             const t = (this.frameCount * 0.04) % 1;
             const dotX = sx + (ex - sx) * t;
@@ -853,7 +1006,7 @@ export class GameRenderer {
       }
     }
 
-    // Draw yellow wires between power poles (within 15 tiles of each other)
+    // Żółte kable między słupami energetycznymi (zas. 15 kafelków) – zwis catenary
     for (let i = 0; i < powerPoles.length; i++) {
       for (let j = i + 1; j < powerPoles.length; j++) {
         const a = powerPoles[i];
@@ -866,7 +1019,6 @@ export class GameRenderer {
           const ay = a.y * TILE_SIZE + TILE_SIZE / 2;
           const bx = b.x * TILE_SIZE + TILE_SIZE / 2;
           const bob = b.y * TILE_SIZE + TILE_SIZE / 2;
-          // Catenary sag
           const midX = (ax + bx) / 2;
           const midY = (ay + bob) / 2 + dist * 1.5;
           ctx.strokeStyle = 'rgba(220,200,60,0.55)';
@@ -879,7 +1031,7 @@ export class GameRenderer {
       }
     }
 
-    // Power pole range indicator (very subtle, only when there are poles)
+    // Subtelny okrąg zasięgu słupa
     for (const pole of powerPoles) {
       const px = pole.x * TILE_SIZE + TILE_SIZE / 2;
       const py = pole.y * TILE_SIZE + TILE_SIZE / 2;
@@ -894,6 +1046,13 @@ export class GameRenderer {
     }
   }
 
+  /**
+   * Rysuje emisyjną poświatę wokół aktywnych budynków (piec, laboratorium,
+   * bojler, silnik parowy, assembler, radar). Każdy typ ma inny kolor i
+   * charakter migotania.
+   * @param ctx Kontekst 2D.
+   * @param building Budynek z poświatą.
+   */
   private renderBuildingGlow(ctx: CanvasRenderingContext2D, building: Building) {
     const x = building.x * TILE_SIZE;
     const y = building.y * TILE_SIZE;
@@ -972,10 +1131,24 @@ export class GameRenderer {
     }
   }
 
+  /**
+   * Rysuje szczegóły specyficzne dla typu budynku: wiertnica (miner), palenisko
+   * (boiler), komin i ogień (furnace), ramiona robota (assembler), kolba z
+   * bulgoczącą cieczą (lab), wieżyczka z lufą (turret), słup i izolatory
+   * (power_pole), radar z obracającym się talerzem, skrzynia z zamkiem
+   * (storage), pumpjack z bujającą belką, silnik parowy z kołem zamachowym,
+   * mur z cegieł (wall), inserter z ramieniem i szczypcami.
+   * @param ctx Kontekst 2D.
+   * @param building Budynek do rysowania detali.
+   * @param x Pozycja X w px.
+   * @param y Pozycja Y w px.
+   * @param w Szerokość w px.
+   * @param h Wysokość w px.
+   */
   private renderBuildingDetails(ctx: CanvasRenderingContext2D, building: Building, x: number, y: number, w: number, h: number) {
     switch (building.type) {
       case 'miner': {
-        // Drill derrick A-frame
+        // Wiertnica – szkielet A-frame z krzyżulcem i obracającym się głowicą
         const dcx = x + w / 2;
         const dtip = y + 4;
         ctx.strokeStyle = '#4a4a42';
@@ -1447,6 +1620,16 @@ export class GameRenderer {
     }
   }
 
+  /**
+   * Rysuje taśmociągi: gumową powierzchnię, metalowe szyny, animowane listwy
+   * (cleats), strzałkę kierunku oraz przedmioty na taśmie (3D box).
+   * @param ctx Kontekst 2D.
+   * @param state Stan gry.
+   * @param vl Lewa krawędź widoku.
+   * @param vt Górna krawędź widoku.
+   * @param vr Prawa krawędź widoku.
+   * @param vb Dolna krawędź widoku.
+   */
   private renderConveyors(ctx: CanvasRenderingContext2D, state: GameState, vl: number, vt: number, vr: number, vb: number) {
     for (const [key, segments] of state.conveyors) {
       const [xStr, yStr] = key.split(',');
@@ -1462,8 +1645,6 @@ export class GameRenderer {
       const dx = dir ? dir.dx : 1;
       const dy = dir ? dir.dy : 0;
       const isVertical = dy !== 0;
-
-      // ── Belt rubber surface ──
       ctx.fillStyle = '#211f1a';
       ctx.beginPath();
       ctx.roundRect(sx + 2, sy + 2, TILE_SIZE - 4, TILE_SIZE - 4, 1.5);
@@ -1594,18 +1775,26 @@ export class GameRenderer {
     }
   }
 
+  /**
+   * Rysuje wroga (biter, spitter, worm, behemoth) z ciałem zależnym od
+   * ewolucji, nogami/segmentami, szczypcami/mackami, oczami, paskiem HP,
+   * białym flashem po trafieniu i ataku. Wykrywa obrażenia i dodaje
+   * pływające napisy obrażeń.
+   * @param ctx Kontekst 2D.
+   * @param enemy Wróg do narysowania.
+   */
   private renderEnemy(ctx: CanvasRenderingContext2D, enemy: Enemy, _state: GameState) {
     const x = enemy.x * TILE_SIZE;
     const y = enemy.y * TILE_SIZE;
     const size = enemy.type === 'behemoth' ? 14 : enemy.type === 'worm' ? 12 : 8;
     const evolution = enemy.evolution;
 
-    // Track hit flash
+    // Śledzenie białego flasha po trafieniu
     const flashFrames = this.enemyHitFlash.get(enemy.id) || 0;
     if (flashFrames > 0) this.enemyHitFlash.set(enemy.id, flashFrames - 1);
     const isFlashing = flashFrames > 0;
 
-    // Detect damage taken this frame
+    // Wykrywanie obrażeń otrzymanych w tej klatce
     const prevHp = this.prevEnemyHealth.get(enemy.id);
     if (prevHp !== undefined && enemy.health < prevHp) {
       const dmg = Math.ceil(prevHp - enemy.health);
@@ -1613,8 +1802,6 @@ export class GameRenderer {
       this.damageNumbers.push({ x, y: y - size - 5, value: dmg, life: 40, color: '#ff4444' });
     }
     this.prevEnemyHealth.set(enemy.id, enemy.health);
-
-    // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
     ctx.ellipse(x, y + size + 2, size * 0.7, size * 0.25, 0, 0, Math.PI * 2);
@@ -1762,12 +1949,21 @@ export class GameRenderer {
     }
   }
 
+  /**
+   * Rysuje NPC (worker, scout, trader, guard, settler) z nogami, ciałem z
+   * gradientem, paskiem akcentowym, głową, nakryciem głowy (kask/czapka),
+   * oczami, etykietą imienia, paskiem HP i niesionym przedmiotem.
+   * Postacie mają subtelną animację "bob" (kołysanie).
+   * @param ctx Kontekst 2D.
+   * @param npc NPC do narysowania.
+   * @param state Stan gry (używany do zoomu etykiety).
+   */
   private renderNPC(ctx: CanvasRenderingContext2D, npc: NPC, state: GameState) {
     const x = npc.x * TILE_SIZE;
     const y = npc.y * TILE_SIZE;
     const bob = Math.sin(this.frameCount * 0.07 + npc.id.charCodeAt(0)) * 1;
 
-    // Clothing colors bob type
+    // Kolory ubrań w zależności od typu NPC
     const jacketColors: Record<string, string> = {
       worker: '#2a3c2a', scout: '#1e3028', trader: '#3a2810', guard: '#2a1a1a', settler: '#2c2a3a',
     };
@@ -1881,12 +2077,19 @@ export class GameRenderer {
     }
   }
 
+  /**
+   * Rysuje gracza z poświatą latarki, nogami/botami, kurtką roboczą z
+   * paskiem odblaskowym, paskiem, głową, kaskiem ochronnym, oczami
+   * (patrzącymi w kierunku), ręką z narzędziem (pickaxe), paskiem HP oraz
+   * okręgiem zasięgu.
+   * @param ctx Kontekst 2D.
+   * @param state Stan gry.
+   */
   private renderPlayer(ctx: CanvasRenderingContext2D, state: GameState) {
     const { player } = state;
     const x = player.x * TILE_SIZE;
     const y = player.y * TILE_SIZE;
     const bob = Math.sin(this.frameCount * 0.12) * 1.2;
-    const isMoving = this.isPlayerMoving;
 
     // Player ambient glow — warm hard-hat light
     const glowR = 22;
@@ -2002,10 +2205,13 @@ export class GameRenderer {
     ctx.setLineDash([]);
   }
 
-  private keysPressed(state: GameState): boolean {
-    return state.player.x !== state.player.x || state.player.y !== state.player.y;
-  }
-
+  /**
+   * Rysuje podgląd stawianego budynku (ghost) z przezroczystym wypełnieniem
+   * (niebiesko-zielony = dozwolone, czerwony = niedozwolone), obrysem i
+   * strzałką kierunku.
+   * @param ctx Kontekst 2D.
+   * @param state Stan gry (do sprawdzenia kolizji z budynkami).
+   */
   private renderGhostBuilding(ctx: CanvasRenderingContext2D, state: GameState) {
     if (!this.ghostBuilding || !this.ghostTile) return;
     const { x, y } = this.ghostTile;
@@ -2074,6 +2280,18 @@ export class GameRenderer {
     ctx.restore();
   }
 
+  /**
+   * Rysuje wszystkie cząsteczki (smoke – wielopunktowe kłęby, spark – jasne
+   * punkty, fire – ogień z rdzeniem, explosion – eksplozja, resource –
+   * surowiec, ambient – subtelne tło). Każdy typ ma inną przezroczystość i
+   * rozmiar zależne od czasu życia.
+   * @param ctx Kontekst 2D.
+   * @param state Stan gry.
+   * @param vl Lewa krawędź widoku.
+   * @param vt Górna krawędź widoku.
+   * @param vr Prawa krawędź widoku.
+   * @param vb Dolna krawędź widoku.
+   */
   private renderParticles(ctx: CanvasRenderingContext2D, state: GameState, vl: number, vt: number, vr: number, vb: number) {
     for (const p of state.particles) {
       if (p.x < vl - 20 || p.x > vr + 20 || p.y < vt - 20 || p.y > vb + 20) continue;
@@ -2150,20 +2368,27 @@ export class GameRenderer {
     ctx.globalAlpha = 1;
   }
 
+  /**
+   * Renderuje nakładkę nocy na osobnym canvasie (lightCanvas). Tworzy ciemne
+   * tło z ciepłym odcieniem, następnie wycina światło latarki gracza
+   * (destination-out) i światła aktywnych budynków. Dodaje bursztynowy
+   * odcień w oświetlonych obszarach.
+   * @param state Stan gry.
+   * @param dayFactor Współczynnik dnia (0.25–1.0).
+   */
   private renderNightLighting(state: GameState, dayFactor: number) {
     const { canvas, lightCanvas, lightCtx } = this;
     lightCanvas.width = canvas.width;
     lightCanvas.height = canvas.height;
 
-    // Dark overlay — warm dark (not cold blue)
     const darkness = (1 - dayFactor) * 0.72;
     lightCtx.fillStyle = `rgba(8,5,2,${darkness})`;
     lightCtx.fillRect(0, 0, lightCanvas.width, lightCanvas.height);
 
-    // Cut out light sources
+    // Wycinanie źródeł światła
     lightCtx.globalCompositeOperation = 'destination-out';
 
-    // Player torch light (warm, personal radius)
+    // Latarka gracza – ciepłe światło
     const px = canvas.width / 2;
     const py = canvas.height / 2;
     const playerLight = lightCtx.createRadialGradient(px, py, 0, px, py, 130 * state.camera.zoom);
@@ -2174,7 +2399,7 @@ export class GameRenderer {
     lightCtx.fillStyle = playerLight;
     lightCtx.fillRect(0, 0, lightCanvas.width, lightCanvas.height);
 
-    // Building lights — more sources, larger radius
+    // Światła aktywnych budynków (różne promienie w zależności od typu)
     for (const [, building] of state.buildings) {
       const litTypes = ['furnace', 'boiler', 'lab', 'radar', 'steam_engine', 'assembler', 'refinery', 'chemical_plant'];
       if (!litTypes.includes(building.type)) continue;
@@ -2194,7 +2419,7 @@ export class GameRenderer {
 
     lightCtx.globalCompositeOperation = 'source-over';
 
-    // Amber tint for illuminated areas
+    // Bursztynowy odcień w oświetlonych obszarach
     lightCtx.globalCompositeOperation = 'source-atop';
     lightCtx.fillStyle = 'rgba(255,140,30,0.07)';
     lightCtx.fillRect(0, 0, lightCanvas.width, lightCanvas.height);
@@ -2203,13 +2428,19 @@ export class GameRenderer {
     this.ctx.drawImage(lightCanvas, 0, 0);
   }
 
+  /**
+   * Rysuje efekt pogodowy: deszcz (przechylone kreski), burzę (intensywniejszy
+   * deszcz + błyskawica co 300 klatek) lub mgłę (gradient radialny + animowane
+   * pasma).
+   * @param ctx Kontekst 2D.
+   * @param state Stan gry.
+   */
   private renderWeather(ctx: CanvasRenderingContext2D, state: GameState) {
     if (state.weather === 'rain' || state.weather === 'storm') {
       const intensity = state.weather === 'storm' ? 0.25 : 0.12;
       ctx.fillStyle = `rgba(80,120,180,${intensity})`;
       ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-      // Rain drops
       const dropCount = state.weather === 'storm' ? 150 : 60;
       ctx.strokeStyle = 'rgba(180,210,255,0.25)';
       ctx.lineWidth = 1;
@@ -2223,13 +2454,12 @@ export class GameRenderer {
         ctx.stroke();
       }
 
-      // Lightning flash for storms
+      // Błyskawica podczas burzy
       if (state.weather === 'storm' && this.frameCount % 300 < 3) {
         ctx.fillStyle = 'rgba(200,220,255,0.15)';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       }
     } else if (state.weather === 'fog') {
-      // Layered atmospheric fog — radial gradient from edges
       const w = this.canvas.width, h = this.canvas.height;
       const fogGrad = ctx.createRadialGradient(w / 2, h / 2, w * 0.1, w / 2, h / 2, w * 0.7);
       fogGrad.addColorStop(0, 'rgba(180,195,210,0)');
@@ -2237,7 +2467,7 @@ export class GameRenderer {
       fogGrad.addColorStop(1, 'rgba(180,195,210,0.22)');
       ctx.fillStyle = fogGrad;
       ctx.fillRect(0, 0, w, h);
-      // Subtle animated wisps using horizontal gradients
+      // Animowane pasma mgły
       const t = this.frameCount * 0.002;
       for (let i = 0; i < 3; i++) {
         const wispX = ((t * 40 + i * (w / 3)) % (w + 200)) - 100;
@@ -2251,17 +2481,21 @@ export class GameRenderer {
     }
   }
 
+  /**
+   * Rysuje winietę – przyciemnienie rogów ekranu (radial gradient) oraz
+   * subtelną bursztynową poświatę smogu na dole ekranu.
+   * @param ctx Kontekst 2D.
+   */
   private renderVignette(ctx: CanvasRenderingContext2D) {
     const w = this.canvas.width;
     const h = this.canvas.height;
-    // Corner-focused vignette
     const grad = ctx.createRadialGradient(w / 2, h / 2, w * 0.25, w / 2, h / 2, w * 0.75);
     grad.addColorStop(0, 'rgba(0,0,0,0)');
     grad.addColorStop(0.7, 'rgba(0,0,0,0.15)');
     grad.addColorStop(1, 'rgba(0,0,0,0.55)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
-    // Subtle amber pollution haze at bottom
+    // Smog na dole
     const hazeGrad = ctx.createLinearGradient(0, h * 0.75, 0, h);
     hazeGrad.addColorStop(0, 'rgba(0,0,0,0)');
     hazeGrad.addColorStop(1, 'rgba(30,15,0,0.12)');
@@ -2270,6 +2504,13 @@ export class GameRenderer {
   }
 }
 
+/**
+ * Rozjaśnia kolor hex o podaną wartość i zwraca jako hex (#rrggbb).
+ * Używane do generowania wariantów kolorystycznych NPC.
+ * @param hex Kolor w formacie hex (#rrggbb).
+ * @param amount Wartość dodawana do każdego kanału RGB.
+ * @returns Rozjaśniony kolor hex.
+ */
 function lightenColorUtil(hex: string, amount: number): string {
   const r = Math.min(255, parseInt(hex.slice(1, 3), 16) + amount);
   const g = Math.min(255, parseInt(hex.slice(3, 5), 16) + amount);
@@ -2277,6 +2518,12 @@ function lightenColorUtil(hex: string, amount: number): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
+/**
+ * Rozjaśnia kolor hex i zwraca jako rgb(r,g,b). Używane do gradientów budynków.
+ * @param hex Kolor w formacie hex.
+ * @param amount Wartość rozjaśnienia.
+ * @returns Kolor w formacie rgb().
+ */
 function lightenColor(hex: string, amount: number): string {
   const r = Math.min(255, parseInt(hex.slice(1, 3), 16) + amount);
   const g = Math.min(255, parseInt(hex.slice(3, 5), 16) + amount);
@@ -2284,6 +2531,12 @@ function lightenColor(hex: string, amount: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
+/**
+ * Przyciemnia kolor hex i zwraca jako rgb(r,g,b). Używane do cieni budynków.
+ * @param hex Kolor w formacie hex.
+ * @param amount Wartość przyciemnienia.
+ * @returns Kolor w formacie rgb().
+ */
 function darkenColor(hex: string, amount: number): string {
   const r = Math.max(0, parseInt(hex.slice(1, 3), 16) - amount);
   const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - amount);

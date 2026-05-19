@@ -1,5 +1,12 @@
+/**
+ * System internacjonalizacji (i18n) z 23 językami.
+ * Ładuje tłumaczenia z obiektu translations i przechowuje wybrany język
+ * w localStorage (klucz: novactorio_lang). Umożliwia podstawianie zmiennych
+ * przez składnię {nazwa}.
+ */
 export type LangCode = 'en' | 'pl' | 'de' | 'fr' | 'es' | 'it' | 'nl' | 'pt' | 'cs' | 'sk' | 'hu' | 'ro' | 'sv' | 'da' | 'no' | 'fi' | 'hr' | 'bg' | 'el' | 'et' | 'lv' | 'lt' | 'sl';
 
+/** Zbiór tłumaczeń dla wszystkich wspieranych języków. */
 const translations = {
   en: {
     // Auth
@@ -326,6 +333,8 @@ const translations = {
     paymentRedirect: 'Redirecting to Stripe...',
     paymentLoginRequired: 'Log in to make a payment',
     paymentCancelAnytime: 'Cancel anytime',
+    shopCheckoutSuccess: 'Payment successful!',
+    shopCheckoutCancel: 'Payment cancelled',
     // Guide
     guideTitle: 'GUIDE',
     guideGettingStarted: '1. Getting Started',
@@ -702,6 +711,8 @@ const translations = {
     paymentRedirect: 'Przekierowanie do Stripe...',
     paymentLoginRequired: 'Zaloguj się aby dokonać płatności',
     paymentCancelAnytime: 'Anuluj w każdej chwili',
+    shopCheckoutSuccess: 'Płatność udana! Premium aktywowane.',
+    shopCheckoutCancel: 'Płatność anulowana',
     // Guide
     guideTitle: 'PORADNIK',
     guideGettingStarted: '1. Pierwsze kroki',
@@ -2655,27 +2666,48 @@ const translations = {
   },
 } as const;
 
+/** Typ klucza tłumaczenia (wszystkie klucze z języka angielskiego). */
 export type TranslationKey = keyof typeof translations['en'];
 
+/** Lista obsługiwanych kodów językowych. */
 const SUPPORTED_LANGS: LangCode[] = ['en', 'pl', 'de', 'fr', 'es', 'it', 'nl', 'pt', 'cs', 'sk', 'hu', 'ro', 'sv', 'da', 'no', 'fi', 'hr', 'bg', 'el', 'et', 'lv', 'lt', 'sl'];
 
+/**
+ * Wykrywa język przeglądarki (navigator.language) i zwraca jeśli jest wspierany,
+ * w przeciwnym razie 'en'.
+ */
 function detectLang(): LangCode {
   const nav = navigator.language || '';
   const code = nav.split('-')[0].toLowerCase() as LangCode;
   return SUPPORTED_LANGS.includes(code) ? code : 'en';
 }
 
+/** Aktualnie wybrany język (z localStorage lub wykryty). */
 let currentLang: LangCode = (localStorage.getItem('novactorio_lang') as LangCode) || detectLang();
 
+/**
+ * Ustawia język aplikacji i zapisuje w localStorage.
+ * @param lang Kod języka.
+ */
 export function setLang(lang: LangCode): void {
   currentLang = lang;
   localStorage.setItem('novactorio_lang', lang);
 }
 
+/** Zwraca aktualnie wybrany kod języka. */
 export function getLang(): LangCode {
   return currentLang;
 }
 
+/**
+ * Zwraca przetłumaczony tekst dla danego klucza.
+ * Jeśli klucz nie istnieje w aktualnym języku, używa angielskiego.
+ * Jeśli nie istnieje w ogóle, zwraca sam klucz.
+ * Obsługuje podstawianie zmiennych przez {nazwa}.
+ * @param key Klucz tłumaczenia.
+ * @param vars Opcjonalne zmienne do podstawienia.
+ * @returns Przetłumaczony tekst.
+ */
 export function t(key: TranslationKey, vars?: Record<string, string | number>): string {
   const langDict = translations[currentLang] as Record<string, string>;
   const enDict = translations['en'] as Record<string, string>;

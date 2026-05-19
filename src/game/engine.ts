@@ -10,34 +10,64 @@ import {
   canAffordBuilding, payBuildingCost, getBuildingCost, grantXPToPlayer, getTileAt, checkAchievements,
 } from './systems';
 
+/**
+ * Główny silnik gry – zarządza pętlą gry, stanem, wejściem i renderowaniem.
+ * Łączy w sobie logikę aktualizacji systemów (ECS) z obsługą zdarzeń klawiatury/myszy/dotyku.
+ */
 export class GameEngine {
+  /** Aktualny stan gry – gracz, chunk, budynki, NPC, wrogowie itd. */
   state: GameState;
+  /** Renderer odpowiedzialny za wyświetlanie gry na canvasie. */
   renderer: GameRenderer;
+  /** Zbiór aktualnie wciśniętych klawiszy (lowercase). */
   keys: Set<string> = new Set();
+  /** Stan myszy (współrzędne ekranowe, światowe, przyciski). */
   mouse: { x: number; y: number; worldX: number; worldY: number; down: boolean; rightDown: boolean } = {
     x: 0, y: 0, worldX: 0, worldY: 0, down: false, rightDown: false,
   };
+  /** Aktualnie wybrany typ budynku do postawienia (null = brak). */
   selectedBuilding: string | null = null;
+  /** Kierunek stawianego budynku. */
   selectedDirection: string = 'right';
+  /** Wybrany przepis (receptura) dla maszyn. */
   selectedRecipe: string | null = null;
+  /** Czy pętla gry jest aktywna. */
   running = false;
+  /** Znacznik czasu poprzedniej klatki (do liczenia delty). */
   lastTime = 0;
+  /** Akumulator czasu do stałego tickowania (16.67 ms na tick). */
   tickAccumulator = 0;
+  /** Callback wywoływany po każdej zmianie stanu (np. do synchronizacji z Reactem). */
   onStateChange?: (state: GameState) => void;
+  /** Callback wywoływany przy stawianiu/usuwaniu budynków przez gracza. */
   onBuildingAction?: (action: 'place' | 'remove', type: string, x: number, y: number, dir: string) => void;
+  /** Kafelek nad którym aktualnie znajduje się kursor myszy. */
   hoveredTile: { x: number; y: number } | null = null;
+  /** Lista powiadomień wyświetlanych graczowi. */
   notifications: { text: string; timer: number; type?: string }[] = [];
+  /** Czy gracz aktualnie się porusza. */
   isPlayerMoving = false;
+  /** Docelowy zoom kamery (płynnie animowany). */
   private targetZoom = 1.5;
+  /** Opóźnienie między kolejnymi kopaniami (cooldown w tickach). */
   private miningCooldown = 0;
+  /** Ostatni skopany kafelek (do uniknięcia wielokrotnego kopania w tym samym miejscu). */
   private lastMinedTile = '';
 
+  /**
+   * Tworzy nowy silnik gry i podpina go pod element canvas.
+   * @param canvas - Element canvas, na którym będzie renderowana gra.
+   */
   constructor(canvas: HTMLCanvasElement) {
     this.state = this.createInitialState();
     this.renderer = new GameRenderer(canvas);
     this.setupInput(canvas);
   }
 
+  /**
+   * Tworzy początkowy stan gry z domyślnymi wartościami dla gracza, ekwipunku,
+   * kamery, drzewa badań oraz pustych kolekcji (chunki, budynki, NPC itp.).
+   */
   private createInitialState(): GameState {
     const research = new Map<string, GameState['research'] extends Map<string, infer V> ? V : never>();
     for (const [key, val] of Object.entries(RESEARCH_TREE)) {
@@ -107,6 +137,11 @@ export class GameEngine {
     };
   }
 
+  /**
+   * Ustawia nasłuchiwanie zdarzeń wejścia (klawiatura, mysz, dotyk, scroll).
+   * Rejestruje handler dla keydown, keyup, mousemove, mousedown, mouseup,
+   * contextmenu, touchstart, touchmove, touchend oraz wheel.
+   */
   private setupInput(canvas: HTMLCanvasElement) {
     this.keyDownHandler = (e) => {
       const tag = (e.target as HTMLElement)?.tagName;
@@ -220,7 +255,10 @@ export class GameEngine {
     }, { passive: false });
   }
 
-  /** Mobile: mine tile directly in front of / under the player */
+  /**
+   * Kopanie kafelka przed graczem (w kierunku, w którym patrzy).
+   * Używane głównie na urządzeniach mobilnych jako zamiennik kliknięcia.
+   */
   mineInFront() {
     const { player } = this.state;
     const offsets: Record<string, [number, number]> = {
@@ -234,6 +272,11 @@ export class GameEngine {
     }
   }
 
+  /**
+   * Atakuje najbliższego wroga w zasięgu gracza (5 kratek).
+   * Uwzględnia bonus z badań militarnych.
+   * @returns true jeżeli znaleziono i zaatakowano wroga.
+   */
   attackNearestEnemy(): boolean {
     const { player } = this.state;
     const range = 5;
@@ -258,10 +301,15 @@ export class GameEngine {
     return true;
   }
 
+  /** Odznacza wybrany budynek (anuluje tryb stawiania). */
   cancelBuilding() {
     this.selectedBuilding = null;
   }
 
+  /**
+   * Usuwa najbliższy budynek w zasięgu gracza.
+   * @returns true jeżeli usunięto budynek.
+   */
   removeNearestBuilding(): boolean {
     const { player } = this.state;
     let nearest: { key: string; building: { x: number; y: number; type: string } } | null = null;
@@ -284,6 +332,10 @@ export class GameEngine {
     return false;
   }
 
+  /**
+   * Uruchamia główną pętlę gry: inicjalizuje ziarno świata, generuje początkowe
+   * chunki, spawnuje pierwszych NPC i wywołuje pętlę renderowania.
+   */
   start() {
     this.running = true;
     // Apply per-player world seed before generating any chunks
@@ -302,7 +354,11 @@ export class GameEngine {
     this.loop();
   }
 
-  /** Call before start() to tie the world seed to the logged-in username */
+  /**
+   * Ustawia ziarno świata na podstawie nazwy użytkownika.
+   * Wywołać przed start(), aby świat był unikalny dla gracza.
+   * @param username - Nazwa użytkownika, z której generowany jest hash.
+   */
   setSeedFromUsername(username: string) {
     let hash = 0;
     for (let i = 0; i < username.length; i++) {
@@ -312,15 +368,22 @@ export class GameEngine {
     this.state.worldSeed = Math.abs(hash) % 900000 + 100000;
   }
 
+  /** Handler zdarzenia keydown – przechowuje referencję do usunięcia nasłuchiwania. */
   private keyDownHandler: ((e: KeyboardEvent) => void) | null = null;
+  /** Handler zdarzenia keyup – przechowuje referencję do usunięcia nasłuchiwania. */
   private keyUpHandler: ((e: KeyboardEvent) => void) | null = null;
 
+  /** Zatrzymuje pętlę gry i usuwa nasłuchiwacze zdarzeń klawiatury. */
   stop() {
     this.running = false;
     if (this.keyDownHandler) { window.removeEventListener('keydown', this.keyDownHandler); this.keyDownHandler = null; }
     if (this.keyUpHandler) { window.removeEventListener('keyup', this.keyUpHandler); this.keyUpHandler = null; }
   }
 
+  /**
+   * Główna pętla gry – wywoływana przez requestAnimationFrame.
+   * Oblicza deltę czasu, akumuluje ticki i aktualizuje stan, a następnie renderuje.
+   */
   private loop = () => {
     if (!this.running) return;
 
@@ -342,6 +405,10 @@ export class GameEngine {
     requestAnimationFrame(this.loop);
   };
 
+  /**
+   * Pojedynczy tick gry – aktualizuje pozycję gracza, kamerę, generuje chunki,
+   * obsługuje akcje myszy i wszystkie systemy (produkcja, NPC, wrogowie itd.).
+   */
   private update() {
     const state = this.state;
     state.tick++;
@@ -395,6 +462,7 @@ export class GameEngine {
     this.onStateChange?.(state);
   }
 
+  /** Aktualizuje pozycję gracza na podstawie wciśniętych klawiszy (WASD/strzałki). */
   private updatePlayerMovement() {
     const { player } = this.state;
     let dx = 0, dy = 0;
@@ -423,6 +491,7 @@ export class GameEngine {
     }
   }
 
+  /** Płynnie przesuwa kamerę za graczem i aktualizuje zoom (lerp). */
   private updateCamera() {
     const state = this.state;
     const targetCamX = state.player.x * TILE_SIZE;
@@ -433,6 +502,7 @@ export class GameEngine {
     state.camera.zoom += (this.targetZoom - state.camera.zoom) * 0.12;
   }
 
+  /** Generuje chunki wokół gracza i usuwa te zbyt odległe (LOD). */
   private generateChunksAroundPlayer() {
     const px = Math.floor(this.state.player.x / CHUNK_SIZE);
     const py = Math.floor(this.state.player.y / CHUNK_SIZE);
@@ -457,6 +527,11 @@ export class GameEngine {
     }
   }
 
+  /**
+   * Obsługuje akcje myszy/dotyku: stawianie budynków (LPM), kopanie (LPM bez
+   * wybranego budynku), usuwanie / zwrot kosztów (PPM), kolejkowanie budowy (PPM
+   * z wybranym budynkiem).
+   */
   private handleMouseActions() {
     if (!this.hoveredTile) return;
     const { x, y } = this.hoveredTile;
@@ -548,6 +623,7 @@ export class GameEngine {
     }
   }
 
+  /** Generuje ambientowe cząsteczki (świetliki w nocy, kurz przy górnikach). */
   private spawnAmbientParticles() {
     const state = this.state;
     // Ambient fireflies at night
@@ -568,19 +644,38 @@ export class GameEngine {
     }
   }
 
+  /** Zwraca aktualnie najechany kafelek. */
   getHoveredTile() { return this.hoveredTile; }
+  /** Zwraca aktualnie wybrany typ budynku. */
   getSelectedBuilding() { return this.selectedBuilding; }
+  /** Zwraca aktualnie wybrany kierunek stawiania. */
   getSelectedDirection() { return this.selectedDirection; }
+  /** Sprawdza czy gracza stać na wybrany budynek. */
   canAffordSelected() { return this.selectedBuilding ? canAffordBuilding(this.state, this.selectedBuilding) : false; }
 
+  /**
+   * Dodaje powiadomienie do kolejki wyświetlania.
+   * @param text - Treść powiadomienia.
+   * @param type - Typ (info, error, success, build).
+   */
   addNotification(text: string, type: 'info' | 'error' | 'success' | 'build' = 'info') {
     this.notifications.push({ text, timer: 180, type });
   }
 
+  /**
+   * Przyznaje graczowi punkty doświadczenia (z powiadomieniem).
+   * @param amount - Liczba punktów PD.
+   */
   grantXP(amount: number) {
     grantXPToPlayer(this.state, amount, (msg) => this.addNotification(msg));
   }
 
+  /**
+   * Ustawia przepis (recepturę) dla budynku (assembler / furnace).
+   * @param x - Współrzędna X budynku.
+   * @param y - Współrzędna Y budynku.
+   * @param recipeId - Identyfikator przepisu.
+   */
   setRecipeForBuilding(x: number, y: number, recipeId: string) {
     const key = `${x},${y}`;
     const building = this.state.buildings.get(key);
@@ -593,6 +688,11 @@ export class GameEngine {
     }
   }
 
+  /**
+   * Rozpoczyna badanie technologii – wymaga laboratorium i spełnienia
+   * prerequisite'ów.
+   * @param researchId - Identyfikator technologii do zbadania.
+   */
   startResearch(researchId: string) {
     const research = this.state.research.get(researchId);
     if (!research || research.unlocked) return;
@@ -607,6 +707,7 @@ export class GameEngine {
     this.addNotification('Build a Lab first!');
   }
 
+  /** Zwraca uproszczony, możliwy do serializacji stan gry (do zapisu / wysyłki). */
   getSerializableState() {
     const state = this.state;
     return {
@@ -622,6 +723,11 @@ export class GameEngine {
     };
   }
 
+  /**
+   * Wczytuje stan gry z obiektu zapisu (SaveData).
+   * Przywraca ticki, gracza, budynki, badania, NPC i odświeża referencje budynków w chunkach.
+   * @param save - Dane zapisu.
+   */
   loadFromSave(save: import('../lib/saveSystem').SaveData): void {
     this.state.tick = save.tick ?? 0;
     this.state.pollution = save.pollution ?? 0;
@@ -699,15 +805,31 @@ export class GameEngine {
     this.addNotification('Game loaded!', 'success');
   }
 
+  /**
+   * Aktualizuje pozycję odwiedzającego w trybie kooperacji.
+   * @param id - Identyfikator odwiedzającego.
+   * @param username - Nazwa gracza.
+   * @param x - Współrzędna X.
+   * @param y - Współrzędna Y.
+   * @param color - Kolor gracza.
+   */
   updateCoopVisitor(id: string, username: string, x: number, y: number, color: string) {
     if (!this.state.coopVisitors) this.state.coopVisitors = new Map();
     this.state.coopVisitors.set(id, { username, x, y, color });
   }
 
+  /** Usuwa odwiedzającego z listy kooperacji. */
   removeCoopVisitor(id: string) {
     this.state.coopVisitors?.delete(id);
   }
 
+  /**
+   * Stawia budynek w imieniu zdalnego gracza (kooperacja).
+   * @param type - Typ budynku.
+   * @param x - Współrzędna X.
+   * @param y - Współrzędna Y.
+   * @param dir - Kierunek.
+   */
   placeBuildingFromCoop(type: string, x: number, y: number, dir: string) {
     const success = placeBuilding(this.state, type, x, y, dir, true);
     if (success) {

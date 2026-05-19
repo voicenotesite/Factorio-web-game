@@ -4,11 +4,13 @@ import { BUILDING_COLORS, RESOURCE_COLORS, RECIPES, CHUNK_SIZE } from '../game/c
 import { GameEngine } from '../game/engine';
 import { canAffordUpgrade, getUpgradeCost, upgradeBuilding } from '../game/systems';
 
+/** Props info budynku — silnik i stan gry (hoveredTile z engine). */
 interface Props {
   engine: GameEngine;
   state: GameState;
 }
 
+/** Przyjazne nazwy surowców. */
 const ITEM_NAMES: Record<string, string> = {
   iron: 'Iron', copper: 'Copper', stone: 'Stone', coal: 'Coal', wood: 'Wood',
   iron_plate: 'Iron Plate', copper_plate: 'Cu Plate', steel_plate: 'Steel Plate',
@@ -16,6 +18,7 @@ const ITEM_NAMES: Record<string, string> = {
   ammo: 'Ammo', pipe: 'Pipe',
 };
 
+/** Tooltip/popup info o budynku pod kursorem — zdrowie, poziom, upgrade, recipe progress, input/output inventory. */
 export default function BuildingInfo({ engine, state }: Props) {
   const { hoveredTile } = engine;
   if (!hoveredTile) return null;
@@ -47,7 +50,6 @@ export default function BuildingInfo({ engine, state }: Props) {
         backdropFilter: 'blur(16px)',
       }}
     >
-      {/* Header */}
       <div className="flex items-center gap-2.5 mb-3 pb-2.5" style={{ borderBottom: `1px solid ${bColor}15` }}>
         <div
           className="w-9 h-9 rounded-xl flex-shrink-0"
@@ -93,7 +95,6 @@ export default function BuildingInfo({ engine, state }: Props) {
         )}
       </div>
 
-      {/* Upgrade cost */}
       {building.level < 3 && upgradeCost.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-1">
           {upgradeCost.map(c => {
@@ -117,7 +118,6 @@ export default function BuildingInfo({ engine, state }: Props) {
         </div>
       )}
 
-      {/* Health */}
       <div className="mb-3">
         <div className="flex items-center justify-between text-[10px] mb-1.5">
           <span className="text-white/30">{t('bldgHealth')}</span>
@@ -139,7 +139,6 @@ export default function BuildingInfo({ engine, state }: Props) {
         </div>
       </div>
 
-      {/* Recipe progress */}
       {building.recipe && (
         <div className="mb-3">
           <div className="flex items-center justify-between text-[10px] mb-1.5">
@@ -159,7 +158,6 @@ export default function BuildingInfo({ engine, state }: Props) {
         </div>
       )}
 
-      {/* Inventories */}
       {building.inventory.length > 0 && (
         <div className="mb-2">
           <div className="text-[10px] text-white/25 mb-1">{t('bldgInput')}</div>
@@ -188,7 +186,6 @@ export default function BuildingInfo({ engine, state }: Props) {
         </div>
       )}
 
-      {/* Recipe selector */}
       {building.type === 'assembler' && (
         <div className="mt-3 pt-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
           <div className="text-[10px] text-white/25 mb-1.5 font-orbitron tracking-wider">{t('bldgSetRecipe')}</div>
@@ -211,7 +208,6 @@ export default function BuildingInfo({ engine, state }: Props) {
         </div>
       )}
 
-      {/* Footer info */}
       <div className="mt-2 pt-2 text-[9px] text-white/15" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
         Dir: <span className="text-white/25">{building.direction.toUpperCase()}</span>
         {tile && (

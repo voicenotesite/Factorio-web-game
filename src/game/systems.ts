@@ -10,9 +10,16 @@ import {
 } from './constants';
 import { getChunkKey, generateChunk } from './world';
 
+/**
+ * Systemy gry — logika budowania, produkcji, NPC, wrogów, zanieczyszczeń, badań, achievementów.
+ * Każda sekcja to niezależny moduł operujący na GameState.
+ */
+
 let nextId = 1;
+/** Generuje unikalne ID numeryczne dla encji (Building, NPC, Enemy itp.). */
 function genId(): string { return `${nextId++}`; }
 
+/** Offsete kierunków (up/down/left/right) w układzie współrzędnych kafelkowych. */
 const DIR_OFFSETS: Record<Direction, { dx: number; dy: number }> = {
   up: { dx: 0, dy: -1 }, down: { dx: 0, dy: 1 },
   left: { dx: -1, dy: 0 }, right: { dx: 1, dy: 0 },
@@ -43,19 +50,22 @@ const BUILDING_COSTS: Record<string, { itemId: string; count: number }[]> = {
   pipe:              [{ itemId: 'iron_plate', count: 2 }],
 };
 
+/** Zwraca koszt budowli w surowcach (pusta tablica = darmowa). */
 export function getBuildingCost(type: string): { itemId: string; count: number }[] {
   return BUILDING_COSTS[type] || [];
 }
 
+/** Sprawdza czy gracza stać na postawienie danej budowli. */
 export function canAffordBuilding(state: GameState, type: string): boolean {
   const cost = BUILDING_COSTS[type];
-  if (!cost) return true; // free buildings
+  if (!cost) return true;
   return cost.every(c => {
     const slot = state.player.inventory.find(s => s.itemId === c.itemId);
     return slot && slot.count >= c.count;
   });
 }
 
+/** Odejmuje koszt budowli z ekwipunku gracza (zwraca false jeśli nie stać). */
 export function payBuildingCost(state: GameState, type: string): boolean {
   const cost = BUILDING_COSTS[type];
   if (!cost) return true;
@@ -68,6 +78,7 @@ export function payBuildingCost(state: GameState, type: string): boolean {
 
 // ============ BUILDING SYSTEM ============
 
+/** Tworzy obiekt Building z domyślnymi wartościami (health, recipe=null, level=1). */
 export function createBuilding(type: string, x: number, y: number, direction: string): Building {
   const health = BUILDING_HEALTH[type] || 100;
   return {
@@ -79,6 +90,10 @@ export function createBuilding(type: string, x: number, y: number, direction: st
   };
 }
 
+/**
+ * Stawia budowlę na mapie: sprawdza czy area jest wolny, płaci koszt (chyba że skipPayment),
+ * rejestruje w state.buildings i state.conveyors (dla przenośników).
+ */
 export function placeBuilding(state: GameState, type: string, x: number, y: number, direction: string, skipPayment = false): boolean {
   const size = BUILDING_SIZES[type] || { w: 1, h: 1 };
 
@@ -129,6 +144,7 @@ export function placeBuilding(state: GameState, type: string, x: number, y: numb
   return true;
 }
 
+/** Usuwa budowlę z mapy i zwraca pełny koszt (refund). */
 export function removeBuilding(state: GameState, x: number, y: number): boolean {
   const key = `${x},${y}`;
   const building = state.buildings.get(key);
@@ -162,6 +178,7 @@ export function removeBuilding(state: GameState, x: number, y: number): boolean 
 
 // ============ CHUNK HELPER ============
 
+/** Pobiera chunk dla podanych współrzędnych tile'a, generując go jeśli nie istnieje. Restampuje budynki na nowych chunkach. */
 function getChunkAt(state: GameState, tx: number, ty: number) {
   const cx = Math.floor(tx / CHUNK_SIZE);
   const cy = Math.floor(ty / CHUNK_SIZE);
@@ -189,6 +206,7 @@ function getChunkAt(state: GameState, tx: number, ty: number) {
   return chunk;
 }
 
+/** Pobiera pojedynczy tile z chunka (generuje chunk jeśli potrzeba). */
 export function getTileAt(state: GameState, tx: number, ty: number) {
   const chunk = getChunkAt(state, tx, ty);
   const lx = ((tx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
@@ -198,6 +216,7 @@ export function getTileAt(state: GameState, tx: number, ty: number) {
 
 // ============ PRODUCTION SYSTEM ============
 
+/** Główna pętla produkcji — aktualizuje power grid, wszystkie budynki produkcyjne i auto-output co 60 ticków. */
 export function updateProduction(state: GameState) {
   // First: update power (boilers -> steam engines)
   updatePowerGrid(state);
@@ -254,6 +273,7 @@ export function updateProduction(state: GameState) {
   }
 }
 
+/** Aktualizuje górnika — wydobywa surowiec spod 2×2 area i dodaje do outputInventory. */
 function updateMiner(state: GameState, building: Building) {
   // Check all tiles under the miner (2x2)
   let foundResource = false;
@@ -299,6 +319,7 @@ function updateMiner(state: GameState, building: Building) {
   building.isActive = foundResource;
 }
 
+/** Aktualizuje piec — auto-detekcja przepisu z inputu, przetapianie rudy w sztabki. */
 function updateFurnace(state: GameState, building: Building) {
   // Auto-detect recipe from input
   if (!building.recipe) {
@@ -359,6 +380,7 @@ function updateFurnace(state: GameState, building: Building) {
   building.isActive = true;
 }
 
+/** Aktualizuje assembler — wykonuje ustawiony przepis (np. gear, circuit). */
 function updateAssembler(state: GameState, building: Building) {
   if (!building.recipe) { building.isActive = false; return; }
 
@@ -390,6 +412,7 @@ function updateAssembler(state: GameState, building: Building) {
   building.isActive = true;
 }
 
+/** Aktualizuje lab — konsumuje science packi i robi postęp w aktywnym badaniu. */
 function updateLab(state: GameState, building: Building) {
   // Find the first research that needs work
   for (const [, research] of state.research) {
@@ -425,6 +448,7 @@ function updateLab(state: GameState, building: Building) {
   building.isActive = false;
 }
 
+/** Aktualizuje radar — odsłania obszar w promieniu 12 tile'i. */
 function updateRadar(state: GameState, building: Building) {
   const radius = 12;
   for (let dy = -radius; dy <= radius; dy++) {
@@ -437,6 +461,7 @@ function updateRadar(state: GameState, building: Building) {
   building.isActive = true;
 }
 
+/** Aktualizuje wieżyczkę — szuka najbliższego wroga, obraca się i strzela amunicją co 20 ticków. */
 function updateTurret(state: GameState, building: Building) {
   const range = 12;
   let nearestEnemy: Enemy | null = null;
@@ -481,6 +506,7 @@ function updateTurret(state: GameState, building: Building) {
   }
 }
 
+/** Aktualizuje pumpjack — wydobywa ropę spod 2×2 area. */
 function updatePumpjack(state: GameState, building: Building) {
   // Check for oil under the 2x2 area
   let foundOil = false;
@@ -506,6 +532,7 @@ function updatePumpjack(state: GameState, building: Building) {
   building.isActive = foundOil;
 }
 
+/** Aktualizuje rafinerię — auto-detekcja przepisu (oil refining / cracking) z inputu. */
 function updateRefinery(state: GameState, building: Building) {
   // Auto-detect recipe from input
   if (!building.recipe) {
@@ -574,6 +601,7 @@ function updateRefinery(state: GameState, building: Building) {
   building.isActive = true;
 }
 
+/** Aktualizuje plantę chemiczną — auto-detekcja przepisu chemistry z RECIPES. */
 function updateChemicalPlant(state: GameState, building: Building) {
   // Works like assembler but for chemistry category recipes
   // Auto-detects recipe from input items
@@ -634,6 +662,7 @@ function updateChemicalPlant(state: GameState, building: Building) {
 
 // ============ POWER GRID ============
 
+/** Aktualizuje sieć energetyczną: boilery spalają węgiel → para, steam enginy zbierają parę. */
 function updatePowerGrid(state: GameState) {
   // Boilers consume coal and produce steam
   for (const [, building] of state.buildings) {
@@ -669,6 +698,7 @@ function updatePowerGrid(state: GameState) {
 
 // ============ CONVEYOR & INSERTER SYSTEM ============
 
+/** Aktualizuje insertery (przenoszą itemy między buildingami) i przenośniki (przesuwają itemy). Obsługuje też underground belt i splittery. */
 export function updateConveyors(state: GameState) {
   // Update inserters FIRST (they move items between buildings)
   for (const [, inserter] of state.buildings) {
@@ -857,6 +887,7 @@ export function updateConveyors(state: GameState) {
   }
 }
 
+/** Zwraca liste typów itemów akceptowanych przez dany typ budynku (lub 'any' = wszystkie). */
 function getAcceptedItemTypes(buildingType: string): string[] | 'any' {
   switch (buildingType) {
     case 'furnace': return ['iron', 'copper', 'stone', 'iron_plate']; // raw ores + iron_plate for steel
@@ -874,6 +905,7 @@ function getAcceptedItemTypes(buildingType: string): string[] | 'any' {
 
 // ============ NPC SYSTEM ============
 
+/** Spawnuje NPC (worker/guard/scout/trader/settler) z dynamicznym capem: 4 + 1 per 20 budynków. */
 export function spawnNPCs(state: GameState) {
   // Dynamic NPC cap: 4 at start, +1 per 20 buildings placed, max NPC_MAX
   const effectiveMax = Math.min(NPC_MAX, 4 + Math.floor(state.statistics.buildingsPlaced / 20));
@@ -903,12 +935,14 @@ export function spawnNPCs(state: GameState) {
   state.npcs.set(npc.id, npc);
 }
 
+/** Zadanie zaopatrzenia dla NPC: źródło → destination z ilością. */
 interface SupplyJob {
   srcId: string; srcX: number; srcY: number;
   dstId: string; dstX: number; dstY: number;
   itemId: string; amount: number;
 }
 
+/** Szuka najbardziej pilnego zadania zaopatrzenia (boiler bez węgla, piec bez rudy, itp.). */
 function findSupplyJob(state: GameState, buildingList: Building[]): SupplyJob | null {
   type Need = { building: Building; itemId: string; urgency: number };
   const needs: Need[] = [];
@@ -995,6 +1029,7 @@ function findSupplyJob(state: GameState, buildingList: Building[]): SupplyJob | 
   return null;
 }
 
+/** Aktualizuje wszystkich NPC — FSM stanów (idle/moving/working/trading/fleeing). Workerzy budują i zaopatrują, guardzi walczą, reszta unika wrogów. */
 export function updateNPCs(state: GameState) {
   const buildingList = Array.from(state.buildings.values());
 
@@ -1292,6 +1327,7 @@ export function updateNPCs(state: GameState) {
 
 // ============ ENEMY SYSTEM ============
 
+/** Spawnuje wrogów ze spawnerów + tworzy nowe spawnery z dala od gracza co 600 ticków. */
 export function spawnEnemies(state: GameState) {
   if (state.enemies.size >= ENEMY_MAX) return;
 
@@ -1336,6 +1372,7 @@ export function spawnEnemies(state: GameState) {
   }
 }
 
+/** Aktualizuje wrogów — ruch w stronę celu (budynek lub gracz), atak, śmierć. */
 export function updateEnemies(state: GameState) {
   for (const [, enemy] of state.enemies) {
     enemy.attackCooldown = Math.max(0, enemy.attackCooldown - 1);
@@ -1406,6 +1443,7 @@ export function updateEnemies(state: GameState) {
 
 // ============ POLLUTION & EVOLUTION ============
 
+/** Aktualizuje zanieczyszczenie generowane przez kopalnie/piece/boilery i ewolucję wrogów (pollution * 0.00008). */
 export function updatePollution(state: GameState) {
   let totalPollution = 0;
   for (const [, building] of state.buildings) {
@@ -1432,6 +1470,7 @@ export function updatePollution(state: GameState) {
 
 // ============ PARTICLE SYSTEM ============
 
+/** Tworzy cząsteczkę (resource/fire/spark/explosion/smoke) z losową prędkością i lifetime. */
 export function spawnParticle(state: GameState, x: number, y: number, type: Particle['type'], color: string) {
   if (state.particles.length >= MAX_PARTICLES) state.particles.shift();
   const angle = Math.random() * Math.PI * 2;
@@ -1445,6 +1484,7 @@ export function spawnParticle(state: GameState, x: number, y: number, type: Part
   });
 }
 
+/** Aktualizuje pozycje i lifetime wszystkich cząsteczek. */
 export function updateParticles(state: GameState) {
   for (let i = state.particles.length - 1; i >= 0; i--) {
     const p = state.particles[i];
@@ -1458,6 +1498,7 @@ export function updateParticles(state: GameState) {
 
 // ============ WORLD EVENTS ============
 
+/** Generuje i aktualizuje zdarzenia świata (meteor, raid, trade caravan, resource vein). */
 export function updateWorldEvents(state: GameState) {
   if (state.tick % 1800 === 0 && Math.random() < 0.3) {
     const types: WorldEvent['type'][] = ['meteor', 'raid', 'trade_caravan', 'resource_vein'];
@@ -1537,6 +1578,7 @@ export function updateWorldEvents(state: GameState) {
 
 // ============ WEATHER ============
 
+/** Zmienia pogodę (clear/rain/storm/fog) losowo co 3000-6000 ticków. */
 export function updateWeather(state: GameState) {
   state.weatherTimer--;
   if (state.weatherTimer <= 0) {
@@ -1548,6 +1590,7 @@ export function updateWeather(state: GameState) {
 
 // ============ RESEARCH ============
 
+/** Aplikuje efekty odblokowanego badania (miningSpeed, craftingSpeed, playerSpeed, playerHealth). */
 function applyResearchEffects(state: GameState, researchId: string) {
   const research = state.research.get(researchId);
   if (!research) return;
@@ -1563,18 +1606,21 @@ function applyResearchEffects(state: GameState, researchId: string) {
 
 // ============ INVENTORY HELPERS ============
 
+/** Dodaje item do input inventory budynku (stackowanie lub push). */
 function addItemToBuilding(building: Building, itemId: string, count: number) {
   const slot = building.inventory.find(s => s.itemId === itemId);
   if (slot) slot.count += count;
   else building.inventory.push({ itemId, count });
 }
 
+/** Dodaje item do output inventory budynku. */
 function addItemToBuildingOutput(building: Building, itemId: string, count: number) {
   const slot = building.outputInventory.find(s => s.itemId === itemId);
   if (slot) slot.count += count;
   else building.outputInventory.push({ itemId, count });
 }
 
+/** Usuwa item z input inventory budynku (usuwa slot jeśli count <= 0). */
 function removeItemFromBuilding(building: Building, itemId: string, count: number) {
   const slot = building.inventory.find(s => s.itemId === itemId);
   if (slot) {
@@ -1583,6 +1629,7 @@ function removeItemFromBuilding(building: Building, itemId: string, count: numbe
   }
 }
 
+/** Usuwa item z output inventory budynku. */
 function removeItemFromBuildingOutput(building: Building, itemId: string, count: number) {
   const slot = building.outputInventory.find(s => s.itemId === itemId);
   if (slot) {
@@ -1591,12 +1638,14 @@ function removeItemFromBuildingOutput(building: Building, itemId: string, count:
   }
 }
 
+/** Dodaje item do ekwipunku gracza (stackowanie lub push). */
 export function addItemToPlayer(state: GameState, itemId: string, count: number) {
   const slot = state.player.inventory.find(s => s.itemId === itemId);
   if (slot) slot.count += count;
   else state.player.inventory.push({ itemId, count });
 }
 
+/** Usuwa item z ekwipunku gracza (zwraca false jeśli brakuje). */
 export function removeItemFromPlayer(state: GameState, itemId: string, count: number): boolean {
   const slot = state.player.inventory.find(s => s.itemId === itemId);
   if (!slot || slot.count < count) return false;
@@ -1607,15 +1656,19 @@ export function removeItemFromPlayer(state: GameState, itemId: string, count: nu
 
 // ============ BUILDING UPGRADE ============
 
+/** Koszty ulepszeń dla poziomów 2→3. */
+
 const UPGRADE_COSTS: Record<number, { itemId: string; count: number }[]> = {
   2: [{ itemId: 'iron_plate', count: 10 }, { itemId: 'circuit', count: 5 }],
   3: [{ itemId: 'steel_plate', count: 10 }, { itemId: 'advanced_circuit', count: 5 }],
 };
 
+/** Zwraca koszt ulepszenia budynku z poziomu `level` do `level+1`. */
 export function getUpgradeCost(level: number): { itemId: string; count: number }[] {
   return UPGRADE_COSTS[level + 1] || [];
 }
 
+/** Sprawdza czy gracza stać na ulepszenie budynku z danego poziomu. */
 export function canAffordUpgrade(state: GameState, level: number): boolean {
   const cost = UPGRADE_COSTS[level + 1];
   if (!cost) return false;
@@ -1625,6 +1678,7 @@ export function canAffordUpgrade(state: GameState, level: number): boolean {
   });
 }
 
+/** Ulepsza budynek (max level 3): zwiększa level, health×1.5, zdejmuje koszt. */
 export function upgradeBuilding(state: GameState, x: number, y: number): boolean {
   const key = `${x},${y}`;
   const building = state.buildings.get(key);
@@ -1650,6 +1704,7 @@ export function upgradeBuilding(state: GameState, x: number, y: number): boolean
 
 // ============ PLAYER MINING ============
 
+/** Ręczne kopanie surowca przez gracza — 1 jednostka na interakcję. */
 export function playerMine(state: GameState, tx: number, ty: number) {
   const tile = getTileAt(state, tx, ty);
   if (tile.resource && tile.resourceAmount > 0 && tile.resource !== 'water') {
@@ -1666,6 +1721,7 @@ export function playerMine(state: GameState, tx: number, ty: number) {
 
 // ============ XP & LEVEL SYSTEM ============
 
+/** Dodaje XP graczowi, sprawdza level-up (wymagane level*500 XP na level), daje gem i powiadomienie. */
 export function grantXPToPlayer(state: GameState, amount: number, notify?: (msg: string) => void) {
   state.player.xp += amount;
   // Require level * 500 XP per level (5× slower progression)
@@ -1685,6 +1741,8 @@ export function grantXPToPlayer(state: GameState, amount: number, notify?: (msg:
 }
 
 // ============ ACHIEVEMENT SYSTEM ============
+
+/** Definicja achievementu z funkcją check(state). */
 
 interface AchievementDef {
   id: string;
@@ -1711,6 +1769,7 @@ const ACHIEVEMENT_DEFS: AchievementDef[] = [
   { id: 'survivor',          name: 'Survivor',            description: 'Play for 30 minutes.',                       check: s => s.statistics.timePlayed >= 60 * 30 * 60 },
 ];
 
+/** Sprawdza wszystkie achievementy i odblokowuje nowe (z nagrodą gems). */
 export function checkAchievements(state: GameState) {
   for (const def of ACHIEVEMENT_DEFS) {
     if (state.player.achievements.includes(def.id)) continue;
@@ -1723,10 +1782,10 @@ export function checkAchievements(state: GameState) {
   }
 }
 
+/** Katalog osiągnięć do wyświetlenia w UI (bez funkcji check). */
 export const ACHIEVEMENT_CATALOG = ACHIEVEMENT_DEFS.map(({ id, name, description }) => ({ id, name, description }));
 
-
-
+/** Odsłania obszar w promieniu 8 tile'i wokół gracza (visibility = 1). */
 export function updateVisibility(state: GameState) {
   const radius = 8;
   const px = Math.floor(state.player.x);

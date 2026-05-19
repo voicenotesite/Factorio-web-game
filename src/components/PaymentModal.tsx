@@ -3,15 +3,18 @@ import { t } from '../lib/i18n';
 import { getCurrentUser, getCurrentUserId } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 
+/** Definicje planów subskrypcyjnych z cenami i Stripe Price ID. */
 const PLANS = [
   { id: 'starter', name: 'STARTER', price: 9.99, color: '#f59e0b', priceId: 'price_1TYW6EK4E5IHLVVAW4SaLTXU' },
   { id: 'premium', name: 'PREMIUM', price: 24.99, color: '#a78bfa', priceId: 'price_1TYW9LK4E5IHLVVAZrXNVjWk' },
 ];
 
+/** Props modala płatności — callback zamknięcia. */
 interface Props {
   onClose: () => void;
 }
 
+/** Modal płatności Stripe — wybór planu (STARTER/PREMIUM) i przekierowanie do Stripe Checkout. */
 export default function PaymentModal({ onClose }: Props) {
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'premium'>('starter');
   const [loading, setLoading] = useState(false);
@@ -22,6 +25,7 @@ export default function PaymentModal({ onClose }: Props) {
 
   const plan = PLANS.find(p => p.id === selectedPlan)!;
 
+  /** Wywołuje Edge Function stripe-checkout i redirectuje do Stripe. */
   const handleCheckout = async () => {
     setLoading(true);
     setError('');
@@ -40,7 +44,6 @@ export default function PaymentModal({ onClose }: Props) {
       if (fnError) throw new Error(fnError.message)
       if (!data?.url) throw new Error('No checkout URL returned')
 
-      // Redirect to Stripe Checkout
       window.location.href = data.url
     } catch (e: any) {
       setError(e.message || 'Payment error. Please try again.')
@@ -63,7 +66,6 @@ export default function PaymentModal({ onClose }: Props) {
           boxShadow: '0 0 60px rgba(0,0,0,0.8), inset 0 1px 0 rgba(216,128,16,0.06)',
         }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-orbitron font-bold tracking-wider text-base" style={{ color: '#d88010' }}>
             💳 {t('selectPlan').toUpperCase()}
@@ -89,7 +91,6 @@ export default function PaymentModal({ onClose }: Props) {
         )}
 
         <div className="space-y-4">
-          {/* Plan selector */}
           <div>
             <label className="block text-[10px] font-orbitron tracking-widest text-white/30 mb-2 uppercase">
               {t('selectPlan')}
@@ -116,7 +117,6 @@ export default function PaymentModal({ onClose }: Props) {
             </div>
           </div>
 
-          {/* Payment info */}
           <div className="p-3 rounded-xl text-xs"
             style={{
               background: 'rgba(255,255,255,0.02)',
@@ -128,7 +128,6 @@ export default function PaymentModal({ onClose }: Props) {
             {plan.name === 'PREMIUM' ? '24.99 zł/mies.' : '9.99 zł/mies.'} · {t('paymentCancelAnytime')}
           </div>
 
-          {/* Pay button */}
           <button
             onClick={handleCheckout}
             disabled={loading || !userId}

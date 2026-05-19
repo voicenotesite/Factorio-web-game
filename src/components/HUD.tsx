@@ -3,11 +3,13 @@ import { GameState } from '../game/types';
 import { BUILDING_COLORS, RESOURCE_COLORS } from '../game/constants';
 import { t } from '../lib/i18n';
 
+/** Props HUD — stan gry (do odczytu health, XP, inventory, pogoda) i lista powiadomień. */
 interface Props {
   state: GameState;
   notifications: { text: string; timer: number; type?: string }[];
 }
 
+/** Ikony surowców używane w hotbarze i statystykach. */
 const RESOURCE_ICONS: Record<string, string> = {
   iron: '⬡', copper: '◆', stone: '▲', coal: '◼', wood: '⬟',
   iron_plate: '▣', copper_plate: '◈', steel_plate: '⬠', gear: '⚙',
@@ -15,6 +17,15 @@ const RESOURCE_ICONS: Record<string, string> = {
   science_blue: '◎', oil: '⬭', uranium: '⬬',
 };
 
+/**
+ * Heads-Up Display — nakładka UI na Canvas. Pokazuje:
+ * - pasek zdrowia, XP, poziom
+ * - pasek dnia/nocy i pogodę
+ * - minimapę (Canvas)
+ * - powiadomienia
+ * - hotbar ekwipunku (10 slotów)
+ * - badge'y metryk (tick, pollution, evolution)
+ */
 export default function HUD({ state, notifications }: Props) {
   const dayProgress = state.dayTime / state.dayLength;
   const isDay = dayProgress > 0.25 && dayProgress < 0.75;
@@ -264,6 +275,7 @@ export default function HUD({ state, notifications }: Props) {
   );
 }
 
+/** Pojedynczy badge metryki w centrum HUD (tick, evolution, smog). */
 function MetricBadge({ label, value, color, glow }: { label: string; value: string; color?: string; glow?: string }) {
   return (
     <div className="flex flex-col items-center">
@@ -281,6 +293,7 @@ function MetricBadge({ label, value, color, glow }: { label: string; value: stri
   );
 }
 
+/** Minimapa w rogu ekranu — rysuje chunki, budynki, surowce, wrogów i NPC na Canvas 2D. Skaluje świat 2px na tile. */
 function Minimap({ state, size = 176 }: { state: GameState; size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 

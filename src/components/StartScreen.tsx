@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { t } from '../lib/i18n';
 
+/** Props ekranu startowego — callback po kliknięciu "Rozpocznij". */
 interface Props { onStart: () => void; }
 
+/** Pojedyncza iskra/ember z komina fabryki (Canvas 2D particles). */
 interface Spark {
   x: number; y: number;
   vx: number; vy: number;
@@ -10,6 +12,7 @@ interface Spark {
   size: number;
 }
 
+/** Pozycje budynków fabryki w tle (normalized 0..1). */
 const BUILDINGS = [
   { x: 0.00, y: 0.72, w: 0.14, h: 0.28, chimneys: [0.04, 0.11] },
   { x: 0.12, y: 0.62, w: 0.12, h: 0.38, chimneys: [0.17] },
@@ -21,11 +24,13 @@ const BUILDINGS = [
   { x: 0.86, y: 0.64, w: 0.16, h: 0.36, chimneys: [0.90, 0.97] },
 ];
 
+/** Ekran startowy z animowaną fabryką na Canvas 2D, efektem iskier, tytułem i przyciskiem START. */
 export default function StartScreen({ onStart }: Props) {
   const [phase, setPhase] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sparksRef = useRef<Spark[]>([]);
 
+  /** Phase timing: 0→1→2→3 z opóźnieniami dla animacji wejścia. */
   useEffect(() => {
     const t1 = setTimeout(() => setPhase(1), 100);
     const t2 = setTimeout(() => setPhase(2), 500);
@@ -33,6 +38,7 @@ export default function StartScreen({ onStart }: Props) {
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
+  /** Pętla Canvas: rysuje budynki, emituje iskry z kominów, aktualizuje pozycje. */
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -64,7 +70,6 @@ export default function StartScreen({ onStart }: Props) {
       const H = canvas.height = canvas.offsetHeight;
       ctx.clearRect(0, 0, W, H);
 
-      // Warm atmospheric glow from factory base
       const atm = ctx.createRadialGradient(W / 2, H * 1.1, 0, W / 2, H * 0.4, H);
       atm.addColorStop(0, 'rgba(180,90,8,0.20)');
       atm.addColorStop(0.3, 'rgba(140,65,5,0.10)');
@@ -73,7 +78,6 @@ export default function StartScreen({ onStart }: Props) {
       ctx.fillStyle = atm;
       ctx.fillRect(0, 0, W, H);
 
-      // Factory silhouettes
       for (const b of BUILDINGS) {
         const bx = b.x * W, by = b.y * H, bw = b.w * W, bh = b.h * H;
         ctx.fillStyle = '#06080a';
@@ -103,14 +107,12 @@ export default function StartScreen({ onStart }: Props) {
         ctx.fillRect(bx + bw - 1, by, 1, bh);
       }
 
-      // Ground ambient
       const gnd = ctx.createLinearGradient(0, H * 0.90, 0, H);
       gnd.addColorStop(0, 'rgba(180,90,8,0.12)');
       gnd.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = gnd;
       ctx.fillRect(0, H * 0.90, W, H * 0.10);
 
-      // Sparks / embers
       emit(W, H);
       const alive: Spark[] = [];
       for (const s of sparksRef.current) {
@@ -144,6 +146,7 @@ export default function StartScreen({ onStart }: Props) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  /** Zwraca style opacity/transform dla animacji wejścia elementów w zależności od phase. */
   const vis = (n: number, delay = 0): React.CSSProperties => ({
     opacity: phase >= n ? 1 : 0,
     transform: phase >= n ? 'none' : 'translateY(12px)',
@@ -158,13 +161,11 @@ export default function StartScreen({ onStart }: Props) {
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
       <div className="absolute inset-0 bg-factory-grid pointer-events-none" />
 
-      {/* Top & bottom hazard bars */}
       {(['top-0', 'bottom-0'] as const).map(pos => (
         <div key={pos} className={`absolute ${pos} left-0 right-0 h-[3px] pointer-events-none`}
           style={{ background: 'repeating-linear-gradient(90deg, #d88010 0, #d88010 18px, transparent 18px, transparent 36px)' }} />
       ))}
 
-      {/* Corner brackets */}
       {([
         ['top-3 left-3',   'border-t-2 border-l-2'],
         ['top-3 right-3',  'border-t-2 border-r-2'],
@@ -175,16 +176,13 @@ export default function StartScreen({ onStart }: Props) {
           style={{ borderColor: 'rgba(216,128,16,0.4)' }} />
       ))}
 
-      {/* Content */}
       <div className="relative z-10 text-center px-8">
 
-        {/* Status badge */}
         <div style={{ ...vis(2), marginBottom: '28px', display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '6px 16px', background: 'rgba(216,128,16,0.08)', border: '1px solid rgba(216,128,16,0.25)', borderRadius: '2px' }}>
           <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#d88010', boxShadow: '0 0 8px #d88010' }} />
           <span className="font-orbitron" style={{ fontSize: '8px', letterSpacing: '0.55em', color: 'rgba(216,128,16,0.8)' }}>{t('systemOnline')}</span>
         </div>
 
-        {/* Main title */}
         <div style={vis(2, 0.1)}>
           <h1 className="font-orbitron font-black" style={{
             fontSize: 'clamp(4.5rem, 11vw, 7.5rem)',
@@ -205,14 +203,12 @@ export default function StartScreen({ onStart }: Props) {
           </div>
         </div>
 
-        {/* Tagline */}
         <div style={{ ...vis(2, 0.25), marginTop: '18px', marginBottom: '32px' }}>
           <span className="font-orbitron" style={{ fontSize: '9px', letterSpacing: '0.55em', color: 'rgba(205,197,178,0.25)' }}>
             {t('tagline')}
           </span>
         </div>
 
-        {/* CTA button */}
         <div style={vis(3)}>
           <button
             onClick={onStart}
@@ -250,7 +246,6 @@ export default function StartScreen({ onStart }: Props) {
           </p>
         </div>
 
-        {/* Controls */}
         <div style={{ ...vis(3, 0.2), marginTop: '32px' }}>
           <div style={{ display: 'inline-block', padding: '14px 20px', background: 'rgba(7,9,11,0.92)', border: '1px solid rgba(42,54,66,0.8)', borderRadius: '2px' }}>
             <div className="font-orbitron" style={{ fontSize: '8px', letterSpacing: '0.4em', color: 'rgba(216,128,16,0.35)', marginBottom: '10px' }}>{t('controlReference')}</div>

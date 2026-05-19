@@ -5,12 +5,14 @@ import { getCurrentUserId } from '../lib/auth';
 import { GameEngine } from '../game/engine';
 import { GameState } from '../game/types';
 
+/** Props panelu admina — silnik (do cheat commands), stan gry i callback zamknięcia. */
 interface Props {
   engine: GameEngine;
   state: GameState;
   onClose: () => void;
 }
 
+/** Wiersz gracza z Supabase world_snapshots. */
 interface PlayerRow {
   username: string;
   tick: number;
@@ -19,6 +21,7 @@ interface PlayerRow {
   user_id: string;
 }
 
+/** Wiersz czatu z Supabase chat_messages. */
 interface ChatRow {
   id: string;
   username: string;
@@ -26,21 +29,36 @@ interface ChatRow {
   created_at: string;
 }
 
+/** Zakładki panelu: overview (podgląd + akcje), players (lista graczy), chat (logi), world (debug świat). */
 type Tab = 'overview' | 'players' | 'chat' | 'world';
 
+/**
+ * Panel administratora — podgląd stanu gry (tick, pollution, evolution),
+ * zarządzanie graczami (lista online/offline), podgląd czatu z możliwością
+ * usuwania wiadomości, wysyłanie broadcastów, komendy cheaterskie
+ * (give resources, unlock research, max level, reset evolution, zmiana pory dnia).
+ */
 export default function AdminPanel({ engine, state, onClose }: Props) {
+  /** Aktualna zakładka. */
   const [tab, setTab] = useState<Tab>('overview');
+  /** Lista graczy z Supabase. */
   const [players, setPlayers] = useState<PlayerRow[]>([]);
+  /** Logi czatu. */
   const [chatLogs, setChatLogs] = useState<ChatRow[]>([]);
+  /** Treść broadcastu do wysłania. */
   const [broadcast, setBroadcast] = useState('');
+  /** Komunikat zwrotny (zielony, znika po 2s). */
   const [msg, setMsg] = useState('');
+  /** Czy trwa wysyłanie broadcastu. */
   const [loading, setLoading] = useState(false);
 
+  /** Przy starcie ładuje listę graczy i logi czatu z Supabase. */
   useEffect(() => {
     loadPlayers();
     loadChat();
   }, []);
 
+  /** Pobiera top 50 snapshotów świata (gracze) z Supabase. */
   const loadPlayers = async () => {
     const { data } = await supabase
       .from('world_snapshots')
@@ -50,6 +68,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
     if (data) setPlayers(data as PlayerRow[]);
   };
 
+  /** Pobiera ostatnie 100 wiadomości czatu z Supabase. */
   const loadChat = async () => {
     const { data } = await supabase
       .from('chat_messages')
@@ -59,11 +78,13 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
     if (data) setChatLogs(data as ChatRow[]);
   };
 
+  /** Usuwa wiadomość czatu po ID (admin moderation). */
   const deleteMessage = async (id: string) => {
     await supabase.from('chat_messages').delete().eq('id', id);
     setChatLogs(prev => prev.filter(m => m.id !== id));
   };
 
+  /** Wysyła broadcast systemowy na kanał Realtime i zapisuje do bazy. */
   const sendBroadcast = async () => {
     if (!broadcast.trim()) return;
     setLoading(true);
@@ -87,6 +108,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
     setLoading(false);
   };
 
+  /** Resetuje evolution i pollution do 0 (cheat). */
   const wipeEvolution = () => {
     engine.state.evolution = 0;
     engine.state.pollution = 0;
@@ -94,6 +116,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
     setTimeout(() => setMsg(''), 2000);
   };
 
+  /** Dodaje +500 każdego surowca do ekwipunku gracza (cheat). */
   const giveResources = () => {
     const res = ['iron', 'copper', 'coal', 'stone', 'wood', 'iron_plate', 'copper_plate', 'gear', 'circuit', 'steel_plate'];
     for (const r of res) {
@@ -104,12 +127,14 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
     setTimeout(() => setMsg(''), 2000);
   };
 
+  /** Odblokowuje wszystkie badania (cheat). */
   const unlockAllResearch = () => {
     for (const [, r] of engine.state.research) { r.unlocked = true; r.progress = r.cost; }
     setMsg('All research unlocked');
     setTimeout(() => setMsg(''), 2000);
   };
 
+  /** Ustawia gracza na level 100 z max XP i 100 gemami (cheat). */
   const maxLevel = () => {
     engine.state.player.level = 100;
     engine.state.player.xp = 999999;
@@ -118,6 +143,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
     setTimeout(() => setMsg(''), 2000);
   };
 
+  /** Ustawia porę dnia (phase 0..1: 0=night, 0.25=dawn, 0.5=noon, 0.75=dusk). */
   const timeOfDay = (phase: number) => {
     engine.state.dayTime = engine.state.dayLength * phase;
     setMsg(`Time set`);
@@ -336,6 +362,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
   );
 }
 
+/** Przycisk akcji administracyjnej z kolorowym obramowaniem i tłem. */
 function AdminBtn({ onClick, color, label }: { onClick: () => void; color: string; label: string }) {
   return (
     <button onClick={onClick}

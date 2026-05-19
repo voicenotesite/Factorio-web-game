@@ -4,19 +4,24 @@ import { supabase } from '../lib/supabase';
 import { getCurrentUser, getCurrentUserId } from '../lib/auth';
 import { GameEngine } from '../game/engine';
 
+/** Props widoku odwiedzin świata — dane znajomego i callback zamknięcia. */
 interface Props {
   friendId: string;
   friendName: string;
   onClose: () => void;
 }
 
+/** Paleta kolorów dla odwiedzających. */
 const VISITOR_COLORS = ['#f472b6', '#34d399', '#60a5fa', '#fbbf24', '#a78bfa', '#fb923c'];
+
+/** Generuje kolor z ID użytkownika (hash). */
 function colorFromId(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffffffff;
   return VISITOR_COLORS[Math.abs(h) % VISITOR_COLORS.length];
 }
 
+/** Widok odwiedzin świata znajomego — ładuje snapshot z Supabase, tworzy silnik i łączy przez Realtime. */
 export default function VisitWorldView({ friendId, friendName, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);

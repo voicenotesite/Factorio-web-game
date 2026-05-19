@@ -4,10 +4,12 @@ import { hasSave, restoreFromCloud } from '../lib/saveSystem';
 import { t } from '../lib/i18n';
 import LangSelector from './LangSelector';
 
+/** Props ekranu logowania — callback po autoryzacji. */
 interface Props {
   onAuth: (username: string, hasSaveData: boolean) => void;
 }
 
+/** Ekran logowania/rejestracji z formularzem, przełącznikiem trybu i przywracaniem save'a z chmury. */
 export default function AuthScreen({ onAuth }: Props) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
@@ -15,6 +17,7 @@ export default function AuthScreen({ onAuth }: Props) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  /** Obsługuje submit formularza — logowanie/rejestracja, potem próba przywrócenia save'a z Supabase. */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -34,7 +37,6 @@ export default function AuthScreen({ onAuth }: Props) {
     const user = getCurrentUser()!;
     let saveExists = hasSave(user);
 
-    // If no local save, try to restore from Supabase cloud backup
     if (!saveExists) {
       const uid = getCurrentUserId();
       if (uid) {
@@ -54,7 +56,6 @@ export default function AuthScreen({ onAuth }: Props) {
         background: 'radial-gradient(ellipse at center, #0a0e14 0%, #060810 100%)',
       }}
     >
-      {/* Animated grid background */}
       <div
         className="absolute inset-0 opacity-[0.03]"
         style={{
@@ -64,7 +65,6 @@ export default function AuthScreen({ onAuth }: Props) {
       />
 
       <div className="relative z-10 w-full max-w-sm mx-4">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div
             className="inline-block text-3xl font-orbitron font-black tracking-[0.2em] mb-1"
@@ -75,7 +75,6 @@ export default function AuthScreen({ onAuth }: Props) {
           <div className="text-xs font-exo tracking-[0.3em] text-white/20">{t('authSubtitle')}</div>
         </div>
 
-        {/* Card */}
         <div
           className="rounded-2xl p-6 font-exo"
           style={{
@@ -85,7 +84,6 @@ export default function AuthScreen({ onAuth }: Props) {
             boxShadow: '0 0 60px rgba(0,0,0,0.8), inset 0 1px 0 rgba(216,128,16,0.08)',
           }}
         >
-          {/* Tab switcher */}
           <div className="flex mb-6 rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
             {(['login', 'register'] as const).map(m => (
               <button

@@ -1,9 +1,11 @@
 import { t } from '../lib/i18n';
 
+/** Props menu poradnika — callback zamknięcia. */
 interface Props {
   onClose: () => void;
 }
 
+/** Lista budowli opisywanych w poradniku. */
 const buildings = [
   { key: 'miner', icon: '⛏', name: 'Miner', descKey: 'desc_miner' },
   { key: 'furnace', icon: '🔥', name: 'Furnace', descKey: 'desc_furnace' },
@@ -26,6 +28,7 @@ const buildings = [
   { key: 'pumpjack', icon: '🪝', name: 'Pumpjack', descKey: 'desc_pumpjack' },
 ];
 
+/** Poradnik gry z sekcjami: rozpoczęcie, łańcuch produkcyjny, energia, badania, obrona i referencja budowli. */
 export default function GuideMenu({ onClose }: Props) {
   return (
     <div
@@ -43,7 +46,6 @@ export default function GuideMenu({ onClose }: Props) {
             boxShadow: '0 0 60px rgba(0,0,0,0.9)',
           }}
         >
-          {/* Header */}
           <div
             className="flex items-center justify-between px-6 py-4"
             style={{ borderBottom: '1px solid rgba(216,128,16,0.15)' }}
@@ -65,7 +67,6 @@ export default function GuideMenu({ onClose }: Props) {
 
           <div className="px-6 py-5 space-y-8">
 
-            {/* Section 1: Getting Started */}
             <Section title={t('guideGettingStarted')} icon="🚀">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
                 Welcome to <span className="text-amber-400 font-semibold">Novactorio</span> — a factory-building game where you mine resources, build production chains, research technology, and defend against enemies.
@@ -85,7 +86,6 @@ export default function GuideMenu({ onClose }: Props) {
               </p>
             </Section>
 
-            {/* Section 2: Resource Chain */}
             <Section title={t('guideResourceChain')} icon="⛓️">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
                 Build a production chain to automatically process raw resources into finished goods.
@@ -110,7 +110,6 @@ export default function GuideMenu({ onClose }: Props) {
               </p>
             </Section>
 
-            {/* Section 3: Power */}
             <Section title={t('guidePowerSystem')} icon="⚡">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
                 Most buildings require electricity. Build a power network to keep your factory running.
@@ -133,7 +132,6 @@ export default function GuideMenu({ onClose }: Props) {
               </p>
             </Section>
 
-            {/* Section 4: Research */}
             <Section title={t('guideResearchSection')} icon="🔬">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
                 Unlock new buildings and upgrades by researching technology.
@@ -154,7 +152,6 @@ export default function GuideMenu({ onClose }: Props) {
               </p>
             </Section>
 
-            {/* Section 5: Defense */}
             <Section title={t('guideDefense')} icon="🛡️">
               <p className="text-sm text-white/60 leading-relaxed mb-3">
                 Enemies will attack your factory. Build defenses to protect it.
@@ -175,7 +172,6 @@ export default function GuideMenu({ onClose }: Props) {
               </p>
             </Section>
 
-            {/* Section 6: Buildings Reference */}
             <Section title={t('guideBuildingsRef')} icon="🏗️">
               <div className="grid grid-cols-2 gap-2">
                 {buildings.map(b => (
@@ -196,7 +192,6 @@ export default function GuideMenu({ onClose }: Props) {
 
           </div>
 
-          {/* Footer */}
           <div
             className="px-6 py-4 flex justify-end"
             style={{ borderTop: '1px solid rgba(216,128,16,0.15)' }}
@@ -219,6 +214,7 @@ export default function GuideMenu({ onClose }: Props) {
   );
 }
 
+/** Sekcja poradnika z nagłówkiem (ikona + tytuł). */
 function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
     <div>
@@ -231,6 +227,7 @@ function Section({ title, icon, children }: { title: string; icon: string; child
   );
 }
 
+/** Stylizowane pudełko na diagram łańcucha produkcyjnego. */
 function DiagramBox({ children }: { children: React.ReactNode }) {
   return (
     <div
@@ -245,6 +242,7 @@ function DiagramBox({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Kolorowy badge/chip używany w diagramach. */
 function Chip({ children, color }: { children: React.ReactNode; color: string }) {
   return (
     <span
@@ -256,6 +254,7 @@ function Chip({ children, color }: { children: React.ReactNode; color: string })
   );
 }
 
+/** Strzałka kierunku w diagramie, opcjonalnie z etykietą. */
 function Arrow({ label }: { label?: string }) {
   return (
     <span className="flex flex-col items-center text-white/30 mx-1">

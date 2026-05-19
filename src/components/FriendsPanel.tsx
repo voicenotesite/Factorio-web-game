@@ -3,24 +3,28 @@ import { t } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { getCurrentUser, getCurrentUserId } from '../lib/auth';
 
+/** Prośba znajomości z Supabase friendships. */
 interface FriendRequest {
   id: string;
   user_id: string;
-  user_username: string;  // actual DB column name (the sender)
+  user_username: string;
   status: 'pending' | 'accepted';
 }
 
+/** Znajomy z danymi i statusem online. */
 interface Friend {
   username: string;
   user_id: string;
   online: boolean;
 }
 
+/** Props panelu znajomych — zamknięcie i opcjonalny callback odwiedzin świata. */
 interface Props {
   onClose: () => void;
   onVisitWorld?: (friendId: string, friendName: string) => void;
 }
 
+/** Panel znajomych — lista, prośby (akceptuj/odrzuć) i dodawanie nowych. */
 export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
   const [tab, setTab] = useState<'friends' | 'requests' | 'add'>('friends');
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -30,11 +34,13 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
   const myId = getCurrentUserId();
   const myName = getCurrentUser();
 
+  /** Ładuje znajomych i prośby przy starcie. */
   useEffect(() => {
     loadFriends();
     loadRequests();
   }, []);
 
+  /** Pobiera zaakceptowane znajomości z Supabase. */
   const loadFriends = async () => {
     if (!myId) return;
     const { data } = await supabase
@@ -53,6 +59,7 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
     }
   };
 
+  /** Pobiera oczekujące prośby (gdzie current user jest friend_id). */
   const loadRequests = async () => {
     if (!myId) return;
     const { data } = await supabase
@@ -63,6 +70,7 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
     if (data) setRequests(data as FriendRequest[]);
   };
 
+  /** Wysyła prośbę znajomości do innego użytkownika. */
   const sendFriendRequest = async () => {
     if (!addUsername.trim() || !myId || !myName) return;
     setMsg('');
@@ -88,12 +96,14 @@ export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
     else { setMsg(t('requestSent')); setAddUsername(''); }
   };
 
+  /** Akceptuje prośbę znajomości. */
   const acceptRequest = async (req: FriendRequest) => {
     await supabase.from('friendships').update({ status: 'accepted' }).eq('id', req.id);
     loadFriends();
     loadRequests();
   };
 
+  /** Odrzuca prośbę znajomości. */
   const declineRequest = async (req: FriendRequest) => {
     await supabase.from('friendships').delete().eq('id', req.id);
     loadRequests();

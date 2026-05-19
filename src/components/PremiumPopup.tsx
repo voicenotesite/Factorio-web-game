@@ -1,5 +1,6 @@
 import { t } from '../lib/i18n';
 
+/** Definicja taryf premium: FREE, STARTER, PREMIUM. */
 const PREMIUM_TIERS = [
   {
     id: 'free' as const,
@@ -24,12 +25,14 @@ const PREMIUM_TIERS = [
   },
 ];
 
+/** Props popupa premium — zamykanie, "nie pytaj więcej" i przekierowanie do zakupu. */
 interface Props {
   onClose: () => void;
   onDontAsk: () => void;
   onBuyPremium?: () => void;
 }
 
+/** Popup zachęcający do wykupienia subskrypcji premium z tabelą taryf i przyciskiem zakupu. */
 export default function PremiumPopup({ onClose, onDontAsk, onBuyPremium }: Props) {
   return (
     <div
@@ -46,7 +49,6 @@ export default function PremiumPopup({ onClose, onDontAsk, onBuyPremium }: Props
           boxShadow: '0 0 60px rgba(167,139,250,0.15), 0 0 0 1px rgba(0,0,0,0.6)',
         }}
       >
-        {/* Header */}
         <div className="text-center mb-5">
           <div className="text-3xl mb-2">👑</div>
           <h2
@@ -58,7 +60,6 @@ export default function PremiumPopup({ onClose, onDontAsk, onBuyPremium }: Props
           <p className="text-xs text-white/40 font-exo">{t('premiumPopupSubtitle')}</p>
         </div>
 
-        {/* Tier cards (compact) */}
         <div className="grid grid-cols-3 gap-2 mb-5">
           {PREMIUM_TIERS.map(tier => (
             <div
@@ -89,7 +90,6 @@ export default function PremiumPopup({ onClose, onDontAsk, onBuyPremium }: Props
           ))}
         </div>
 
-        {/* CTA */}
         <button
           onClick={() => {
             if (onBuyPremium) onBuyPremium();
@@ -106,7 +106,6 @@ export default function PremiumPopup({ onClose, onDontAsk, onBuyPremium }: Props
           👑 {t('upgradeToPremium').toUpperCase()}
         </button>
 
-        {/* Secondary actions */}
         <div className="flex items-center justify-between">
           <button
             onClick={onDontAsk}

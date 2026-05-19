@@ -3,6 +3,7 @@ import { t } from '../lib/i18n';
 import { getCurrentUserId } from '../lib/auth';
 import { GameEngine } from '../game/engine';
 
+/** Props menu kooperacji — silnik, toggle trybu i callbacki. */
 interface Props {
   engine: GameEngine;
   coopMode: boolean;
@@ -10,12 +11,14 @@ interface Props {
   onClose: () => void;
 }
 
+/** Menu kooperacji — pokazuje kod świata do udostępnienia, przełącznik broadcastu i listę odwiedzających. */
 export default function CoopMenu({ engine, coopMode, onToggleCoop, onClose }: Props) {
   const myId = getCurrentUserId();
   const [copied, setCopied] = useState(false);
   const [visitors, setVisitors] = useState<{ username: string; color: string }[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  /** Co sekundę odświeża listę odwiedzających z engine.state.coopVisitors. */
   useEffect(() => {
     intervalRef.current = setInterval(() => {
       if (engine.state.coopVisitors) {
@@ -27,6 +30,7 @@ export default function CoopMenu({ engine, coopMode, onToggleCoop, onClose }: Pr
     };
   }, [engine]);
 
+  /** Kopiuje ID świata (user ID) do schowka. */
   const copyCode = () => {
     if (myId) {
       navigator.clipboard.writeText(myId);
@@ -53,7 +57,6 @@ export default function CoopMenu({ engine, coopMode, onToggleCoop, onClose }: Pr
         </div>
 
         <div className="p-4 space-y-4">
-          {/* World Code */}
           <div className="p-3 rounded-xl" style={{ background: 'rgba(244,114,182,0.06)', border: '1px solid rgba(244,114,182,0.15)' }}>
             <div className="text-[10px] font-orbitron tracking-wider mb-1.5" style={{ color: 'rgba(244,114,182,0.6)' }}>{t('yourWorldCode')}</div>
             <div className="flex items-center gap-2">
@@ -74,7 +77,6 @@ export default function CoopMenu({ engine, coopMode, onToggleCoop, onClose }: Pr
             </div>
           </div>
 
-          {/* Toggle */}
           <div className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
             <span className="text-sm text-white/70 font-semibold">{t('coopBroadcast')}</span>
             <button
@@ -93,7 +95,6 @@ export default function CoopMenu({ engine, coopMode, onToggleCoop, onClose }: Pr
             </button>
           </div>
 
-          {/* Visitors */}
           <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
             <div className="text-[10px] font-orbitron tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.3)' }}>{t('visitors')} ({visitors.length})</div>
             {visitors.length === 0 ? (

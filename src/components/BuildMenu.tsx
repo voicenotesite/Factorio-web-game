@@ -5,12 +5,14 @@ import { getBuildingCost, canAffordBuilding } from '../game/systems';
 import { GameState } from '../game/types';
 import { t } from '../lib/i18n';
 
+/** Props menu budowy — silnik, stan gry i callback zamknięcia. */
 interface Props {
   engine: GameEngine;
   state: GameState;
   onClose: () => void;
 }
 
+/** Lista wszystkich budowli dostępnych w grze z kategoriami i kolorami. */
 const BUILDABLE_ITEMS = [
   { type: 'conveyor', name: 'buildingConveyorBelt', desc: 'Transports items', color: BUILDING_COLORS.conveyor, category: 'Logistics' },
   { type: 'inserter', name: 'buildingInserter', desc: 'Moves items to/from belts', color: BUILDING_COLORS.inserter, category: 'Logistics' },
@@ -32,12 +34,15 @@ const BUILDABLE_ITEMS = [
   { type: 'wall', name: 'buildingWall', desc: 'Blocks enemy movement', color: BUILDING_COLORS.wall, category: 'Defense' },
 ];
 
+/** Kategorie budowli. */
 const CATEGORIES = ['Logistics', 'Production', 'Oil', 'Power', 'Storage', 'Research', 'Defense'];
+/** Kolory kategorii w UI. */
 const CATEGORY_COLORS: Record<string, string> = {
   Logistics: '#c8890a', Production: '#1a7a45', Oil: '#7a5fa0',
   Power: '#c8a020', Storage: '#4a5a6a', Research: '#2a6080', Defense: '#8b2020',
 };
 
+/** Przyjazne nazwy surowców dla kosztów budowy. */
 const ITEM_NAMES: Record<string, string> = {
   iron: 'Iron', copper: 'Copper', stone: 'Stone', coal: 'Coal', wood: 'Wood',
   iron_plate: 'Iron Plate', copper_plate: 'Cu Plate', steel_plate: 'Steel Plate',
@@ -46,6 +51,7 @@ const ITEM_NAMES: Record<string, string> = {
   oil: 'Oil', uranium: 'Uranium',
 };
 
+/** Klucze i18n dla nazw kategorii. */
 const CATEGORY_KEYS: Record<string, string> = {
   Logistics: 'categoryLogistics',
   Production: 'categoryProduction',
@@ -56,9 +62,11 @@ const CATEGORY_KEYS: Record<string, string> = {
   Defense: 'categoryDefense',
 };
 
+/** Menu budowy — siatka budowli pogrupowanych kategoriami z wyszukiwarką, kosztami i przyciskiem wyboru. */
 export default function BuildMenu({ engine, state, onClose }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
 
+  /** Wybiera budowlę i zamyka menu. */
   const handleSelect = (type: string) => {
     if (!canAffordBuilding(state, type)) {
       engine.addNotification('Not enough resources!');
@@ -75,7 +83,6 @@ export default function BuildMenu({ engine, state, onClose }: Props) {
         className="panel-glass rounded-t-2xl sm:rounded-2xl p-4 sm:p-5 w-full sm:max-w-2xl sm:mx-4 max-h-[85vh] overflow-y-auto animate-slide-up font-exo"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between mb-5 pb-3" style={{ borderBottom: '1px solid rgba(42,54,66,0.8)' }}>
           <div>
             <h2 className="font-orbitron font-bold text-lg text-white tracking-wider">{t('buildMenu')}</h2>
@@ -90,7 +97,6 @@ export default function BuildMenu({ engine, state, onClose }: Props) {
           >✕</button>
         </div>
 
-        {/* Search */}
         <div className="mb-4">
           <input
             type="text"

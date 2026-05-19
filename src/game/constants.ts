@@ -1,14 +1,24 @@
+/** Rozmiar boku pojedynczego kafelka w pikselach. */
 export const TILE_SIZE = 32;
+/** Liczba kafelków w jednym wymiarze chunka (chunk to TILE_SIZE × TILE_SIZE kafelków). */
 export const CHUNK_SIZE = 32;
+/** Maksymalna odległość renderowania w chunkach wokół gracza. */
 export const RENDER_DISTANCE = 4;
+/** Maksymalna liczba cząsteczek efektów wizualnych na ekranie. */
 export const MAX_PARTICLES = 2000;
+/** Maksymalna liczba NPC aktywnych jednocześnie w świecie. */
 export const NPC_MAX = 8;
+/** Maksymalna liczba wrogów na mapie. */
 export const ENEMY_MAX = 200;
+/** Maksymalna liczba spawnerów wrogów. */
 export const SPAWNER_MAX = 20;
 
+/** Domyślne ziarno generowania świata. */
 export const WORLD_SEED = 42;
+/** Długość pełnego cyklu dnia i nocy w tikach gry. */
 export const DAY_LENGTH = 6000;
 
+/** Mapa kolorów surowców i przedmiotów — identyfikator → kolor CSS (#RRGGBB). */
 export const RESOURCE_COLORS: Record<string, string> = {
   iron: '#8B7355',
   copper: '#B87333',
@@ -42,6 +52,7 @@ export const RESOURCE_COLORS: Record<string, string> = {
   heavy_oil: '#886644',
 };
 
+/** Mapa kolorów biomów — nazwa biomu → kolor CSS (#RRGGBB). */
 export const BIOME_COLORS: Record<string, string> = {
   grass: '#36582e',
   desert: '#9e8054',
@@ -51,6 +62,7 @@ export const BIOME_COLORS: Record<string, string> = {
   volcanic: '#321208',
 };
 
+/** Mapa kolorów budowli — typ budowli → kolor CSS (#RRGGBB). */
 export const BUILDING_COLORS: Record<string, string> = {
   miner: '#5a5a50',
   furnace: '#3a1a0a',
@@ -74,6 +86,7 @@ export const BUILDING_COLORS: Record<string, string> = {
   pipe: '#1a1a1a',
 };
 
+/** Rozmiary budowli wyrażone w kafelkach (szerokość × wysokość). */
 export const BUILDING_SIZES: Record<string, { w: number; h: number }> = {
   miner: { w: 2, h: 2 },
   furnace: { w: 2, h: 2 },
@@ -97,6 +110,7 @@ export const BUILDING_SIZES: Record<string, { w: number; h: number }> = {
   pipe: { w: 1, h: 1 },
 };
 
+/** Maksymalna wytrzymałość (HP) każdego typu budowli. */
 export const BUILDING_HEALTH: Record<string, number> = {
   miner: 300,
   furnace: 200,
@@ -120,6 +134,7 @@ export const BUILDING_HEALTH: Record<string, number> = {
   pipe: 100,
 };
 
+/** Definicje wszystkich receptur wytwarzania — identyfikator → dane receptury. */
 export const RECIPES: Record<string, {
   id: string; name: string; inputs: { itemId: string; count: number }[];
   outputs: { itemId: string; count: number }[]; craftTime: number; energyCost: number; category: string;
@@ -145,6 +160,7 @@ export const RECIPES: Record<string, {
   turret_item: { id: 'turret_item', name: 'Gun Turret', inputs: [{ itemId: 'iron_plate', count: 5 }, { itemId: 'gear', count: 5 }, { itemId: 'copper_plate', count: 5 }], outputs: [{ itemId: 'turret_item', count: 1 }], craftTime: 540, energyCost: 2, category: 'military' },
 };
 
+/** Drzewo technologiczne — mapa identyfikator badania → dane badania. */
 export const RESEARCH_TREE: Record<string, {
   id: string; name: string; description: string; cost: { itemId: string; count: number }[];
   time: number; prerequisites: string[]; effects: Record<string, number>;
@@ -161,12 +177,14 @@ export const RESEARCH_TREE: Record<string, {
   rocket_science: { id: 'rocket_science', name: 'Rocket Science', description: 'The final frontier', cost: [{ itemId: 'science_blue', count: 50 }, { itemId: 'science_green', count: 50 }, { itemId: 'science_red', count: 50 }], time: 7200, prerequisites: ['power_armor', 'weapon_upgrade', 'advanced_electronics'], effects: { victory: 1 } },
 };
 
+/** Lista imion używanych do nazywania NPC przy tworzeniu. */
 export const NPC_NAMES = [
   'Elena', 'Marcus', 'Sofia', 'Viktor', 'Aria', 'Dmitri', 'Luna', 'Kai',
   'Nadia', 'Rex', 'Zara', 'Finn', 'Mira', 'Axel', 'Ivy', 'Hugo',
   'Nova', 'Leo', 'Ada', 'Raven', 'Jade', 'Blaze', 'Echo', 'Storm',
 ];
 
+/** Linie dialogowe przypisane do poszczególnych ról NPC — rola → lista kwestii. */
 export const NPC_DIALOGUES: Record<string, string[]> = {
   worker: [
     'Another day in the factory!',
@@ -205,6 +223,7 @@ export const NPC_DIALOGUES: Record<string, string[]> = {
   ],
 };
 
+/** Bazowe statystyki wrogów — typ wroga → HP, atak, prędkość, zasięg. */
 export const ENEMY_STATS: Record<string, { health: number; attack: number; speed: number; range: number }> = {
   biter: { health: 30, attack: 8, speed: 1.5, range: 1.2 },
   spitter: { health: 20, attack: 12, speed: 1.0, range: 5 },
