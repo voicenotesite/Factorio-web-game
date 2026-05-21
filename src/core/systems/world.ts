@@ -3,7 +3,11 @@ import { TILE_SIZE, CHUNK_SIZE, MAX_PARTICLES, ENEMY_STATS, NPC_NAMES, NPC_DIALO
 import { genId, getTileAt } from './chunk'
 
 export function spawnParticle(state: GameState, x: number, y: number, type: Particle['type'], color: string) {
-  if (state.particles.length >= MAX_PARTICLES) state.particles.shift()
+  if (state.particles.length >= MAX_PARTICLES) {
+    // swap-pop zamiast shift — O(1)
+    state.particles[0] = state.particles[state.particles.length - 1]
+    state.particles.pop()
+  }
   const angle = Math.random() * Math.PI * 2
   const speed = type === 'explosion' ? 3 : type === 'spark' ? 2 : 0.5
   state.particles.push({

@@ -420,7 +420,7 @@ export class GameEngine {
     if (this.paused) { requestAnimationFrame(this.loop); return; }
 
     const now = performance.now();
-    const dt = Math.min(now - this.lastTime, 50);
+    const dt = Math.min(now - this.lastTime, 33); // max 2 ticki na klatkę
     this.lastTime = now;
 
     // Auto-FPS: track frame times, adjust render skip
