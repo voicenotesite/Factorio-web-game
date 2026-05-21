@@ -55,7 +55,7 @@ footer{position:relative;z-index:1;margin-top:1.5rem;font-size:.65rem;color:rgba
   <ul>
     <li><strong>Account data</strong> — username, synthetic email (username@novactorio.io), password hash. Stored by Supabase (auth.provider).</li>
     <li><strong>Game data</strong> — game progress, save files, inventory, building placements, chat messages, friend lists. Stored in Supabase PostgreSQL.</li>
-    <li><strong>Payment data</strong> — none. All payments are processed and stored by <strong>Paddle.com</strong>, which acts as an independent data controller. We never receive or store payment card details.</li>
+    <li><strong>Payment data</strong> — none. All payments are processed and stored by <strong>Stripe.com</strong>, which acts as an independent data controller. We never receive or store payment card details.</li>
     <li><strong>Technical data</strong> — we may collect basic usage analytics (page load, game version) for performance monitoring. No IP addresses are logged persistently.</li>
   </ul>
 
@@ -67,7 +67,7 @@ footer{position:relative;z-index:1;margin-top:1.5rem;font-size:.65rem;color:rgba
   </ul>
 
   <h2>Data Sharing</h2>
-  <p>We do not sell personal data. We share data only with essential sub-processors: <strong>Supabase</strong> (PostgreSQL + Auth — GDPR-compliant, DPA in place) and <strong>Paddle.com</strong> (payment processing — independent controller).</p>
+  <p>We do not sell personal data. We share data only with essential sub-processors: <strong>Supabase</strong> (PostgreSQL + Auth — GDPR-compliant, DPA in place) and <strong>Stripe.com</strong> (payment processing — independent controller).</p>
 
   <h2>Data Retention</h2>
   <p>Account data is retained until the User requests deletion. Game saves are retained in cloud storage (Supabase) during active account status. Upon account deletion, all associated data is erased within 30 days.</p>

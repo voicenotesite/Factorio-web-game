@@ -23,6 +23,7 @@ const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const GuideMenu = lazy(() => import('./components/GuideMenu'));
 const CoopMenu = lazy(() => import('./components/CoopMenu'));
 const LangSelector = lazy(() => import('./components/LangSelector'));
+const Pico8Console = lazy(() => import('./easter/pico8/Pico8Console'));
 import { CoopLobbyService, type LobbyInfo } from './services/coop/CoopLobbyService';
 import { GameEngine } from './game/engine';
 import { GameState } from './game/types';
@@ -57,6 +58,7 @@ function App() {
   const [showPremiumPopup, setShowPremiumPopup] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showCoop, setShowCoop] = useState(false);
+  const [showPico8, setShowPico8] = useState(false);
   const [saveCooldown, setSaveCooldown] = useState(0);
   const [showSaveOverlay, setShowSaveOverlay] = useState(false);
   const [coopMode, setCoopMode] = useState(false);
@@ -81,6 +83,7 @@ function App() {
       if (engine.keys.has('b')) { setShowBuild(prev => !prev); engine.keys.delete('b'); }
       if (engine.keys.has('r')) { setShowResearch(prev => !prev); engine.keys.delete('r'); }
       if (engine.keys.has('i')) { setShowInventory(prev => !prev); engine.keys.delete('i'); }
+      if (engine.keys.has('Backquote')) { setShowPico8(prev => !prev); engine.keys.delete('Backquote'); }
     };
     engine.onBuildingAction = (action, type, x, y, dir) => {
       if (!coopModeRef.current || !coopChannelRef.current) return;
@@ -318,6 +321,7 @@ function App() {
           onFriends={() => setShowFriends(true)}
           onAdmin={() => setShowAdmin(true)}
           onGuide={() => setShowGuide(true)}
+          onPico8={() => setShowPico8(true)}
           onLogout={() => { AuthService.logout(); setCurrentUser(null); setStarted(false); }}
         />
       )}
@@ -372,6 +376,9 @@ function App() {
           <ActionBarBtn label={t('actionCoop')} shortcut="" onClick={() => setShowCoop(true)} active={coopMode}
             icon={<span>🌐</span>} color="#f472b6" />
           <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
+          <ActionBarBtn label="PICO-8" shortcut="`" onClick={() => setShowPico8(true)} active={false}
+            icon={<span>🕹️</span>} color="#FFEC27" />
+          <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
           <button
             onClick={() => { AuthService.logout(); setCurrentUser(null); setStarted(false); }}
             className="btn-factory flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all"
@@ -418,6 +425,7 @@ function App() {
       {showLeaderboard && <Suspense fallback={null}><LeaderboardMenu onClose={() => setShowLeaderboard(false)} /></Suspense>}
       {showShop && engine && gameState && <Suspense fallback={null}><ShopMenu engine={engine} state={gameState} onClose={() => setShowShop(false)} /></Suspense>}
       {showSaveLoad && engine && <Suspense fallback={null}><SaveLoad engine={engine} onClose={() => setShowSaveLoad(false)} saveCooldown={saveCooldown} onSave={triggerSave} /></Suspense>}
+      {showPico8 && <Suspense fallback={null}><Pico8Console onClose={() => setShowPico8(false)} /></Suspense>}
       {showFriends && <Suspense fallback={null}><FriendsPanel onClose={() => setShowFriends(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} /></Suspense>}
       {showAdmin && engine && gameState && <Suspense fallback={null}><AdminPanel engine={engine} state={gameState} onClose={() => setShowAdmin(false)} /></Suspense>}
       {showCoop && <Suspense fallback={null}><CoopMenu

@@ -19,6 +19,7 @@ interface Props {
   onFriends: () => void;
   onAdmin: () => void;
   onGuide: () => void;
+  onPico8: () => void;
   onLogout: () => void;
 }
 
@@ -170,6 +171,7 @@ export default function MobileControls({
             <DrawerBtn label={t('mobileFriends')} icon="👥" color="#f472b6" onClick={() => { onFriends(); setDrawerOpen(false); }} />
             <DrawerBtn label={t('mobileGuide')} icon="📖" color="#22d3ee" onClick={() => { onGuide(); setDrawerOpen(false); }} />
             <DrawerBtn label={t('mobileSave')} icon="💾" color="#94a3b8" onClick={() => { onSave(); setDrawerOpen(false); }} />
+            <DrawerBtn label="PICO-8" icon="🕹️" color="#FFEC27" onClick={() => { onPico8(); setDrawerOpen(false); }} />
             {isAdmin && (
               <DrawerBtn label={t('mobileAdmin')} icon="🛡️" color="#ef4444" onClick={() => { onAdmin(); setDrawerOpen(false); }} />
             )}

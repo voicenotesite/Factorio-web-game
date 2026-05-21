@@ -17,6 +17,7 @@ import {
   playAchievementSound, playUISound,
   startAmbientHum, stopAmbientHum,
 } from './audio';
+import { initPostProc, applyPostProc, destroyPostProc } from './postproc';
 
 /**
  * Główny silnik gry Novactorio.
@@ -27,6 +28,8 @@ import {
 export class GameEngine {
   /** Aktualny stan gry — przekazywany do Reacta przy każdej klatce. */
   state: GameState;
+  /** Główny canvas gry (2D). */
+  canvas: HTMLCanvasElement;
   /** Renderer Canvas 2D odpowiedzialny za rysowanie świata i UI. */
   renderer: GameRenderer;
   /** Zbiór aktualnie wciśniętych klawiszy (do continuous input). */
@@ -35,6 +38,13 @@ export class GameEngine {
   mouse: { x: number; y: number; worldX: number; worldY: number; down: boolean; rightDown: boolean } = {
     x: 0, y: 0, worldX: 0, worldY: 0, down: false, rightDown: false,
   };
+  /** WebGL overlay do post-processingu shaderów. */
+  postProcCanvas: HTMLCanvasElement | null = null;
+  /** Czy post-processing jest aktywny. */
+  postProcEnabled = false;
+  /** Co n-tą klatkę odpalamy post-processing (oszczędność CPU/GPU). */
+  private postProcSkip = 2;
+  private postProcFrame = 0;
   /** Typ budynku wybrany do stawiania (null = brak). */
   selectedBuilding: string | null = null;
   /** Kierunek stawianego budynku. */
@@ -77,7 +87,21 @@ export class GameEngine {
   constructor(canvas: HTMLCanvasElement) {
     this.state = this.createInitialState();
     this.renderer = new GameRenderer(canvas);
+    this.canvas = canvas;
     this.setupInput(canvas);
+    // Post-processing WebGL overlay (only on desktop, skips frames to save GPU)
+    this.postProcCanvas = document.createElement('canvas');
+    this.postProcCanvas.style.position = 'absolute';
+    this.postProcCanvas.style.top = '0';
+    this.postProcCanvas.style.left = '0';
+    this.postProcCanvas.style.pointerEvents = 'none';
+    this.postProcCanvas.style.imageRendering = 'pixelated';
+    canvas.parentElement?.appendChild(this.postProcCanvas);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+    if (!isMobile) {
+      this.postProcEnabled = initPostProc(this.postProcCanvas);
+    }
+    if (isMobile) this.postProcSkip = 0; // disabled on mobile
   }
 
   /** Tworzy początkowy stan gry z domyślnymi wartościami (ekwipunek, kamera, badania, seed świata). */
@@ -395,6 +419,14 @@ export class GameEngine {
     this.renderer.ghostDirection = this.selectedDirection;
     this.renderer.ghostCanAfford = this.selectedBuilding ? canAffordBuilding(this.state, this.selectedBuilding) : false;
     this.renderer.render(this.state);
+    if (this.postProcEnabled && this.postProcCanvas && this.postProcSkip > 0) {
+      this.postProcFrame = (this.postProcFrame + 1) % this.postProcSkip;
+      if (this.postProcFrame === 0) {
+        this.postProcCanvas.width = this.canvas.width;
+        this.postProcCanvas.height = this.canvas.height;
+        applyPostProc(this.canvas, now / 1000);
+      }
+    }
     requestAnimationFrame(this.loop);
   };
 
