@@ -696,7 +696,6 @@ export class GameEngine {
         }
       }
     }
-    if (worldModified) this.renderer.clearChunkCache();
   }
 
   /** Generuje ambient particle efekty: świetliki w nocy, kurz przy aktywnych koparkach. */
