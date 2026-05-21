@@ -475,18 +475,22 @@ export function updateEnemies(state: GameState) {
 
     let targetX = state.player.x
     let targetY = state.player.y
-    let targetDist = Math.sqrt((enemy.x - state.player.x) ** 2 + (enemy.y - state.player.y) ** 2)
+    const pdx = enemy.x - state.player.x
+    const pdy = enemy.y - state.player.y
+    let targetDistSq = pdx * pdx + pdy * pdy
 
     for (const [, building] of state.buildings) {
-      const d = Math.sqrt((enemy.x - building.x) ** 2 + (enemy.y - building.y) ** 2)
-      if (d < targetDist && d < 25) {
-        targetDist = d
+      const dx = enemy.x - building.x
+      const dy = enemy.y - building.y
+      const dSq = dx * dx + dy * dy
+      if (dSq < targetDistSq && dSq < 625) { // 25^2 = 625
+        targetDistSq = dSq
         targetX = building.x
         targetY = building.y
       }
     }
 
-    if (targetDist > enemy.range * 0.8) {
+    if (targetDistSq > (enemy.range * 0.8) ** 2) {
       const dx = targetX - enemy.x
       const dy = targetY - enemy.y
       const dist = Math.sqrt(dx * dx + dy * dy)
@@ -501,15 +505,18 @@ export function updateEnemies(state: GameState) {
       if (enemy.attackCooldown <= 0) {
         enemy.attackCooldown = 55
 
-        const playerDist = Math.sqrt((enemy.x - state.player.x) ** 2 + (enemy.y - state.player.y) ** 2)
-        if (playerDist <= enemy.range) {
+        const playerDistSq = (enemy.x - state.player.x) ** 2 + (enemy.y - state.player.y) ** 2
+        if (playerDistSq <= enemy.range * enemy.range) {
           state.player.health -= enemy.attack
           spawnParticle(state, state.player.x * TILE_SIZE, state.player.y * TILE_SIZE, 'spark', '#ff0000')
         }
 
         for (const [key, building] of state.buildings) {
-          const d = Math.sqrt((enemy.x - building.x) ** 2 + (enemy.y - building.y) ** 2)
-          if (d <= enemy.range + 0.5) {
+          const dx = enemy.x - building.x
+          const dy = enemy.y - building.y
+          const dSq = dx * dx + dy * dy
+          const rangePlus = enemy.range + 0.5
+          if (dSq <= rangePlus * rangePlus) {
             building.health -= enemy.attack
             spawnParticle(state, building.x * TILE_SIZE, building.y * TILE_SIZE, 'spark', '#ff6600')
             if (building.health <= 0) {

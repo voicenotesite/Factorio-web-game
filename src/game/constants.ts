@@ -10,7 +10,7 @@ export const CHUNK_SIZE = 32;
 /** Promień renderowania w chunkach. */
 export const RENDER_DISTANCE = 4;
 /** Maksymalna liczba cząsteczek (particles) na ekranie. */
-export const MAX_PARTICLES = 2000;
+export const MAX_PARTICLES = 300;
 /** Maksymalna liczba NPC. */
 export const NPC_MAX = 8;
 /** Maksymalna liczba wrogów na mapie. */

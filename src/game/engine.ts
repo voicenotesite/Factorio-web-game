@@ -427,9 +427,9 @@ export class GameEngine {
     this.frameTimes.push(dt);
     if (this.frameTimes.length > 30) this.frameTimes.shift();
     const avg = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
-    if (avg > 33) this.autoRenderSkip = Math.min(4, this.autoRenderSkip + 1);
+    if (avg > 50) this.autoRenderSkip = Math.min(8, this.autoRenderSkip + 2);
+    else if (avg > 33) this.autoRenderSkip = Math.min(4, this.autoRenderSkip + 1);
     else if (avg < 20 && this.autoRenderSkip > 1) this.autoRenderSkip--;
-    else if (avg > 50) this.autoRenderSkip = Math.min(8, this.autoRenderSkip + 1);
 
     this.tickAccumulator += dt;
     while (this.tickAccumulator >= 16.67) {
@@ -572,9 +572,15 @@ export class GameEngine {
   }
 
   /** Generuje chunki wokół gracza (promień 5) i usuwa odległe (poza promień + 2) — podstawowe streaming świata. */
+  private lastChunkPX = -999;
+  private lastChunkPY = -999;
+
   private generateChunksAroundPlayer() {
     const px = Math.floor(this.state.player.x / CHUNK_SIZE);
     const py = Math.floor(this.state.player.y / CHUNK_SIZE);
+    if (px === this.lastChunkPX && py === this.lastChunkPY) return;
+    this.lastChunkPX = px;
+    this.lastChunkPY = py;
     const dist = 5;
 
     for (let cy = py - dist; cy <= py + dist; cy++) {
@@ -586,11 +592,12 @@ export class GameEngine {
       }
     }
 
+    const unloadDist = dist + 2;
     for (const [key] of this.state.chunks) {
       const [cxStr, cyStr] = key.split(',');
       const cx = parseInt(cxStr);
       const cy = parseInt(cyStr);
-      if (Math.abs(cx - px) > dist + 2 || Math.abs(cy - py) > dist + 2) {
+      if (Math.abs(cx - px) > unloadDist || Math.abs(cy - py) > unloadDist) {
         this.state.chunks.delete(key);
       }
     }

@@ -22,7 +22,11 @@ export function updateParticles(state: GameState) {
     p.vy += 0.02
     if (p.type === 'smoke') p.vy -= 0.05
     p.life--
-    if (p.life <= 0) state.particles.splice(i, 1)
+    if (p.life <= 0) {
+      // swap-pop zamiast splice — O(1) zamiast O(n)
+      state.particles[i] = state.particles[state.particles.length - 1]
+      state.particles.pop()
+    }
   }
 }
 
@@ -38,10 +42,13 @@ export function updatePollution(state: GameState) {
     }
   }
 
-  for (const [, chunk] of state.chunks) {
-    for (let y = 0; y < CHUNK_SIZE; y++) {
-      for (let x = 0; x < CHUNK_SIZE; x++) {
-        chunk[y][x].pollution *= 0.998
+  // Tylko co 5 ticków: decay pollution na wszystkich tile'ach (oszczędza 80% CPU)
+  if (state.tick % 5 === 0) {
+    for (const [, chunk] of state.chunks) {
+      for (let y = 0; y < CHUNK_SIZE; y++) {
+        for (let x = 0; x < CHUNK_SIZE; x++) {
+          chunk[y][x].pollution *= 0.998
+        }
       }
     }
   }

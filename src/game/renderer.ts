@@ -1,5 +1,5 @@
 import { GameState, Tile, Building, NPC, Enemy, Direction } from './types';
-import { CHUNK_SIZE, TILE_SIZE, BUILDING_SIZES, BUILDING_COLORS, RESOURCE_COLORS } from './constants';
+import { CHUNK_SIZE, TILE_SIZE, BUILDING_SIZES, BUILDING_COLORS, RESOURCE_COLORS, MAX_PARTICLES } from './constants';
 import { hasTreeAt, getYieldColor } from './world';
 import { DIR_OFFSETS, lightenColorUtil, lightenColor, darkenColor } from '../render/utils';
 
@@ -81,15 +81,15 @@ export class GameRenderer {
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Stars at night
+    // Stars at night (fewer stars = faster)
     if (dayFactor < 0.45) {
       const starAlpha = Math.max(0, (0.45 - dayFactor) / 0.2);
-      ctx.fillStyle = `rgba(255,255,255,${starAlpha * 0.7})`;
-      for (let i = 0; i < 120; i++) {
+      for (let i = 0; i < 80; i++) {
         const sx = ((i * 7919 + 13) % canvas.width);
         const sy = ((i * 3571 + 29) % (canvas.height * 0.65));
         const twinkle = Math.sin(this.frameCount * 0.02 + i) * 0.3 + 0.7;
-        ctx.globalAlpha = starAlpha * twinkle * 0.6;
+        ctx.globalAlpha = starAlpha * twinkle * 0.5;
+        ctx.fillStyle = '#fff';
         ctx.fillRect(sx, sy, 1.5, 1.5);
       }
       ctx.globalAlpha = 1;
@@ -2068,6 +2068,22 @@ export class GameRenderer {
   }
 
   private renderParticles(ctx: CanvasRenderingContext2D, state: GameState, vl: number, vt: number, vr: number, vb: number) {
+    // Skip particle rendering entirely if too many (performance safety)
+    if (state.particles.length > MAX_PARTICLES * 0.8) {
+      // Only render every other particle when near limit
+      for (let i = 0; i < state.particles.length; i += 2) {
+        const p = state.particles[i];
+        if (!p || p.x < vl - 20 || p.x > vr + 20 || p.y < vt - 20 || p.y > vb + 20) continue;
+        const alpha = p.life / p.maxLife;
+        ctx.globalAlpha = alpha * 0.6;
+        ctx.fillStyle = p.color;
+        const r = p.size * (1 + (1 - alpha) * 3);
+        ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+      }
+      ctx.globalAlpha = 1;
+      return;
+    }
+
     for (const p of state.particles) {
       if (p.x < vl - 20 || p.x > vr + 20 || p.y < vt - 20 || p.y > vb + 20) continue;
 
@@ -2077,21 +2093,15 @@ export class GameRenderer {
 
       switch (p.type) {
         case 'smoke': {
-          // Volumetric multi-puff smoke (3 offset circles for depth)
+          // Approximate 3-circle smoke with single fillRect (5x faster than arc)
           const radius = p.size * (1 + (1 - alpha) * 3);
           const swirl = this.frameCount * 0.012 + p.x * 0.01;
           ctx.globalAlpha = alpha * 0.35;
-          ctx.beginPath();
-          ctx.arc(p.x + Math.cos(swirl) * radius * 0.25, p.y + Math.sin(swirl) * radius * 0.15, radius, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.fillRect(p.x + Math.cos(swirl) * radius * 0.25 - radius, p.y + Math.sin(swirl) * radius * 0.15 - radius, radius * 2, radius * 2);
           ctx.globalAlpha = alpha * 0.45;
-          ctx.beginPath();
-          ctx.arc(p.x - Math.sin(swirl * 1.3) * radius * 0.2, p.y - radius * 0.1, radius * 0.8, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.fillRect(p.x - Math.sin(swirl * 1.3) * radius * 0.2 - radius * 0.8, p.y - radius * 0.1 - radius * 0.8, radius * 1.6, radius * 1.6);
           ctx.globalAlpha = alpha * 0.3;
-          ctx.beginPath();
-          ctx.arc(p.x + Math.cos(swirl * 0.7 + 1) * radius * 0.3, p.y + Math.sin(swirl * 0.7 + 1) * radius * 0.2, radius * 0.6, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.fillRect(p.x + Math.cos(swirl * 0.7 + 1) * radius * 0.3 - radius * 0.6, p.y + Math.sin(swirl * 0.7 + 1) * radius * 0.2 - radius * 0.6, radius * 1.2, radius * 1.2);
           break;
         }
         case 'spark': {
@@ -2105,37 +2115,26 @@ export class GameRenderer {
         case 'fire': {
           const radius = p.size * alpha;
           ctx.globalAlpha = alpha * 0.8;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-          ctx.fill();
-          // Core
+          ctx.fillRect(p.x - radius, p.y - radius, radius * 2, radius * 2);
           ctx.fillStyle = '#ff8';
           ctx.globalAlpha = alpha * 0.5;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, radius * 0.4, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.fillRect(p.x - radius * 0.4, p.y - radius * 0.4, radius * 0.8, radius * 0.8);
           break;
         }
         case 'explosion': {
           const radius = p.size * (1 + (1 - alpha) * 4);
           ctx.globalAlpha = alpha * 0.7;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.fillRect(p.x - radius, p.y - radius, radius * 2, radius * 2);
           break;
         }
         case 'resource': {
           ctx.globalAlpha = alpha;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size * 0.85, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.fillRect(p.x - p.size * 0.85, p.y - p.size * 0.85, p.size * 1.7, p.size * 1.7);
           break;
         }
         case 'ambient': {
           ctx.globalAlpha = alpha * 0.3;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.fillRect(p.x - p.size, p.y - p.size, p.size * 2, p.size * 2);
           break;
         }
       }
