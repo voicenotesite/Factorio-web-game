@@ -3,24 +3,30 @@ let masterGain: GainNode | null = null
 let sfxGain: GainNode | null = null
 let ambientGain: GainNode | null = null
 let isMuted = false
+let initialized = false
+
+/** Zainicjuj AudioContext (musi być wywołane z event handlera, np. click). */
+export function initAudio() {
+  if (initialized) return
+  initialized = true
+  ctx = new AudioContext()
+  masterGain = ctx.createGain()
+  masterGain.gain.value = 0.3
+  masterGain.connect(ctx.destination)
+
+  sfxGain = ctx.createGain()
+  sfxGain.gain.value = 0.8
+  sfxGain.connect(masterGain)
+
+  ambientGain = ctx.createGain()
+  ambientGain.gain.value = 0.08
+  ambientGain.connect(masterGain)
+}
 
 function getCtx(): AudioContext {
-  if (!ctx) {
-    ctx = new AudioContext()
-    masterGain = ctx.createGain()
-    masterGain.gain.value = 0.3
-    masterGain.connect(ctx.destination)
-
-    sfxGain = ctx.createGain()
-    sfxGain.gain.value = 0.8
-    sfxGain.connect(masterGain)
-
-    ambientGain = ctx.createGain()
-    ambientGain.gain.value = 0.08
-    ambientGain.connect(masterGain)
-  }
-  if (ctx.state === 'suspended') ctx.resume()
-  return ctx
+  if (!ctx) initAudio()
+  if (ctx!.state === 'suspended') ctx!.resume()
+  return ctx!
 }
 
 function noiseBuffer(ctx: AudioContext, duration: number): AudioBuffer {

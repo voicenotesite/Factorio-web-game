@@ -202,6 +202,7 @@ export class GameEngine {
     canvas.addEventListener('mousedown', (e) => {
       if (e.button === 0) this.mouse.down = true;
       if (e.button === 2) this.mouse.rightDown = true;
+      initAudio();
     });
 
     canvas.addEventListener('mouseup', (e) => {
@@ -234,6 +235,7 @@ export class GameEngine {
 
     canvas.addEventListener('touchstart', (e) => {
       e.preventDefault();
+      initAudio();
       if (e.touches.length > 0) {
         touchToTile(e.touches[0]);
         this.mouse.down = true;
