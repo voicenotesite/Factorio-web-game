@@ -3,6 +3,8 @@ import { getTileAt } from './chunk'
 import { addItemToBuilding, removeItemFromBuilding, removeItemFromBuildingOutput, getAcceptedItemTypes, DIR_OFFSETS } from './helpers'
 
 export function updateConveyors(state: GameState) {
+  // Conveyory co 3 ticki — przedmioty nie potrzebują 60Hz update
+  if (state.tick % 3 !== 0) return
   for (const [, inserter] of state.buildings) {
     if (inserter.type !== 'inserter') continue
     inserter.progress = (inserter.progress || 0) + 1

@@ -148,6 +148,8 @@ export function updateWorldEvents(state: GameState) {
 }
 
 export function updateVisibility(state: GameState) {
+  // Visibility co 3 ticki
+  if (state.tick % 3 !== 0) return
   const radius = 8
   const px = Math.floor(state.player.x)
   const py = Math.floor(state.player.y)
