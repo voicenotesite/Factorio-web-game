@@ -2,11 +2,13 @@ import { t } from '../lib/i18n';
 import { GameState } from '../game/types';
 import { ACHIEVEMENT_CATALOG } from '../game/systems';
 
+/** Props statystyk — stan gry i callback zamknięcia. */
 interface Props {
   state: GameState;
   onClose: () => void;
 }
 
+/** Panel statystyk gracza — poziom, XP, surowce wyprodukowane/skonsumowane, osiągnięcia. */
 export default function StatsMenu({ state, onClose }: Props) {
   const { statistics, player } = state;
 
@@ -101,6 +103,7 @@ export default function StatsMenu({ state, onClose }: Props) {
   );
 }
 
+/** Sekcja statystyk z nagłówkiem i kolorem akcentu. */
 function Section({ title, color, children }: { title: string; color: string; children: React.ReactNode }) {
   return (
     <div>
@@ -114,6 +117,7 @@ function Section({ title, color, children }: { title: string; color: string; chi
   );
 }
 
+/** Pojedynczy wiersz statystyki (label: wartość). */
 function StatRow({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="flex items-center justify-between text-xs py-0.5">

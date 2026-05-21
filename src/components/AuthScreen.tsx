@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { login, register, getCurrentUser, getCurrentUserId } from '../lib/auth';
+import { AuthService } from '../services/auth/AuthService';
 import { hasSave, restoreFromCloud } from '../lib/saveSystem';
 import { t } from '../lib/i18n';
 import LangSelector from './LangSelector';
 
+/** Callback po zalogowaniu — username + czy istnieje zapis. */
 interface Props {
   onAuth: (username: string, hasSaveData: boolean) => void;
 }
 
+/** Ekran logowania/rejestracji. Automatycznie przywraca zapis z chmury po zalogowaniu. */
 export default function AuthScreen({ onAuth }: Props) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
@@ -21,22 +23,22 @@ export default function AuthScreen({ onAuth }: Props) {
     setLoading(true);
 
     const result = mode === 'login'
-      ? await login(username, password)
-      : await register(username, password);
+      ? await AuthService.login(username, password)
+      : await AuthService.register(username, password);
 
     setLoading(false);
 
-    if (!result.success) {
+    if (result.error) {
       setError(result.error || 'Unknown error');
       return;
     }
 
-    const user = getCurrentUser()!;
+    const user = AuthService.getCurrentUser()!;
     let saveExists = hasSave(user);
 
     // If no local save, try to restore from Supabase cloud backup
     if (!saveExists) {
-      const uid = getCurrentUserId();
+      const uid = AuthService.getCurrentUserId();
       if (uid) {
         setLoading(true);
         saveExists = await restoreFromCloud(uid, user);

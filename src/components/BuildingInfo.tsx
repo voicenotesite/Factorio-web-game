@@ -1,21 +1,16 @@
 import { t } from '../lib/i18n';
 import { GameState } from '../game/types';
-import { BUILDING_COLORS, RESOURCE_COLORS, RECIPES, CHUNK_SIZE } from '../game/constants';
+import { BUILDING_COLORS, RESOURCE_COLORS, RECIPES, CHUNK_SIZE, ITEM_NAMES } from '../game/constants';
 import { GameEngine } from '../game/engine';
 import { canAffordUpgrade, getUpgradeCost, upgradeBuilding } from '../game/systems';
 
+/** Props dla panelu info budynku — silnik i stan gry. */
 interface Props {
   engine: GameEngine;
   state: GameState;
 }
 
-const ITEM_NAMES: Record<string, string> = {
-  iron: 'Iron', copper: 'Copper', stone: 'Stone', coal: 'Coal', wood: 'Wood',
-  iron_plate: 'Iron Plate', copper_plate: 'Cu Plate', steel_plate: 'Steel Plate',
-  gear: 'Gear', circuit: 'Circuit', advanced_circuit: 'Adv. Circuit',
-  ammo: 'Ammo', pipe: 'Pipe',
-};
-
+/** Panel info o hoverowanym budynku — pokazuje typ, health, inventory, przepis, poziom. */
 export default function BuildingInfo({ engine, state }: Props) {
   const { hoveredTile } = engine;
   if (!hoveredTile) return null;

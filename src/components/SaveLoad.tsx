@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { t } from '../lib/i18n';
 import { GameEngine } from '../game/engine';
-import { saveGame, loadGame, deleteSave, getSaveInfo } from '../lib/saveSystem';
-import { getCurrentUser } from '../lib/auth';
+import { loadGame, deleteSave, getSaveInfo } from '../lib/saveSystem';
+import { AuthService } from '../services/auth/AuthService';
 
+/** Props dla okna save/load — silnik, callbacki i cooldown. */
 interface Props {
   engine: GameEngine;
   onClose: () => void;
@@ -11,9 +12,9 @@ interface Props {
   onSave: () => void;
 }
 
+/** Okno zapisu/wczytu gry — przyciski Save (z cooldownem), Load, Delete i informacje o ostatnim zapisie. */
 export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Props) {
   const [message, setMessage] = useState('');
-  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [localCooldown, setLocalCooldown] = useState(0);
 
@@ -23,7 +24,7 @@ export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Prop
     return () => clearInterval(t);
   }, [localCooldown]);
 
-  const username = getCurrentUser();
+  const username = AuthService.getCurrentUser();
   const saveInfo = username ? getSaveInfo(username) : null;
   const cooldown = Math.max(saveCooldown, localCooldown);
 
@@ -127,7 +128,7 @@ export default function SaveLoad({ engine, onClose, saveCooldown, onSave }: Prop
               boxShadow: cooldown > 0 ? '0 0 20px rgba(34,197,94,0.3)' : '0 0 10px rgba(34,197,94,0.1)',
             }}
           >
-            {cooldown > 0 ? `⏳ ${cooldown}s` : saving ? '⏳ Saving...' : t('saveGame')}
+            {cooldown > 0 ? `⏳ ${cooldown}s` : t('saveGame')}
           </button>
 
           {saveInfo && (

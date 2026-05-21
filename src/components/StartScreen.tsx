@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { t } from '../lib/i18n';
 
+/** Props ekranu startowego — callback rozpoczęcia gry. */
 interface Props { onStart: () => void; }
 
 interface Spark {
@@ -21,6 +22,7 @@ const BUILDINGS = [
   { x: 0.86, y: 0.64, w: 0.16, h: 0.36, chimneys: [0.90, 0.97] },
 ];
 
+/** Ekran startowy — animowane miasto, przycisk "Enter Novactorio". */
 export default function StartScreen({ onStart }: Props) {
   const [phase, setPhase] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);

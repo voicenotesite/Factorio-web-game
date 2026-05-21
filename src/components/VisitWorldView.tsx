@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { t } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
-import { getCurrentUser, getCurrentUserId } from '../lib/auth';
+import { AuthService } from '../services/auth/AuthService';
 import { GameEngine } from '../game/engine';
 
+/** Props widoku świata znajomego — ID i nazwa znajomego, callback zamknięcia. */
 interface Props {
   friendId: string;
   friendName: string;
@@ -11,19 +12,21 @@ interface Props {
 }
 
 const VISITOR_COLORS = ['#f472b6', '#34d399', '#60a5fa', '#fbbf24', '#a78bfa', '#fb923c'];
+/** Generuje kolor wizytatora na podstawie ID (deterministyczny hash → paleta). */
 function colorFromId(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffffffff;
   return VISITOR_COLORS[Math.abs(h) % VISITOR_COLORS.length];
 }
 
+/** Widok świata znajomego — ładuje snapshot świata z Supabase i umożliwia eksplorację. */
 export default function VisitWorldView({ friendId, friendName, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
   const [status, setStatus] = useState<'loading' | 'noSave' | 'loaded' | 'error'>('loading');
   const [visitorCount, setVisitorCount] = useState(0);
-  const myId = getCurrentUserId() || 'anon';
-  const myName = getCurrentUser() || 'Visitor';
+  const myId = AuthService.getCurrentUserId() || 'anon';
+  const myName = AuthService.getCurrentUser() || 'Visitor';
   const myColor = colorFromId(myId);
 
   useEffect(() => {

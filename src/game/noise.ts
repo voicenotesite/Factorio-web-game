@@ -1,6 +1,8 @@
-// Simplex-like noise for procedural generation
-// Fast, deterministic, no external dependencies
-
+/**
+ * Implementacja Simplex Noise (2D/3D) do proceduralnej generacji świata.
+ * Szybka, deterministyczna, brak zewnętrznych zależności.
+ * Używana przez world.ts do generowania biomów, surowców, drzew i wydajności.
+ */
 const F2 = 0.5 * (Math.sqrt(3) - 1);
 const G2 = (3 - Math.sqrt(3)) / 6;
 const F3 = 1 / 3;
@@ -16,6 +18,7 @@ class SimplexNoise {
   private perm: Uint8Array;
   private permMod12: Uint8Array;
 
+  /** Tworzy instancję noise z podanym seedem (deterministyczna). */
   constructor(seed: number) {
     const p = new Uint8Array(256);
     for (let i = 0; i < 256; i++) p[i] = i;
@@ -157,6 +160,7 @@ class SimplexNoise {
     return 32 * (n0 + n1 + n2 + n3);
   }
 
+  /** Generuje noise 2D z wieloma oktawami (więcej oktaw = więcej detali). persistence kontroluje amplitudę kolejnych oktaw. */
   octave2D(x: number, y: number, octaves: number, persistence: number = 0.5): number {
     let total = 0;
     let frequency = 1;

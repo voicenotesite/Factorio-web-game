@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { t } from '../lib/i18n';
-import { getCurrentUser, getCurrentUserId } from '../lib/auth';
+import { AuthService } from '../services/auth/AuthService';
 import { supabase } from '../lib/supabase';
 
 const PLANS = [
@@ -8,17 +8,19 @@ const PLANS = [
   { id: 'premium', name: 'PREMIUM', price: 24.99, color: '#a78bfa', priceId: 'price_1TYW9LK4E5IHLVVAZrXNVjWk' },
 ];
 
+/** Props modalu płatności — callback zamknięcia. */
 interface Props {
   onClose: () => void;
 }
 
+/** Modal płatności Stripe — wybór subskrypcji (starter/premium) przez Stripe Checkout. */
 export default function PaymentModal({ onClose }: Props) {
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'premium'>('starter');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const username = getCurrentUser();
-  const userId = getCurrentUserId();
+  const username = AuthService.getCurrentUser();
+  const userId = AuthService.getCurrentUserId();
 
   const plan = PLANS.find(p => p.id === selectedPlan)!;
 

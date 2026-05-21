@@ -1,10 +1,16 @@
 import { useState } from 'react';
-import { GameEngine } from '../game/engine';
-import { GameState } from '../game/types';
+import type { GameState } from '../game/types';
 import { t } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
-import { getCurrentUser, getCurrentUserId } from '../lib/auth';
+import { AuthService } from '../services/auth/AuthService';
 import PaymentModal from './PaymentModal';
+
+/** Props dla sklepu — engine (do powiadomień), stan gry i callback zamknięcia. */
+interface Props {
+  engine: { addNotification: (msg: string, type?: 'info' | 'error' | 'success' | 'build') => void };
+  state: GameState;
+  onClose: () => void;
+}
 
 const SKIN_COLORS = [
   { id: 'default', nameKey: 'skinSteelBlue', color: '#3388ee', gemCost: 0, zlCost: 0, priceId: '' },
@@ -62,6 +68,7 @@ const PREMIUM_TIERS = [
   },
 ];
 
+/** Sklep — kosmetyki (skiny, kapelusze, traile), boosty (speed, mining, XP, shield) i subskrypcje premium przez Stripe. */
 export default function ShopMenu({ engine, state, onClose }: Props) {
   const [tab, setTab] = useState<'cosmetics' | 'boosts' | 'premium'>('cosmetics');
   const [message, setMessage] = useState('');
@@ -74,8 +81,8 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
       const { data, error: fnError } = await supabase.functions.invoke('stripe-checkout', {
         body: {
           priceId,
-          userId: getCurrentUserId(),
-          username: getCurrentUser(),
+          userId: AuthService.getCurrentUserId(),
+          username: AuthService.getCurrentUser(),
           successUrl: 'https://factoryworld.mmc29213.workers.dev/?checkout=success',
           cancelUrl: 'https://factoryworld.mmc29213.workers.dev/?checkout=cancel',
         },
@@ -407,6 +414,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
   );
 }
 
+/** Sekcja kosmetyków z nagłówkiem (linia + tytuł). */
 function CosmeticSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>

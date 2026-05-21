@@ -1,21 +1,31 @@
+/** Typ surowca dostępnego na mapie. */
 export type ResourceType = 'iron' | 'copper' | 'coal' | 'stone' | 'wood' | 'oil' | 'water' | 'uranium';
+/** Typ budynku — wszystkie konstrukcje stawiane przez gracza/NPC. */
 export type BuildingType = 'miner' | 'furnace' | 'assembler' | 'conveyor' | 'inserter' | 'storage' | 'power_pole' | 'steam_engine' | 'boiler' | 'lab' | 'radar' | 'turret' | 'wall' | 'belt_junction' | 'splitter' | 'underground_belt' | 'pumpjack' | 'refinery' | 'chemical_plant' | 'pipe';
+/** Typ NPC — worker (buduje), scout (eksploruje), trader (handluje), guard (chroni), settler (osadnik). */
 export type NPCType = 'worker' | 'scout' | 'trader' | 'guard' | 'settler';
+/** Typ wroga — biter (podstawowy), spitter (strzela), worm (wieża), behemoth (ciężki), spawner (gniazdo). */
 export type EnemyType = 'biter' | 'spitter' | 'worm' | 'behemoth' | 'spawner';
+/** Typ biomu — wpływa na kolorystykę i generację surowców. */
 export type BiomeType = 'grass' | 'desert' | 'snow' | 'forest' | 'swamp' | 'volcanic';
+/** Kierunek — używany przez gracza, budynki, przenośniki i insertery. */
 export type Direction = 'up' | 'down' | 'left' | 'right';
+/** Alias dla ID przedmiotu (string). */
 export type ItemId = string;
 
+/** Para współrzędnych (x, y) — używana przez pozycję, pathfinding, target. */
 export interface Position {
   x: number;
   y: number;
 }
 
+/** Współrzędne chunka w gridzie (cx, cy). */
 export interface ChunkCoord {
   cx: number;
   cy: number;
 }
 
+/** Pojedynczy kafelek (tile) świata — zawiera biom, surowiec, budynek, pollution i widoczność. */
 export interface Tile {
   x: number;
   y: number;
@@ -28,6 +38,7 @@ export interface Tile {
   visibility: number;
 }
 
+/** Budynek na mapie — posiada health, inventory, output, recipe, energię i level ulepszenia. */
 export interface Building {
   id: string;
   type: BuildingType;
@@ -46,11 +57,13 @@ export interface Building {
   level: number;
 }
 
+/** Pojedynczy slot w ekwipunku (itemId + ilość). */
 export interface InventorySlot {
   itemId: ItemId;
   count: number;
 }
 
+/** Przepis rzemieślniczy — wejścia, wyjścia, czas, koszt energii, kategoria. */
 export interface Recipe {
   id: string;
   name: string;
@@ -61,12 +74,14 @@ export interface Recipe {
   category: string;
 }
 
+/** Stan pojedynczego segmentu przenośnika — przedmiot, progress (0-1), kierunek. */
 export interface ConveyorState {
   itemId: ItemId | null;
   progress: number;
   direction: Direction;
 }
 
+/** Niezależny NPC — porusza się, pracuje, buduje z kolejki, handluje, patroluje. */
 export interface NPC {
   id: string;
   type: NPCType;
@@ -89,6 +104,7 @@ export interface NPC {
   pathIndex: number;
 }
 
+/** Wróg — atakuje budynki i gracza, ewoluuje z czasem. */
 export interface Enemy {
   id: string;
   type: EnemyType;
@@ -106,6 +122,7 @@ export interface Enemy {
   spawnerId: string | null;
 }
 
+/** Gniazdo wrogów — spawnuje fale, ewoluuje, przechowuje listę swoich enemy. */
 export interface EnemySpawner {
   id: string;
   x: number;
@@ -118,6 +135,7 @@ export interface EnemySpawner {
   enemies: string[];
 }
 
+/** Cząsteczka (particle) — efekt wizualny (dym, iskry, ogień, eksplozja, ambient). */
 export interface Particle {
   x: number;
   y: number;
@@ -130,6 +148,7 @@ export interface Particle {
   type: 'smoke' | 'spark' | 'fire' | 'resource' | 'explosion' | 'ambient';
 }
 
+/** Wydarzenie świata — meteor, raid, migracja, odkrycie, karawana, trzęsienie ziemi, złoże. */
 export interface WorldEvent {
   id: string;
   type: 'meteor' | 'raid' | 'migration' | 'discovery' | 'trade_caravan' | 'earthquake' | 'resource_vein';
@@ -139,6 +158,7 @@ export interface WorldEvent {
   data: Record<string, unknown>;
 }
 
+/** Technologia w drzewie badań — koszt, czas, wymagania, efekty. */
 export interface Research {
   id: string;
   name: string;
@@ -151,6 +171,7 @@ export interface Research {
   effects: Record<string, number>;
 }
 
+/** Stan gracza — pozycja, health, ekwipunek, XP, level, waluty premium, kosmetyki. */
 export interface PlayerState {
   x: number;
   y: number;
@@ -174,6 +195,7 @@ export interface PlayerState {
   totalPlayTime: number;
 }
 
+/** Element kolejki budowy — NPC buduje na podstawie tego zadania. */
 export interface BuildQueueItem {
   id: string;
   type: string;
@@ -184,6 +206,7 @@ export interface BuildQueueItem {
   constructionProgress: number; // 0..100
 }
 
+/** Główny stan gry — agreguje wszystkie podstany (gracz, kamera, chunki, budynki, NPC, wrogowie, badania, pogoda, statystyki). */
 export interface GameState {
   player: PlayerState;
   camera: { x: number; y: number; zoom: number };
@@ -198,6 +221,7 @@ export interface GameState {
   research: Map<string, Research>;
   tick: number;
   pollution: number;
+  totalPollutionGenerated: number;
   evolution: number;
   powerGrid: Map<string, { production: number; consumption: number; stored: number }>;
   dayTime: number;

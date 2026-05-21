@@ -1,3 +1,7 @@
+/**
+ * System internacjonalizacji — 23 języki, ~350 kluczy.
+ * Funkcja t() obsługuje dynamiczne klucze (string) oraz interpolację ({key} vars).
+ */
 export type LangCode = 'en' | 'pl' | 'de' | 'fr' | 'es' | 'it' | 'nl' | 'pt' | 'cs' | 'sk' | 'hu' | 'ro' | 'sv' | 'da' | 'no' | 'fi' | 'hr' | 'bg' | 'el' | 'et' | 'lv' | 'lt' | 'sl';
 
 const translations = {
@@ -2676,7 +2680,7 @@ export function getLang(): LangCode {
   return currentLang;
 }
 
-export function t(key: TranslationKey, vars?: Record<string, string | number>): string {
+export function t(key: string, vars?: Record<string, string | number>): string {
   const langDict = translations[currentLang] as Record<string, string>;
   const enDict = translations['en'] as Record<string, string>;
   const text = langDict[key] ?? enDict[key] ?? key;

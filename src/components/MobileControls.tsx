@@ -5,6 +5,7 @@ import { BUILDING_COLORS, RESOURCE_COLORS } from '../game/constants';
 import { t } from '../lib/i18n';
 import LangSelector from './LangSelector';
 
+/** Props dla mobilnego sterowania — wszystkie callbacki menu plus engine i stan gry. */
 interface Props {
   engine: GameEngine;
   gameState: GameState;
@@ -21,14 +22,19 @@ interface Props {
   onLogout: () => void;
 }
 
+/** Mobilne sterowanie — joystick, przycisk ataku, kopania, demolki, szybki dostęp do menu. Zastępuje klawiaturę na urządzeniach dotykowych. */
 export default function MobileControls({
   engine, gameState, currentUser, onBuild, onCraft, onResearch, onStats, onSave, onCoop, onFriends, onAdmin, onGuide, onLogout,
 }: Props) {
+  // === Joystick (movement) ===
   const joystickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
   const [joystickActive, setJoystickActive] = useState(false);
+  /** Punkt startowy joysticka (środek base) — pozycja bezwzględna toucha. */
   const joystickOrigin = useRef({ x: 0, y: 0 });
+  /** Przesunięcie gałki względem środka (znormalizowane do -1..1). */
   const joystickDelta = useRef({ x: 0, y: 0 });
+  /** ID klatki animacji — do czyszczenia przy unmount. */
   const animFrameRef = useRef<number>(0);
 
   const joystickActiveRef = useRef(false);
@@ -65,7 +71,7 @@ export default function MobileControls({
     e.preventDefault();
     if (!joystickActiveRef.current) return;
     // Find the specific finger that started the joystick (multi-touch safe)
-    let touch: Touch | undefined;
+    let touch: React.Touch | undefined;
     for (let i = 0; i < e.touches.length; i++) {
       if (e.touches[i].identifier === joystickTouchId.current) {
         touch = e.touches[i];
@@ -325,6 +331,7 @@ export default function MobileControls({
   );
 }
 
+/** Przycisk ataku (trzymany = powtarzalny). Wywołuje engine.attackNearestEnemy() co 350ms z feedbackiem flash. */
 function AttackHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [pressed, setPressed] = useState(false);
@@ -363,6 +370,7 @@ function AttackHoldBtn({ engine }: { engine: import('../game/engine').GameEngine
   );
 }
 
+/** Przycisk kopania (trzymany = powtarzalny). Wywołuje engine.mineInFront() co 200ms. */
 function MineHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [pressed, setPressed] = useState(false);
@@ -408,6 +416,7 @@ function MineHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }
 }
 
 
+/** Przycisk demolki (tap) — usuwa najbliższy budynek przez engine.removeNearestBuilding(). */
 function DemolishBtn({ engine }: { engine: import('../game/engine').GameEngine }) {
   const [flash, setFlash] = useState(false);
 
@@ -445,6 +454,7 @@ function DemolishBtn({ engine }: { engine: import('../game/engine').GameEngine }
   );
 }
 
+/** Przycisk w górnym pasku szybkiego dostępu (budowa, craft, tech). */
 function TopBtn({ label, icon, color, onClick }: { label: string; icon: string; color: string; onClick: () => void }) {
   return (
     <button
@@ -473,6 +483,7 @@ function TopBtn({ label, icon, color, onClick }: { label: string; icon: string; 
   );
 }
 
+/** Przycisk w wysuwanym drawerze (menu dodatkowe: statystyki, save, friends, admin, itp.). */
 function DrawerBtn({ label, icon, color, onClick }: { label: string; icon: string; color: string; onClick: () => void }) {
   return (
     <button
@@ -500,6 +511,7 @@ function DrawerBtn({ label, icon, color, onClick }: { label: string; icon: strin
   );
 }
 
+/** Miniatura minimapy w drawerze — rysuje ten sam widok co Minimap w HUD. */
 function MiniMapCanvas({ state, size }: { state: GameState; size: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 

@@ -27,11 +27,12 @@ const LANGUAGES: { code: LangCode; flag: string; name: string }[] = [
   { code: 'sl', flag: '🇸🇮', name: 'SL' },
 ];
 
+/** Props selektora języka — opcjonalny tryb fixed (nieprzesuwany). */
 interface Props {
-  /** When true, positions the selector fixed in bottom-right corner */
   fixed?: boolean;
 }
 
+/** Selektor języka — zmienia LangCode w i18n i zapisuje w localStorage. */
 export default function LangSelector({ fixed = false }: Props) {
   const [open, setOpen] = useState(false);
   const current = LANGUAGES.find(l => l.code === getLang()) ?? LANGUAGES[0];

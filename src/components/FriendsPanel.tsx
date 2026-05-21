@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { t } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
-import { getCurrentUser, getCurrentUserId } from '../lib/auth';
+import { AuthService } from '../services/auth/AuthService';
 
 interface FriendRequest {
   id: string;
@@ -16,19 +16,21 @@ interface Friend {
   online: boolean;
 }
 
+/** Props panelu znajomych — callbacki zamknięcia i odwiedzenia świata. */
 interface Props {
   onClose: () => void;
-  onVisitWorld?: (friendId: string, friendName: string) => void;
+  onVisitWorld: (id: string, name: string) => void;
 }
 
+/** Panel znajomych — lista, dodawanie, odwiedzanie świata. Wykorzystuje Supabase profiles. */
 export default function FriendsPanel({ onClose, onVisitWorld }: Props) {
   const [tab, setTab] = useState<'friends' | 'requests' | 'add'>('friends');
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [addUsername, setAddUsername] = useState('');
   const [msg, setMsg] = useState('');
-  const myId = getCurrentUserId();
-  const myName = getCurrentUser();
+  const myId = AuthService.getCurrentUserId();
+  const myName = AuthService.getCurrentUser();
 
   useEffect(() => {
     loadFriends();

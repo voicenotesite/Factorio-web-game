@@ -2,6 +2,7 @@ import { SimplexNoise } from './noise';
 import { Tile, BiomeType, ResourceType } from './types';
 import { BIOME_COLORS, CHUNK_SIZE } from './constants';
 
+/** Instancje SimplexNoise dla różnych warstw generacji świata (biom, surowce, wilgotność, wysokość, żyły, drzewa, wydajność). */
 let biomeNoise = new SimplexNoise(42);
 let resourceNoise = new SimplexNoise(43);
 let moistureNoise = new SimplexNoise(44);
@@ -10,6 +11,10 @@ let veinNoise = new SimplexNoise(46);
 let treeNoise = new SimplexNoise(47);
 let yieldNoise = new SimplexNoise(48);
 
+/**
+ * Inicjalizuje seed świata — tworzy wszystkie instancje SimplexNoise z seedem.
+ * Wywoływane przed startem gry i przy ładowaniu zapisu.
+ */
 export function initWorldSeed(seed: number) {
   biomeNoise = new SimplexNoise(seed);
   resourceNoise = new SimplexNoise(seed + 1);
@@ -98,6 +103,7 @@ function getResource(x: number, y: number, biome: BiomeType): { resource: Resour
   return { resource: null, amount: 0, yield: 'normal' };
 }
 
+/** Generuje chunk (16×16 tile'i) na podstawie pozycji chunka i seedu świata. Uwzględnia biom, surowce, drzewa i wydajność. */
 export function generateChunk(cx: number, cy: number): Tile[][] {
   const tiles: Tile[][] = [];
   const startX = cx * CHUNK_SIZE;
@@ -128,10 +134,12 @@ export function generateChunk(cx: number, cy: number): Tile[][] {
   return tiles;
 }
 
+/** Zwraca klucz string dla pary współrzędnych chunka (używany w Map). */
 export function getChunkKey(cx: number, cy: number): string {
   return `${cx},${cy}`;
 }
 
+/** Zwraca kolor kafelka w zależności od biomu, surowca i pory dnia (dayFactor). */
 export function getTileColor(tile: Tile, dayFactor: number): string {
   const base = BIOME_COLORS[tile.biome] || '#4a7c3f';
   if (tile.resource === 'water') return '#2855a0';
@@ -148,18 +156,21 @@ export function getTileColor(tile: Tile, dayFactor: number): string {
   return `rgb(${nr},${ng},${nb})`;
 }
 
+/** Sprawdza czy na podanej pozycji rośnie drzewo (zależne od biomu i noise drzew). */
 export function hasTreeAt(x: number, y: number, biome: BiomeType): boolean {
   if (biome !== 'forest' && biome !== 'grass') return false;
   const v = treeNoise.noise2D(x * 0.3, y * 0.3);
   return v > 0.6;
 }
 
+/** Zwraca szansę spawnu wroga w chunku — zależna od pollution, evolution i odległości od spawn point. */
 export function getEnemySpawnChance(cx: number, cy: number, pollution: number, evolution: number): number {
   const dist = Math.sqrt(cx * cx + cy * cy);
   const baseChance = 0.001 * (1 + dist * 0.01);
   return baseChance * (1 + pollution * 0.01) * (1 + evolution);
 }
 
+/** Zwraca kolor paska wydajności surowca (zielony = wysoka, czerwony = niska). */
 export function getYieldColor(yieldLevel: Tile['resourceYield']): string {
   switch (yieldLevel) {
     case 'very_rich': return '#ff4444';

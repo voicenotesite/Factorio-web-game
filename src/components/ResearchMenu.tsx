@@ -3,12 +3,14 @@ import { RESEARCH_TREE, RESOURCE_COLORS } from '../game/constants';
 import { GameEngine } from '../game/engine';
 import { GameState } from '../game/types';
 
+/** Props dla drzewa badań — silnik, stan gry i callback zamknięcia. */
 interface Props {
   engine: GameEngine;
   state: GameState;
   onClose: () => void;
 }
 
+/** Drzewo badań (research) — odblokowuje technologie przez laboratoria. */
 export default function ResearchMenu({ engine, state, onClose }: Props) {
   const researchList = Object.values(RESEARCH_TREE);
 

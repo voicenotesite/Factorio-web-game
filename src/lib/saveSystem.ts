@@ -1,7 +1,12 @@
+/**
+ * System zapisu/wczytu gry. Główny storage to localStorage, z opcjonalnym
+ * cloud backup do Supabase (world_snapshots).
+ */
 import { GameState } from '../game/types';
 import { supabase } from './supabase';
-import { getCurrentUserId } from './auth';
+import { AuthService } from '../services/auth/AuthService';
 
+/** Struktura danych zapisu gry (wersja, timestamp, stan gracza, budynki, badania, NPC). */
 export interface SaveData {
   version: number;
   timestamp: number;
@@ -24,6 +29,7 @@ function getSaveKey(username: string): string {
   return `novactorio_save_${username.toLowerCase()}`;
 }
 
+/** Zapisuje stan gry do localStorage + cloud backup do Supabase (fire-and-forget). */
 export function saveGame(username: string, state: GameState): void {
   const data: SaveData = {
     version: 2,
@@ -45,7 +51,7 @@ export function saveGame(username: string, state: GameState): void {
   localStorage.setItem(getSaveKey(username), JSON.stringify(data));
 
   // Push full save + world snapshot to Supabase (fire and forget — cloud backup)
-  const uid = getCurrentUserId();
+  const uid = AuthService.getCurrentUserId();
   if (uid) {
     const worldData = JSON.stringify({
       v: 1,
@@ -66,16 +72,19 @@ export function saveGame(username: string, state: GameState): void {
   }
 }
 
+/** Wczytuje zapis gry z localStorage. Zwraca null jeśli brak danych. */
 export function loadGame(username: string): SaveData | null {
   const raw = localStorage.getItem(getSaveKey(username));
   if (!raw) return null;
   try { return JSON.parse(raw) as SaveData; } catch { return null; }
 }
 
+/** Usuwa zapis gry z localStorage. */
 export function deleteSave(username: string): void {
   localStorage.removeItem(getSaveKey(username));
 }
 
+/** Sprawdza czy istnieje zapis w localStorage dla danego username. */
 export function hasSave(username: string): boolean {
   return !!localStorage.getItem(getSaveKey(username));
 }
@@ -96,6 +105,7 @@ export async function restoreFromCloud(uid: string, username: string): Promise<b
   }
 }
 
+/** Zwraca podstawowe info o zapisie (timestamp, tick) bez pełnego deserializowania stanu. */
 export function getSaveInfo(username: string): { timestamp: number; tick: number } | null {
   const save = loadGame(username);
   if (!save) return null;

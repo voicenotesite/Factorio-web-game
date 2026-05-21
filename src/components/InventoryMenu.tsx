@@ -3,12 +3,14 @@ import { GameState } from '../game/types';
 import { RESOURCE_COLORS, RECIPES } from '../game/constants';
 import { GameEngine } from '../game/engine';
 
+/** Props dla ekwipunku — silnik, stan gry i callback zamknięcia. */
 interface Props {
   engine: GameEngine;
   state: GameState;
   onClose: () => void;
 }
 
+/** Ekwipunek + crafting — lista przedmiotów gracza, przepisy rzemieślnicze (assembler/furnace). */
 export default function InventoryMenu({ engine, state, onClose }: Props) {
   const { player } = state;
 

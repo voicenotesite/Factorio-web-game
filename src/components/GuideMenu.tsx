@@ -5,25 +5,25 @@ interface Props {
 }
 
 const buildings = [
-  { key: 'miner', icon: '⛏', name: 'Miner', descKey: 'desc_miner' },
-  { key: 'furnace', icon: '🔥', name: 'Furnace', descKey: 'desc_furnace' },
-  { key: 'assembler', icon: '⚙️', name: 'Assembler', descKey: 'desc_assembler' },
-  { key: 'conveyor', icon: '➡️', name: 'Conveyor', descKey: 'desc_conveyor' },
-  { key: 'inserter', icon: '🔄', name: 'Inserter', descKey: 'desc_inserter' },
-  { key: 'splitter', icon: '🔀', name: 'Splitter', descKey: 'desc_splitter' },
-  { key: 'underground_belt', icon: '⬇️', name: 'Underground Belt', descKey: 'desc_underground_belt' },
-  { key: 'storage', icon: '📦', name: 'Storage', descKey: 'desc_storage' },
-  { key: 'pipe', icon: '🌊', name: 'Pipe', descKey: 'desc_pipe' },
-  { key: 'boiler', icon: '💧', name: 'Boiler', descKey: 'desc_boiler' },
-  { key: 'steam_engine', icon: '⚡', name: 'Steam Engine', descKey: 'desc_steam_engine' },
-  { key: 'power_pole', icon: '🔌', name: 'Power Pole', descKey: 'desc_power_pole' },
-  { key: 'lab', icon: '🔬', name: 'Lab', descKey: 'desc_lab' },
-  { key: 'radar', icon: '📡', name: 'Radar', descKey: 'desc_radar' },
-  { key: 'turret', icon: '🎯', name: 'Turret', descKey: 'desc_turret' },
-  { key: 'wall', icon: '🧱', name: 'Wall', descKey: 'desc_wall' },
-  { key: 'refinery', icon: '🛢️', name: 'Refinery', descKey: 'desc_refinery' },
-  { key: 'chemical_plant', icon: '🧪', name: 'Chemical Plant', descKey: 'desc_chemical_plant' },
-  { key: 'pumpjack', icon: '🪝', name: 'Pumpjack', descKey: 'desc_pumpjack' },
+  { key: 'miner', icon: '⛏️', name: 'Miner', descKey: 'guideMiner' },
+  { key: 'furnace', icon: '🔥', name: 'Furnace', descKey: 'guideFurnace' },
+  { key: 'assembler', icon: '⚙️', name: 'Assembler', descKey: 'guideAssembler' },
+  { key: 'conveyor', icon: '➡️', name: 'Conveyor', descKey: 'guideConveyor' },
+  { key: 'inserter', icon: '🔄', name: 'Inserter', descKey: 'guideInserter' },
+  { key: 'splitter', icon: '🔀', name: 'Splitter', descKey: 'guideSplitter' },
+  { key: 'underground_belt', icon: '⬇️', name: 'Underground Belt', descKey: 'guideUndergroundBelt' },
+  { key: 'storage', icon: '📦', name: 'Storage', descKey: 'guideStorage' },
+  { key: 'pipe', icon: '🌊', name: 'Pipe', descKey: 'guidePipe' },
+  { key: 'boiler', icon: '💧', name: 'Boiler', descKey: 'guideBoiler' },
+  { key: 'steam_engine', icon: '⚡', name: 'Steam Engine', descKey: 'guideSteamEngine' },
+  { key: 'power_pole', icon: '🔌', name: 'Power Pole', descKey: 'guidePowerPole' },
+  { key: 'lab', icon: '🔬', name: 'Lab', descKey: 'guideLab' },
+  { key: 'radar', icon: '📡', name: 'Radar', descKey: 'guideRadar' },
+  { key: 'turret', icon: '🎯', name: 'Turret', descKey: 'guideTurret' },
+  { key: 'wall', icon: '🧱', name: 'Wall', descKey: 'guideWall' },
+  { key: 'refinery', icon: '🛢️', name: 'Refinery', descKey: 'guideRefinery' },
+  { key: 'chemical_plant', icon: '🧪', name: 'Chemical Plant', descKey: 'guideChemicalPlant' },
+  { key: 'pumpjack', icon: '🪝', name: 'Pumpjack', descKey: 'guidePumpjack' },
 ];
 
 export default function GuideMenu({ onClose }: Props) {
@@ -219,6 +219,7 @@ export default function GuideMenu({ onClose }: Props) {
   );
 }
 
+/** Sekcja poradnika z ikoną i tytułem. */
 function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
     <div>
@@ -231,6 +232,7 @@ function Section({ title, icon, children }: { title: string; icon: string; child
   );
 }
 
+/** Ramka na schemat/diagram w poradniku. */
 function DiagramBox({ children }: { children: React.ReactNode }) {
   return (
     <div
@@ -245,6 +247,7 @@ function DiagramBox({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Mały badge/chip w poradniku (np. nazwa budynku). */
 function Chip({ children, color }: { children: React.ReactNode; color: string }) {
   return (
     <span
@@ -256,6 +259,7 @@ function Chip({ children, color }: { children: React.ReactNode; color: string })
   );
 }
 
+/** Strzałka przepływu w diagramie (np. wejście → proces → wyjście). */
 function Arrow({ label }: { label?: string }) {
   return (
     <span className="flex flex-col items-center text-white/30 mx-1">

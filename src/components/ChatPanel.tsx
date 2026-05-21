@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { getCurrentUser, getCurrentUserId } from '../lib/auth';
+import { AuthService } from '../services/auth/AuthService';
 import { t } from '../lib/i18n';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -14,10 +14,12 @@ interface ChatMessage {
   created_at: string;
 }
 
+/** Props panelu czatu — opcjonalny callback zamknięcia. */
 interface Props {
   onClose?: () => void;
 }
 
+/** Panel czatu z innymi graczami (Supabase Realtime). Wiadomości wysyłane przez broadcast. */
 export default function ChatPanel({ onClose }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -28,7 +30,7 @@ export default function ChatPanel({ onClose }: Props) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const minimizedRef = useRef(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const username = getCurrentUser();
+  const username = AuthService.getCurrentUser();
   const isMobile = window.innerWidth < 768;
 
   useEffect(() => { minimizedRef.current = minimized; }, [minimized]);
@@ -91,7 +93,7 @@ export default function ChatPanel({ onClose }: Props) {
       id: newMsg.id,
       username,
       message: msg,
-      user_id: getCurrentUserId(),
+      user_id: AuthService.getCurrentUserId(),
     });
 
     if (error) {

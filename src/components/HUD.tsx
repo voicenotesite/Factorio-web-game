@@ -3,18 +3,15 @@ import { GameState } from '../game/types';
 import { BUILDING_COLORS, RESOURCE_COLORS } from '../game/constants';
 import { t } from '../lib/i18n';
 
+/** Props HUD — stan gry i lista aktywnych powiadomień. */
 interface Props {
   state: GameState;
   notifications: { text: string; timer: number; type?: string }[];
 }
 
-const RESOURCE_ICONS: Record<string, string> = {
-  iron: '⬡', copper: '◆', stone: '▲', coal: '◼', wood: '⬟',
-  iron_plate: '▣', copper_plate: '◈', steel_plate: '⬠', gear: '⚙',
-  circuit: '⊞', ammo: '◉', science_red: '⬢', science_green: '⬡',
-  science_blue: '◎', oil: '⬭', uranium: '⬬',
-};
 
+
+/** Heads-Up Display — pasek stanu gracza (health, XP, poziom), pasek dnia/nocy, minimap, powiadomienia, hotbar ekwipunku. */
 export default function HUD({ state, notifications }: Props) {
   const dayProgress = state.dayTime / state.dayLength;
   const isDay = dayProgress > 0.25 && dayProgress < 0.75;
@@ -264,6 +261,7 @@ export default function HUD({ state, notifications }: Props) {
   );
 }
 
+/** Pojedynczy badge metryki na HUD (np. "Dzień 08:32" lub "Pollution 45.2"). */
 function MetricBadge({ label, value, color, glow }: { label: string; value: string; color?: string; glow?: string }) {
   return (
     <div className="flex flex-col items-center">
@@ -281,6 +279,7 @@ function MetricBadge({ label, value, color, glow }: { label: string; value: stri
   );
 }
 
+/** Minimapa w rogu ekranu — rysuje chunki, budynki, NPC, wrogów na Canvas 2D. Skaluje świat do rozmiaru minimapy. */
 function Minimap({ state, size = 176 }: { state: GameState; size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 

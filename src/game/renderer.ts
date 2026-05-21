@@ -1,32 +1,29 @@
-import { GameState, Tile, Building, NPC, Enemy } from './types';
+import { GameState, Tile, Building, NPC, Enemy, Direction } from './types';
 import { CHUNK_SIZE, TILE_SIZE, BUILDING_SIZES, BUILDING_COLORS, RESOURCE_COLORS } from './constants';
-import { getTileColor, hasTreeAt, getYieldColor } from './world';
+import { hasTreeAt, getYieldColor } from './world';
+import { DIR_OFFSETS, lightenColorUtil, lightenColor, darkenColor } from '../render/utils';
 
-const DIR_OFFSETS: Record<string, { dx: number; dy: number }> = {
-  up: { dx: 0, dy: -1 },
-  down: { dx: 0, dy: 1 },
-  left: { dx: -1, dy: 0 },
-  right: { dx: 1, dy: 0 },
-};
-
-const NPC_COLORS: Record<string, { body: string; accent: string }> = {
-  worker: { body: '#3b7ddd', accent: '#5a9bff' },
-  scout: { body: '#2ea043', accent: '#56d364' },
-  trader: { body: '#d4a017', accent: '#f0c040' },
-  guard: { body: '#c43b3b', accent: '#e85555' },
-  settler: { body: '#8b6bb5', accent: '#a88bd4' },
-};
-
+/**
+ * Renderer Canvas 2D — rysuje świat gry (chunki, budynki, NPC, wrogowie,
+ * cząsteczki, efekty świetlne, ghost building, minimap overlay).
+ * Dodatkowo zarządza efektem "Fog of War" (visibility) i cyklem dnia/nocy.
+ */
 export class GameRenderer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  /** Licznik klatek — używany do animacji (miganie, ruchome elementy). */
   private frameCount = 0;
+  /** Offscreen canvas do efektów świetlnych (day/night cycle, dynamic lighting). */
   private lightCanvas: HTMLCanvasElement;
   private lightCtx: CanvasRenderingContext2D;
+  /** Czy gracz aktualnie się porusza (wpływa na trail effect). */
   isPlayerMoving = false;
+  /** Typ budynku do narysowania jako "ghost" (półprzezroczysty podgląd). */
   ghostBuilding: string | null = null;
+  /** Kafelek pod kursorem — pozycja ghost building. */
   ghostTile: { x: number; y: number } | null = null;
   ghostDirection = 'right';
+  /** Czy gracza stać na postawienie ghost building (kolor: zielony/czerwony). */
   ghostCanAfford = true;
   private enemyHitFlash = new Map<string, number>(); // enemyId -> flashFrames remaining
   private damageNumbers: { x: number; y: number; value: number; life: number; color: string }[] = [];
@@ -35,6 +32,7 @@ export class GameRenderer {
   private sunShadowDY = 4;
   private sunShadowAlpha = 0.25;
 
+  /** Inicjalizuje renderer: zapisuje referencję do canvas, context 2D i tworzy offscreen lightCanvas. */
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false })!;
@@ -42,6 +40,7 @@ export class GameRenderer {
     this.lightCtx = this.lightCanvas.getContext('2d')!;
   }
 
+  /** Główna metoda renderowania: czyści ekran, rysuje chunki, budynki, NPC, wrogów, cząsteczki, ghost building, fog i efekty świetlne. */
   render(state: GameState) {
     this.frameCount++;
     const { ctx, canvas } = this;
@@ -1886,8 +1885,6 @@ export class GameRenderer {
     const x = player.x * TILE_SIZE;
     const y = player.y * TILE_SIZE;
     const bob = Math.sin(this.frameCount * 0.12) * 1.2;
-    const isMoving = this.isPlayerMoving;
-
     // Player ambient glow — warm hard-hat light
     const glowR = 22;
     const playerGlow = ctx.createRadialGradient(x, y, 0, x, y, glowR);
@@ -2002,10 +1999,6 @@ export class GameRenderer {
     ctx.setLineDash([]);
   }
 
-  private keysPressed(state: GameState): boolean {
-    return state.player.x !== state.player.x || state.player.y !== state.player.y;
-  }
-
   private renderGhostBuilding(ctx: CanvasRenderingContext2D, state: GameState) {
     if (!this.ghostBuilding || !this.ghostTile) return;
     const { x, y } = this.ghostTile;
@@ -2053,7 +2046,7 @@ export class GameRenderer {
     ctx.stroke();
 
     // Show direction arrow
-    const dir = DIR_OFFSETS[this.ghostDirection];
+    const dir = DIR_OFFSETS[this.ghostDirection as Direction];
     if (dir) {
       const acx = sx + sw / 2;
       const acy = sy + sh / 2;
@@ -2270,23 +2263,4 @@ export class GameRenderer {
   }
 }
 
-function lightenColorUtil(hex: string, amount: number): string {
-  const r = Math.min(255, parseInt(hex.slice(1, 3), 16) + amount);
-  const g = Math.min(255, parseInt(hex.slice(3, 5), 16) + amount);
-  const b = Math.min(255, parseInt(hex.slice(5, 7), 16) + amount);
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-}
 
-function lightenColor(hex: string, amount: number): string {
-  const r = Math.min(255, parseInt(hex.slice(1, 3), 16) + amount);
-  const g = Math.min(255, parseInt(hex.slice(3, 5), 16) + amount);
-  const b = Math.min(255, parseInt(hex.slice(5, 7), 16) + amount);
-  return `rgb(${r},${g},${b})`;
-}
-
-function darkenColor(hex: string, amount: number): string {
-  const r = Math.max(0, parseInt(hex.slice(1, 3), 16) - amount);
-  const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - amount);
-  const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - amount);
-  return `rgb(${r},${g},${b})`;
-}

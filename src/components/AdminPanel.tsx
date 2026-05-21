@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { t } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
-import { getCurrentUserId } from '../lib/auth';
+import { AuthService } from '../services/auth/AuthService';
 import { GameEngine } from '../game/engine';
 import { GameState } from '../game/types';
 
+/** Props panelu admina — engine (do cheat commands), stan gry i callback zamknięcia. */
 interface Props {
   engine: GameEngine;
   state: GameState;
   onClose: () => void;
 }
 
+/** Wiersz gracza z bazy (username + level + online status). */
 interface PlayerRow {
   username: string;
   tick: number;
@@ -28,6 +30,7 @@ interface ChatRow {
 
 type Tab = 'overview' | 'players' | 'chat' | 'world';
 
+/** Panel administratora — podgląd stanu gry, zarządzanie graczami, komendy (give resources, unlock research, max level). */
 export default function AdminPanel({ engine, state, onClose }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -79,7 +82,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
     await supabase.from('chat_messages').insert({
       username: '🔴 SERVER',
       message: broadcast.trim(),
-      user_id: getCurrentUserId(),
+      user_id: AuthService.getCurrentUserId(),
     });
     setBroadcast('');
     setMsg('Broadcast sent!');
@@ -105,7 +108,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
   };
 
   const unlockAllResearch = () => {
-    for (const [, r] of engine.state.research) { r.unlocked = true; r.progress = r.cost; }
+    for (const [, r] of engine.state.research) { r.unlocked = true; r.progress = r.time; }
     setMsg('All research unlocked');
     setTimeout(() => setMsg(''), 2000);
   };
@@ -179,7 +182,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { label: t('adminTick'), value: state.tick.toLocaleString() },
-                  { label: t('evolution'), value: (state.evolution * 100).toFixed(2) + '%' },
+                  { label: 'Evolution', value: (state.evolution * 100).toFixed(2) + '%' },
                   { label: t('adminPollution'), value: state.pollution.toFixed(1) },
                   { label: t('adminBuildings'), value: state.buildings.size },
                   { label: t('adminNPCs'), value: state.npcs.size },
@@ -336,6 +339,7 @@ export default function AdminPanel({ engine, state, onClose }: Props) {
   );
 }
 
+/** Przycisk akcji admina (give resources, unlock research, max level). */
 function AdminBtn({ onClick, color, label }: { onClick: () => void; color: string; label: string }) {
   return (
     <button onClick={onClick}

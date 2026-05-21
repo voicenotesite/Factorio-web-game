@@ -24,12 +24,14 @@ const PREMIUM_TIERS = [
   },
 ];
 
+/** Props popupu premium — callbacki zamknięcia, "nie pytaj więcej" i zakupu. */
 interface Props {
   onClose: () => void;
   onDontAsk: () => void;
-  onBuyPremium?: () => void;
+  onBuyPremium: () => void;
 }
 
+/** Popup premium — pokazuje się po 3 sekundach dla graczy z darmowym tierem. */
 export default function PremiumPopup({ onClose, onDontAsk, onBuyPremium }: Props) {
   return (
     <div

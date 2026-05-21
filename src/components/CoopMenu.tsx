@@ -1,37 +1,83 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { t } from '../lib/i18n';
-import { getCurrentUserId } from '../lib/auth';
-import { GameEngine } from '../game/engine';
+import { AuthService } from '../services/auth/AuthService';
+import { CoopLobbyService, type LobbyInfo } from '../services/coop/CoopLobbyService';
 
 interface Props {
-  engine: GameEngine;
-  coopMode: boolean;
-  onToggleCoop: () => void;
+  onJoinLobby: (worldCode: string, worldSeed: number) => void;
+  onLeaveLobby: () => void;
+  lobbyInfo: LobbyInfo | null;
+  isHost: boolean;
   onClose: () => void;
 }
 
-export default function CoopMenu({ engine, coopMode, onToggleCoop, onClose }: Props) {
-  const myId = getCurrentUserId();
-  const [copied, setCopied] = useState(false);
-  const [visitors, setVisitors] = useState<{ username: string; color: string }[]>([]);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+export default function CoopMenu({ onJoinLobby, onLeaveLobby, lobbyInfo, isHost, onClose }: Props) {
+  const [view, setView] = useState<'lobby' | 'create' | 'join' | 'active'>(lobbyInfo ? 'active' : 'lobby');
+  const [joinCode, setJoinCode] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [members, setMembers] = useState(lobbyInfo?.members || []);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const refreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      if (engine.state.coopVisitors) {
-        setVisitors(Array.from(engine.state.coopVisitors.values()));
-      }
-    }, 1000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [engine]);
+    if (lobbyInfo) {
+      setView('active');
+      setMembers(lobbyInfo.members);
+
+      heartbeatRef.current = setInterval(() => {
+        CoopLobbyService.heartbeat(lobbyInfo.worldCode);
+      }, 5000);
+
+      refreshRef.current = setInterval(async () => {
+        const info = await CoopLobbyService.getLobbyInfo(lobbyInfo.worldCode);
+        if (info) setMembers(info.members);
+      }, 3000);
+
+      return () => {
+        if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+        if (refreshRef.current) clearInterval(refreshRef.current);
+      };
+    }
+  }, [lobbyInfo]);
+
+  const handleCreate = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const info = await CoopLobbyService.createLobby((window as any).__gameState);
+      onJoinLobby(info.worldCode, info.worldSeed);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to create lobby');
+    }
+    setLoading(false);
+  }, [onJoinLobby]);
+
+  const handleJoin = useCallback(async () => {
+    if (joinCode.length < 4) { setError('Enter a valid code'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      const info = await CoopLobbyService.joinLobby(joinCode.toUpperCase());
+      onJoinLobby(info.worldCode, info.worldSeed);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to join');
+    }
+    setLoading(false);
+  }, [joinCode, onJoinLobby]);
+
+  const handleLeave = useCallback(async () => {
+    if (lobbyInfo) {
+      await CoopLobbyService.leaveLobby(lobbyInfo.worldCode);
+    }
+    onLeaveLobby();
+    setView('lobby');
+    setMembers([]);
+  }, [lobbyInfo, onLeaveLobby]);
 
   const copyCode = () => {
-    if (myId) {
-      navigator.clipboard.writeText(myId);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+    if (lobbyInfo) {
+      navigator.clipboard.writeText(lobbyInfo.worldCode);
     }
   };
 
@@ -53,60 +99,94 @@ export default function CoopMenu({ engine, coopMode, onToggleCoop, onClose }: Pr
         </div>
 
         <div className="p-4 space-y-4">
-          {/* World Code */}
-          <div className="p-3 rounded-xl" style={{ background: 'rgba(244,114,182,0.06)', border: '1px solid rgba(244,114,182,0.15)' }}>
-            <div className="text-[10px] font-orbitron tracking-wider mb-1.5" style={{ color: 'rgba(244,114,182,0.6)' }}>{t('yourWorldCode')}</div>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs font-mono px-2 py-1.5 rounded-lg truncate" style={{ background: 'rgba(0,0,0,0.3)', color: '#f472b6', border: '1px solid rgba(244,114,182,0.2)' }}>
-                {myId}
-              </code>
+          {view === 'lobby' && (
+            <>
               <button
-                onClick={copyCode}
-                className="px-2.5 py-1.5 text-[10px] font-orbitron rounded-lg transition-all whitespace-nowrap"
-                style={{
-                  background: copied ? 'rgba(34,197,94,0.15)' : 'rgba(244,114,182,0.15)',
-                  color: copied ? '#4ade80' : '#f472b6',
-                  border: `1px solid ${copied ? 'rgba(34,197,94,0.3)' : 'rgba(244,114,182,0.25)'}`,
-                }}
+                onClick={handleCreate}
+                disabled={loading}
+                className="w-full py-3 rounded-xl font-orbitron font-bold text-sm tracking-wider transition-all disabled:opacity-40"
+                style={{ background: 'rgba(244,114,182,0.15)', color: '#f472b6', border: '1px solid rgba(244,114,182,0.3)' }}
               >
-                {copied ? t('copied') : t('copyCode')}
+                {loading ? '...' : '🏗️ Create World'}
               </button>
-            </div>
-          </div>
 
-          {/* Toggle */}
-          <div className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <span className="text-sm text-white/70 font-semibold">{t('coopBroadcast')}</span>
-            <button
-              onClick={onToggleCoop}
-              className="relative w-12 h-6 rounded-full transition-all"
-              style={{
-                background: coopMode ? 'rgba(244,114,182,0.4)' : 'rgba(255,255,255,0.1)',
-                border: `1px solid ${coopMode ? 'rgba(244,114,182,0.5)' : 'rgba(255,255,255,0.15)'}`,
-              }}
-            >
-              <div className="absolute top-0.5 w-5 h-5 rounded-full transition-all duration-200" style={{
-                left: coopMode ? 'calc(100% - 22px)' : '2px',
-                background: coopMode ? '#f472b6' : 'rgba(255,255,255,0.3)',
-                boxShadow: coopMode ? '0 0 8px rgba(244,114,182,0.4)' : 'none',
-              }} />
-            </button>
-          </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                <span className="text-[10px] text-white/20 font-orbitron">OR</span>
+                <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+              </div>
 
-          {/* Visitors */}
-          <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="text-[10px] font-orbitron tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.3)' }}>{t('visitors')} ({visitors.length})</div>
-            {visitors.length === 0 ? (
-              <div className="text-center text-white/20 text-xs py-4 font-orbitron">{t('noVisitors')}</div>
-            ) : (
-              visitors.map(v => (
-                <div key={v.username} className="flex items-center gap-2 py-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ background: v.color }} />
-                  <span className="text-sm text-white/70">{v.username}</span>
+              <div>
+                <input
+                  value={joinCode}
+                  onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                  placeholder="Enter world code"
+                  maxLength={6}
+                  className="w-full px-3 py-2.5 rounded-xl text-sm font-mono tracking-widest text-center outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', color: '#f472b6', border: '1px solid rgba(244,114,182,0.2)' }}
+                  onKeyDown={e => e.key === 'Enter' && handleJoin()}
+                />
+                <button
+                  onClick={handleJoin}
+                  disabled={loading || joinCode.length < 4}
+                  className="w-full mt-2 py-2.5 rounded-xl font-orbitron font-bold text-sm tracking-wider transition-all disabled:opacity-40"
+                  style={{ background: 'rgba(34,197,94,0.1)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.25)' }}
+                >
+                  {loading ? '...' : '🔗 Join World'}
+                </button>
+              </div>
+
+              {error && <div className="text-xs text-red-400 text-center font-orbitron">{error}</div>}
+            </>
+          )}
+
+          {view === 'active' && lobbyInfo && (
+            <>
+              <div className="p-3 rounded-xl" style={{ background: 'rgba(244,114,182,0.06)', border: '1px solid rgba(244,114,182,0.15)' }}>
+                <div className="text-[10px] font-orbitron tracking-wider mb-1.5" style={{ color: 'rgba(244,114,182,0.6)' }}>WORLD CODE</div>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-sm font-mono px-2 py-1.5 rounded-lg text-center tracking-[0.3em]" style={{ background: 'rgba(0,0,0,0.3)', color: '#f472b6', border: '1px solid rgba(244,114,182,0.2)' }}>
+                    {lobbyInfo.worldCode}
+                  </code>
+                  <button
+                    onClick={copyCode}
+                    className="px-2.5 py-1.5 text-[10px] font-orbitron rounded-lg transition-all"
+                    style={{ background: 'rgba(244,114,182,0.15)', color: '#f472b6', border: '1px solid rgba(244,114,182,0.25)' }}
+                  >
+                    📋
+                  </button>
                 </div>
-              ))
-            )}
-          </div>
+                <div className="text-[10px] text-white/20 mt-1 font-orbitron">{isHost ? 'Host · Share code to invite' : 'Connected as guest'}</div>
+              </div>
+
+              <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="text-[10px] font-orbitron tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  PLAYERS ({members.length})
+                </div>
+                {members.length === 0 ? (
+                  <div className="text-center text-white/20 text-xs py-4 font-orbitron">No players</div>
+                ) : (
+                  members.map(m => (
+                    <div key={m.userId} className="flex items-center gap-2 py-1.5">
+                      <div className="w-2 h-2 rounded-full" style={{ background: m.role === 'host' ? '#f472b6' : '#4ade80' }} />
+                      <span className="text-sm text-white/70">{m.username}</span>
+                      {m.role === 'host' && <span className="text-[10px] text-white/30 font-orbitron">HOST</span>}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <button
+                onClick={handleLeave}
+                className="w-full py-2.5 rounded-xl font-orbitron font-bold text-sm tracking-wider transition-all"
+                style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+              >
+                🚪 Leave World
+              </button>
+
+              {error && <div className="text-xs text-red-400 text-center font-orbitron">{error}</div>}
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -19,16 +19,21 @@ import PremiumPopup from './components/PremiumPopup';
 import AdminPanel from './components/AdminPanel';
 import GuideMenu from './components/GuideMenu';
 import CoopMenu from './components/CoopMenu';
+import TutorialOverlay from './components/TutorialOverlay';
+import { CoopLobbyService, type LobbyInfo } from './services/coop/CoopLobbyService';
+import { ActionBarBtn, WrenchIcon, FlaskIcon, PackageIcon, ChartIcon, TrophyIcon, GemIcon, SaveIcon, FriendsIcon } from './ui/components/ActionBar';
 import LangSelector from './components/LangSelector';
 import { GameEngine } from './game/engine';
 import { GameState } from './game/types';
-import { getCurrentUser, logout, getCurrentUserId } from './lib/auth';
-import { saveGame, loadGame, hasSave } from './lib/saveSystem';
+import { AuthService } from './services/auth/AuthService';
+import { isAdmin } from './config/admins';
+import { saveGame, loadGame } from './lib/saveSystem';
 import { supabase } from './lib/supabase';
 import { t } from './lib/i18n';
 
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
 
+/** Główny komponent aplikacji — orkiestruje wszystkie widoki (auth, start, gra, menuy), zarządza stanem UI i synchronizacją co-op. */
 function App() {
   const engineRef = useRef<GameEngine | null>(null);
 
@@ -46,7 +51,7 @@ function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [visitingWorld, setVisitingWorld] = useState<{ id: string; name: string } | null>(null);
   const [notifications, setNotifications] = useState<{ text: string; timer: number; type?: string }[]>([]);
-  const [currentUser, setCurrentUser] = useState<string | null>(getCurrentUser);
+  const [currentUser, setCurrentUser] = useState<string | null>(AuthService.getCurrentUser());
   const [hasSaveData, setHasSaveData] = useState(false);
   const [showPremiumPopup, setShowPremiumPopup] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
@@ -54,16 +59,21 @@ function App() {
   const [saveCooldown, setSaveCooldown] = useState(0);
   const [showSaveOverlay, setShowSaveOverlay] = useState(false);
   const [coopMode, setCoopMode] = useState(false);
-  const [coopOnline, setCoopOnline] = useState(0);
+  const [worldCode, setWorldCode] = useState<string | null>(null);
+  const [lobbyInfo, setLobbyInfo] = useState<LobbyInfo | null>(null);
+  const [tutorialStep, setTutorialStep] = useState<{ step: import('./core/systems/tutorial').TutorialStep; index: number; total: number } | null>(null);
   const coopChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const coopPosIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const coopModeRef = useRef(false);
   coopModeRef.current = coopMode;
+  const worldCodeRef = useRef<string | null>(null);
+  worldCodeRef.current = worldCode;
 
   const engine = engineRef.current;
 
   const handleEngineReady = useCallback((engine: GameEngine) => {
     engineRef.current = engine;
+    (window as any).__gameState = engine.state;
     engine.onStateChange = (state) => {
       setGameState({ ...state });
       setNotifications([...engine.notifications]);
@@ -73,13 +83,20 @@ function App() {
     };
     engine.onBuildingAction = (action, type, x, y, dir) => {
       if (!coopModeRef.current || !coopChannelRef.current) return;
-      const myId = getCurrentUserId();
+      const myId = AuthService.getCurrentUserId();
       if (!myId) return;
       coopChannelRef.current.send({
         type: 'broadcast', event: action === 'place' ? 'build_place' : 'build_remove',
         payload: { type, x, y, dir, senderId: myId },
       });
     };
+    engine.onTutorialStep = (step, index, total) => {
+      setTutorialStep({ step, index, total });
+    };
+    engine.onTutorialComplete = () => {
+      setTutorialStep(null);
+    };
+    engine.startTutorial();
   }, []);
 
   const handleAuth = useCallback((username: string, hasSaveDataArg: boolean) => {
@@ -178,35 +195,57 @@ function App() {
     saveGame(currentUser, engineRef.current.state);
   }, [currentUser, saveCooldown]);
 
-  const handleToggleCoop = useCallback(() => {
-    if (coopMode && coopChannelRef.current) {
-      const myId = getCurrentUserId();
-      coopChannelRef.current.send({ type: 'broadcast', event: 'leave', payload: { id: myId } });
+  const handleJoinLobby = useCallback((code: string, seed: number) => {
+    setWorldCode(code);
+    setCoopMode(true);
+    const eng = engineRef.current;
+    if (eng && eng.state.worldSeed !== seed) {
+      eng.state.worldSeed = seed;
     }
-    setCoopMode(p => !p);
-  }, [coopMode]);
+  }, []);
 
-  // Co-op: real-time multiplayer via Supabase Realtime
+  const handleLeaveLobby = useCallback(async () => {
+    setWorldCode(null);
+    setCoopMode(false);
+    setLobbyInfo(null);
+    if (coopChannelRef.current) {
+      supabase.removeChannel(coopChannelRef.current);
+      coopChannelRef.current = null;
+    }
+    if (coopPosIntervalRef.current) {
+      clearInterval(coopPosIntervalRef.current);
+      coopPosIntervalRef.current = null;
+    }
+    if (engineRef.current) {
+      engineRef.current.state.coopVisitors?.clear();
+    }
+  }, []);
+
+  // Co-op: Realtime channel (subscribes when worldCode is set)
   useEffect(() => {
-    if (!started || !currentUser || !engine) return;
-    const myId = getCurrentUserId();
+    if (!started || !currentUser || !engine || !worldCode) return;
+    const myId = AuthService.getCurrentUserId();
     if (!myId) return;
 
+    interface VisitorPayload { id: string; username: string; x: number; y: number; color: string }
+    interface BuildPayload { type: string; x: number; y: number; dir: string; senderId: string }
+    interface IdPayload { id: string }
+
     const channel = supabase
-      .channel(`coop-${myId}`, { config: { broadcast: { self: false } } })
+      .channel(`coop-${worldCode}`, { config: { broadcast: { self: false } } })
       .on('broadcast', { event: 'pos' }, ({ payload }) => {
-        const { id, username, x, y, color } = payload as any;
+        const { id, username, x, y, color } = payload as unknown as VisitorPayload;
         if (id !== myId) engine.updateCoopVisitor(id, username, x, y, color);
       })
       .on('broadcast', { event: 'leave' }, ({ payload }) => {
-        engine.removeCoopVisitor((payload as any).id);
+        engine.removeCoopVisitor((payload as unknown as IdPayload).id);
       })
       .on('broadcast', { event: 'build_place' }, ({ payload }) => {
-        const { type, x, y, dir, senderId } = payload as any;
+        const { type, x, y, dir, senderId } = payload as unknown as BuildPayload;
         if (senderId !== myId) engine.placeBuildingFromCoop(type, x, y, dir);
       })
       .on('broadcast', { event: 'build_remove' }, ({ payload }) => {
-        const { x, y, senderId } = payload as any;
+        const { x, y, senderId } = payload as unknown as BuildPayload;
         if (senderId !== myId) engine.removeBuildingFromCoop(x, y);
       })
       .subscribe();
@@ -217,20 +256,19 @@ function App() {
       supabase.removeChannel(channel);
       coopChannelRef.current = null;
     };
-  }, [started, currentUser, engine]);
+  }, [started, currentUser, engine, worldCode]);
 
-  // Co-op: periodic position broadcast
+  // Co-op: position broadcast + lobby heartbeat
   useEffect(() => {
-    if (!started || !currentUser || !coopMode || !engine) return;
-    const myId = getCurrentUserId();
+    if (!started || !currentUser || !coopMode || !engine || !worldCode) return;
+    const myId = AuthService.getCurrentUserId();
     if (!myId) return;
-    const myColor = '#3388ee';
 
     const interval = setInterval(() => {
       if (!engine.running || !coopChannelRef.current) return;
       coopChannelRef.current.send({
         type: 'broadcast', event: 'pos',
-        payload: { id: myId, username: currentUser, x: engine.state.player.x, y: engine.state.player.y, color: myColor },
+        payload: { id: myId, username: currentUser, x: engine.state.player.x, y: engine.state.player.y, color: '#3388ee' },
       });
     }, 200);
     coopPosIntervalRef.current = interval;
@@ -239,7 +277,18 @@ function App() {
       clearInterval(interval);
       coopPosIntervalRef.current = null;
     };
-  }, [started, currentUser, coopMode, engine]);
+  }, [started, currentUser, coopMode, engine, worldCode]);
+
+  // Auto-refresh lobby info while connected
+  useEffect(() => {
+    if (!worldCode) return;
+    const interval = setInterval(async () => {
+      const info = await CoopLobbyService.getLobbyInfo(worldCode);
+      if (info) setLobbyInfo(info);
+    }, 5000);
+    CoopLobbyService.getLobbyInfo(worldCode).then(i => { if (i) setLobbyInfo(i); });
+    return () => clearInterval(interval);
+  }, [worldCode]);
 
   return (
     <div className="w-screen h-screen overflow-hidden select-none font-exo" style={{ background: 'var(--bg)' }}>
@@ -268,7 +317,7 @@ function App() {
           onFriends={() => setShowFriends(true)}
           onAdmin={() => setShowAdmin(true)}
           onGuide={() => setShowGuide(true)}
-          onLogout={() => { logout(); setCurrentUser(null); setStarted(false); }}
+          onLogout={() => { AuthService.logout(); setCurrentUser(null); setStarted(false); }}
         />
       )}
 
@@ -303,7 +352,7 @@ function App() {
             icon={<GemIcon />} color="#06b6d4" />
           <ActionBarBtn label={t('actionFriends')} shortcut="" onClick={() => setShowFriends(true)} active={showFriends}
             icon={<FriendsIcon />} color="#f472b6" />
-          {currentUser?.toUpperCase() === 'ADMIN' && (
+          {isAdmin(currentUser) && (
             <>
               <div className="w-px h-6 mx-1" style={{ background: 'rgba(220,38,38,0.3)' }} />
               <ActionBarBtn label={t('actionAdmin')} shortcut="" onClick={() => setShowAdmin(true)} active={showAdmin}
@@ -323,7 +372,7 @@ function App() {
             icon={<span>🌐</span>} color="#f472b6" />
           <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
           <button
-            onClick={() => { logout(); setCurrentUser(null); setStarted(false); }}
+            onClick={() => { AuthService.logout(); setCurrentUser(null); setStarted(false); }}
             className="btn-factory flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all"
             style={{ background: 'transparent', border: '1px solid transparent' }}
             title={`${t('actionLogout')} (${currentUser})`}
@@ -370,7 +419,13 @@ function App() {
       {showSaveLoad && engine && <SaveLoad engine={engine} onClose={() => setShowSaveLoad(false)} saveCooldown={saveCooldown} onSave={triggerSave} />}
       {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} />}
       {showAdmin && engine && gameState && <AdminPanel engine={engine} state={gameState} onClose={() => setShowAdmin(false)} />}
-      {showCoop && engine && <CoopMenu engine={engine} coopMode={coopMode} onToggleCoop={handleToggleCoop} onClose={() => setShowCoop(false)} />}
+      {showCoop && <CoopMenu
+        onJoinLobby={handleJoinLobby}
+        onLeaveLobby={handleLeaveLobby}
+        lobbyInfo={lobbyInfo}
+        isHost={lobbyInfo?.hostId === AuthService.getCurrentUserId()}
+        onClose={() => setShowCoop(false)}
+      />}
       {visitingWorld && <VisitWorldView friendId={visitingWorld.id} friendName={visitingWorld.name} onClose={() => setVisitingWorld(null)} />}
       {showGuide && <GuideMenu onClose={() => setShowGuide(false)} />}
       {showPremiumPopup && (
@@ -424,86 +479,19 @@ function App() {
           🌐 {t('coopActive')}
         </div>
       )}
+
+      {/* Tutorial overlay */}
+      {tutorialStep && (
+        <TutorialOverlay
+          step={tutorialStep.step}
+          index={tutorialStep.index}
+          total={tutorialStep.total}
+          onSkip={() => { engine?.tutorial?.skip(); setTutorialStep(null); }}
+        />
+      )}
     </div>
   );
 }
-
-function ActionBarBtn({ label, shortcut, onClick, icon, color, active }: {
-  label: string; shortcut: string; onClick: () => void; icon: React.ReactNode; color: string; active?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="btn-factory flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all duration-150 group"
-      style={{
-        background: active ? `${color}18` : 'transparent',
-        border: `1px solid ${active ? `${color}40` : 'transparent'}`,
-        boxShadow: active ? `0 0 15px ${color}20` : 'none',
-      }}
-      onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.background = `rgba(216,128,16,0.08)`;
-        (e.currentTarget as HTMLElement).style.border = `1px solid rgba(216,128,16,0.25)`;
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.background = active ? `${color}14` : 'transparent';
-        (e.currentTarget as HTMLElement).style.border = `1px solid ${active ? `${color}35` : 'transparent'}`;
-      }}
-    >
-      <span style={{ color: active ? color : 'rgba(255,255,255,0.5)', filter: active ? `drop-shadow(0 0 6px ${color})` : 'none' }}>
-        {icon}
-      </span>
-      <span className="text-[9px] font-orbitron tracking-wider" style={{ color: active ? color : 'rgba(255,255,255,0.35)' }}>
-        {label}
-      </span>
-      {shortcut && (
-        <span className="text-[8px] px-1 rounded" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.2)' }}>
-          {shortcut}
-        </span>
-      )}
-    </button>
-  );
-}
-
-const WrenchIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-  </svg>
-);
-const FlaskIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 3h6l1 9H8L9 3z" /><path d="M6.4 18.3a2 2 0 0 0 1.8 1.7h7.6a2 2 0 0 0 1.8-1.7L18 12H6l.4 6.3z" />
-  </svg>
-);
-const PackageIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" /><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27,6.96 12,12.01 20.73,6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
-  </svg>
-);
-const ChartIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
-  </svg>
-);
-const TrophyIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="14,9 12,11 10,9" /><path d="M21 4H3v4a9 9 0 0 0 18 0V4z" /><path d="M12 17v4" /><line x1="8" y1="21" x2="16" y2="21" />
-  </svg>
-);
-const GemIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5" /><line x1="12" y1="22" x2="12" y2="15.5" /><polyline points="22,8.5 12,15.5 2,8.5" /><polyline points="2,8.5 12,2 22,8.5" />
-  </svg>
-);
-const SaveIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17,21 17,13 7,13 7,21" /><polyline points="7,3 7,8 15,8" />
-  </svg>
-);
-const FriendsIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-  </svg>
-);
 
 export default App;
 

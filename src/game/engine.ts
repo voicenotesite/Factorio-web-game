@@ -9,35 +9,78 @@ import {
   updateVisibility, playerMine, addItemToPlayer, spawnParticle,
   canAffordBuilding, payBuildingCost, getBuildingCost, grantXPToPlayer, getTileAt, checkAchievements,
 } from './systems';
+import { TutorialEngine } from '../core/systems/tutorial';
+import {
+  playBuildSound, playMineSound, playCraftSound,
+  playEnemyHitSound, playEnemyDeathSound,
+  playResearchSound, playLevelUpSound,
+  playAchievementSound, playUISound,
+  startAmbientHum, stopAmbientHum,
+} from './audio';
 
+/**
+ * Główny silnik gry Novactorio.
+ * Zarządza stanem gry, pętlą gry, wejściem (klawiatura/mysz) oraz orchestruje
+ * systemy (produkcja, NPC, wrogowie, rendering). Komunikuje się z warstwą React
+ * poprzez callbacki onStateChange i onBuildingAction.
+ */
 export class GameEngine {
+  /** Aktualny stan gry — przekazywany do Reacta przy każdej klatce. */
   state: GameState;
+  /** Renderer Canvas 2D odpowiedzialny za rysowanie świata i UI. */
   renderer: GameRenderer;
+  /** Zbiór aktualnie wciśniętych klawiszy (do continuous input). */
   keys: Set<string> = new Set();
+  /** Stan myszy — pozycja na ekranie, pozycja w świecie, stan przycisków. */
   mouse: { x: number; y: number; worldX: number; worldY: number; down: boolean; rightDown: boolean } = {
     x: 0, y: 0, worldX: 0, worldY: 0, down: false, rightDown: false,
   };
+  /** Typ budynku wybrany do stawiania (null = brak). */
   selectedBuilding: string | null = null;
+  /** Kierunek stawianego budynku. */
   selectedDirection: string = 'right';
+  /** Wybrany przepis rzemieślniczy (null = brak). */
   selectedRecipe: string | null = null;
+  /** Czy pętla gry jest aktywna. */
   running = false;
+  /** Znacznik czasu ostatniej klatki (do delta-time). */
   lastTime = 0;
+  /** Akumulator czasu dla fixed-tick (16.67ms na tick). */
   tickAccumulator = 0;
+  /** Poprzednia liczba wrogów do wykrywania śmierci (audio). */
+  private prevEnemyCount = 0;
+  /** Poprzednie powiadomienie do wykrywania zmian (audio). */
+  private prevNotifLen = 0;
+  /** Callback wywoływany przy każdej zmianie stanu — synchronizacja z React. */
   onStateChange?: (state: GameState) => void;
+  /** Callback wywoływany przy stawianiu/usuwaniu budynku (tryb co-op). */
   onBuildingAction?: (action: 'place' | 'remove', type: string, x: number, y: number, dir: string) => void;
+  /** Współrzędne kafelka pod kursorem (null = poza światem). */
   hoveredTile: { x: number; y: number } | null = null;
+  /** Lista aktywnych powiadomień (tekst + czas wyświetlania). */
   notifications: { text: string; timer: number; type?: string }[] = [];
+  /** Czy gracz aktualnie się porusza (używane do trail efektów). */
   isPlayerMoving = false;
+  /** Docelowy zoom kamery (płynne przejście). */
   private targetZoom = 1.5;
+  /** Cooldown kopania (w tickach). */
   private miningCooldown = 0;
+  /** Ostatni skopany kafelek (unikanie wielokrotnego liczenia). */
   private lastMinedTile = '';
+  /** Tutorial engine (prowadzi gracza przez pierwsze kroki). */
+  tutorial: TutorialEngine | null = null;
+  /** Callback wywoływany przy zmianie kroku tutoriala. */
+  onTutorialStep?: (step: import('../core/systems/tutorial').TutorialStep, index: number, total: number) => void;
+  onTutorialComplete?: () => void;
 
+  /** Inicjalizuje silnik: tworzy początkowy stan, renderer i podpina zdarzenia. */
   constructor(canvas: HTMLCanvasElement) {
     this.state = this.createInitialState();
     this.renderer = new GameRenderer(canvas);
     this.setupInput(canvas);
   }
 
+  /** Tworzy początkowy stan gry z domyślnymi wartościami (ekwipunek, kamera, badania, seed świata). */
   private createInitialState(): GameState {
     const research = new Map<string, GameState['research'] extends Map<string, infer V> ? V : never>();
     for (const [key, val] of Object.entries(RESEARCH_TREE)) {
@@ -49,15 +92,11 @@ export class GameEngine {
         x: 0, y: 0,
         health: 100, maxHealth: 100,
         inventory: [
-          { itemId: 'iron', count: 200 },
-          { itemId: 'copper', count: 150 },
-          { itemId: 'coal', count: 150 },
-          { itemId: 'stone', count: 200 },
-          { itemId: 'wood', count: 50 },
-          { itemId: 'iron_plate', count: 80 },
-          { itemId: 'copper_plate', count: 40 },
-          { itemId: 'gear', count: 30 },
-          { itemId: 'circuit', count: 10 },
+          { itemId: 'iron', count: 50 },
+          { itemId: 'copper', count: 30 },
+          { itemId: 'coal', count: 20 },
+          { itemId: 'stone', count: 10 },
+          { itemId: 'wood', count: 5 },
         ],
         selectedSlot: 0,
         direction: 'right',
@@ -107,6 +146,7 @@ export class GameEngine {
     };
   }
 
+  /** Podpina nasłuchiwacze zdarzeń klawiatury i myszy na Canvas. */
   private setupInput(canvas: HTMLCanvasElement) {
     this.keyDownHandler = (e) => {
       const tag = (e.target as HTMLElement)?.tagName;
@@ -220,7 +260,10 @@ export class GameEngine {
     }, { passive: false });
   }
 
-  /** Mobile: mine tile directly in front of / under the player */
+  /**
+   * Wydobywa kafelek przed graczem (używane na mobile).
+   * Skanuje kolejne kafelki w kierunku patrzenia gracza w zasięgu reach.
+   */
   mineInFront() {
     const { player } = this.state;
     const offsets: Record<string, [number, number]> = {
@@ -234,6 +277,7 @@ export class GameEngine {
     }
   }
 
+  /** Atakuje najbliższego wroga w zasięgu 5 kafelków. Zwraca true jeśli trafiono. */
   attackNearestEnemy(): boolean {
     const { player } = this.state;
     const range = 5;
@@ -258,10 +302,15 @@ export class GameEngine {
     return true;
   }
 
+  /** Anuluje wybór budynku do stawiania. */
   cancelBuilding() {
     this.selectedBuilding = null;
   }
 
+  /**
+   * Usuwa najbliższy budynek w zasięgu gracza (używane na mobile).
+   * Aktualizuje kolejkę budowy. Zwraca true jeśli usunięto.
+   */
   removeNearestBuilding(): boolean {
     const { player } = this.state;
     let nearest: { key: string; building: { x: number; y: number; type: string } } | null = null;
@@ -284,6 +333,7 @@ export class GameEngine {
     return false;
   }
 
+  /** Uruchamia pętlę gry: generuje początkowy zestaw chunków i wywołuje loop(). */
   start() {
     this.running = true;
     // Apply per-player world seed before generating any chunks
@@ -299,6 +349,7 @@ export class GameEngine {
     this.lastTime = performance.now();
     // Pre-spawn a couple NPCs to make world feel alive from start
     for (let i = 0; i < 2; i++) spawnNPCs(this.state);
+    startAmbientHum();
     this.loop();
   }
 
@@ -315,12 +366,15 @@ export class GameEngine {
   private keyDownHandler: ((e: KeyboardEvent) => void) | null = null;
   private keyUpHandler: ((e: KeyboardEvent) => void) | null = null;
 
+  /** Zatrzymuje pętlę gry i odłącza nasłuchiwacze klawiatury. */
   stop() {
     this.running = false;
+    stopAmbientHum();
     if (this.keyDownHandler) { window.removeEventListener('keydown', this.keyDownHandler); this.keyDownHandler = null; }
     if (this.keyUpHandler) { window.removeEventListener('keyup', this.keyUpHandler); this.keyUpHandler = null; }
   }
 
+  /** Główna pętla gry (requestAnimationFrame). Oblicza deltę czasu, wykonuje fixed-tick (16.67ms) i renderuje. */
   private loop = () => {
     if (!this.running) return;
 
@@ -342,6 +396,7 @@ export class GameEngine {
     requestAnimationFrame(this.loop);
   };
 
+  /** Wykonuje jeden tick gry (16.67ms): aktualizuje gracza, kamerę, systemy, NPC, wrogów, zanieczyszczenie i powiadomienia. */
   private update() {
     const state = this.state;
     state.tick++;
@@ -370,6 +425,13 @@ export class GameEngine {
     if (state.tick % 60 === 0) spawnEnemies(state);
     if (state.tick % 1800 === 0) updateWorldEvents(state);
     if (state.tick % 120 === 0) checkAchievements(state);
+    if (this.tutorial) this.tutorial.update(state);
+
+    // Audio: enemy death detection
+    if (state.enemies.size < this.prevEnemyCount) {
+      playEnemyDeathSound();
+    }
+    this.prevEnemyCount = state.enemies.size;
 
     if (state.tick % 120 === 0 && state.player.health < state.player.maxHealth) {
       state.player.health = Math.min(state.player.maxHealth, state.player.health + 1);
@@ -389,12 +451,16 @@ export class GameEngine {
     // Drain state notifications (e.g., from level-up) into engine notifications
     while (state.notifications.length > 0) {
       const n = state.notifications.shift()!;
+      if (n.text.includes('Achievement')) playAchievementSound()
+      else if (n.text.includes('Level Up')) playLevelUpSound()
+      else if (n.text.includes('Research')) playResearchSound()
       this.notifications.push(n);
     }
 
     this.onStateChange?.(state);
   }
 
+  /** Aktualizuje pozycję gracza na podstawie wciśniętych klawiszy (WASD/strzałki). Obsługuje sprint (Shift). */
   private updatePlayerMovement() {
     const { player } = this.state;
     let dx = 0, dy = 0;
@@ -423,6 +489,7 @@ export class GameEngine {
     }
   }
 
+  /** Płynnie przesuwa kamerę za graczem (lerp) i aktualizuje zoom. */
   private updateCamera() {
     const state = this.state;
     const targetCamX = state.player.x * TILE_SIZE;
@@ -433,6 +500,7 @@ export class GameEngine {
     state.camera.zoom += (this.targetZoom - state.camera.zoom) * 0.12;
   }
 
+  /** Generuje chunki wokół gracza (promień 5) i usuwa odległe (poza promień + 2) — podstawowe streaming świata. */
   private generateChunksAroundPlayer() {
     const px = Math.floor(this.state.player.x / CHUNK_SIZE);
     const py = Math.floor(this.state.player.y / CHUNK_SIZE);
@@ -457,6 +525,7 @@ export class GameEngine {
     }
   }
 
+  /** Obsługuje akcje myszy: lewy przycisk = stawianie budynku / kopanie, prawy = usuwanie budynku z refundem. */
   private handleMouseActions() {
     if (!this.hoveredTile) return;
     const { x, y } = this.hoveredTile;
@@ -468,6 +537,7 @@ export class GameEngine {
         } else if (placeBuilding(this.state, this.selectedBuilding, x, y, this.selectedDirection)) {
           this.addNotification(`Placed ${this.selectedBuilding.replace(/_/g, ' ')}`, 'success');
           this.onBuildingAction?.('place', this.selectedBuilding, x, y, this.selectedDirection);
+          playBuildSound();
         }
       } else {
         const dist = Math.sqrt((x - this.state.player.x) ** 2 + (y - this.state.player.y) ** 2);
@@ -477,6 +547,7 @@ export class GameEngine {
             if (playerMine(this.state, x, y)) {
               this.miningCooldown = 8;
               this.lastMinedTile = tileKey;
+              playMineSound();
             }
           }
         }
@@ -526,8 +597,12 @@ export class GameEngine {
         // Right-click empty tile with building selected = queue for worker to build
         const dist = Math.sqrt((x - this.state.player.x) ** 2 + (y - this.state.player.y) ** 2);
         if (dist <= this.state.player.reach + 4) {
-          // Check not already queued
-          const alreadyQueued = this.state.buildQueue.some(q => q.x === x && q.y === y);
+          // Check not already queued (multi-tile overlap)
+          const size = BUILDING_SIZES[this.selectedBuilding] || { w: 1, h: 1 }
+          const alreadyQueued = this.state.buildQueue.some(q => {
+            const qSize = BUILDING_SIZES[q.type] || { w: 1, h: 1 }
+            return !(q.x + qSize.w <= x || q.x >= x + size.w || q.y + qSize.h <= y || q.y >= y + size.h)
+          })
           if (!alreadyQueued && canAffordBuilding(this.state, this.selectedBuilding)) {
             const queueItem: import('./types').BuildQueueItem = {
               id: `bq_${Date.now()}_${Math.random()}`,
@@ -548,6 +623,7 @@ export class GameEngine {
     }
   }
 
+  /** Generuje ambient particle efekty: świetliki w nocy, kurz przy aktywnych koparkach. */
   private spawnAmbientParticles() {
     const state = this.state;
     // Ambient fireflies at night
@@ -573,14 +649,35 @@ export class GameEngine {
   getSelectedDirection() { return this.selectedDirection; }
   canAffordSelected() { return this.selectedBuilding ? canAffordBuilding(this.state, this.selectedBuilding) : false; }
 
+  /** Dodaje powiadomienie do kolejki (wyświetlane przez HUD). type określa kolor/styl w UI. */
   addNotification(text: string, type: 'info' | 'error' | 'success' | 'build' = 'info') {
     this.notifications.push({ text, timer: 180, type });
   }
 
+  /** Uruchamia tutorial dla nowego gracza. */
+  startTutorial() {
+    if (this.tutorial) return
+    this.tutorial = new TutorialEngine()
+    this.tutorial.onStep = (step, index, total) => {
+      this.onTutorialStep?.(step, index, total)
+    }
+    this.tutorial.onComplete = () => {
+      this.tutorial = null
+      this.onTutorialComplete?.()
+    }
+  }
+
+  /** Informuje tutorial o otwarciu menu. */
+  notifyTutorialMenu(menu: string) {
+    this.tutorial?.notifyMenuOpened(menu)
+  }
+
+  /** Przyznaje graczowi XP i wywołuje powiadomienie o level-upie jeśli osiągnięto nowy poziom. */
   grantXP(amount: number) {
     grantXPToPlayer(this.state, amount, (msg) => this.addNotification(msg));
   }
 
+  /** Ustawia przepis (recipe) dla assemblera lub piece'a na wskazanej pozycji. */
   setRecipeForBuilding(x: number, y: number, recipeId: string) {
     const key = `${x},${y}`;
     const building = this.state.buildings.get(key);
@@ -593,6 +690,7 @@ export class GameEngine {
     }
   }
 
+  /** Rozpoczyna badanie (research) jeśli spełnione są wymagania i istnieje laboratorium. */
   startResearch(researchId: string) {
     const research = this.state.research.get(researchId);
     if (!research || research.unlocked) return;
@@ -607,12 +705,14 @@ export class GameEngine {
     this.addNotification('Build a Lab first!');
   }
 
+  /** Zwraca stan gry w formacie nadającym się do serializacji (JSON) — pomija referencje do chunków i tymczasowe dane. */
   getSerializableState() {
     const state = this.state;
     return {
       tick: state.tick,
       player: state.player,
       pollution: state.pollution,
+      totalPollutionGenerated: state.totalPollutionGenerated,
       evolution: state.evolution,
       dayTime: state.dayTime,
       weather: state.weather,
@@ -622,22 +722,24 @@ export class GameEngine {
     };
   }
 
+  /** Wczytuje zapisany stan gry: przywraca tick, player, badania, budynki, NPC i odświeża referencje building w tile'ach. */
   loadFromSave(save: import('../lib/saveSystem').SaveData): void {
     this.state.tick = save.tick ?? 0;
     this.state.pollution = save.pollution ?? 0;
+    this.state.totalPollutionGenerated = (save as any).totalPollutionGenerated ?? 0;
     this.state.evolution = save.evolution ?? 0;
     this.state.dayTime = save.dayTime ?? this.state.dayTime;
     this.state.weather = (save.weather as GameState['weather']) ?? 'clear';
     this.state.statistics = {
-      itemsProduced: {},
-      itemsConsumed: {},
-      enemiesKilled: 0,
-      buildingsPlaced: 0,
-      timePlayed: 0,
       ...save.statistics,
+      itemsProduced: save.statistics?.itemsProduced ?? {},
+      itemsConsumed: save.statistics?.itemsConsumed ?? {},
+      enemiesKilled: save.statistics?.enemiesKilled ?? 0,
+      buildingsPlaced: save.statistics?.buildingsPlaced ?? 0,
+      timePlayed: save.statistics?.timePlayed ?? 0,
     };
     this.state.buildQueue = [];  // always start with fresh build queue on load
-    this.state.worldSeed = (save as any).worldSeed || this.state.worldSeed;
+    this.state.worldSeed = (save as any).worldSeed ?? this.state.worldSeed;
     initWorldSeed(this.state.worldSeed);
     Object.assign(this.state.player, save.player);
     this.state.player.gems = this.state.player.gems ?? 0;
@@ -699,15 +801,18 @@ export class GameEngine {
     this.addNotification('Game loaded!', 'success');
   }
 
+  /** Aktualizuje pozycję gościa co-op (multiplayer przez Supabase Realtime). */
   updateCoopVisitor(id: string, username: string, x: number, y: number, color: string) {
     if (!this.state.coopVisitors) this.state.coopVisitors = new Map();
     this.state.coopVisitors.set(id, { username, x, y, color });
   }
 
+  /** Usuwa gościa co-op po rozłączeniu. */
   removeCoopVisitor(id: string) {
     this.state.coopVisitors?.delete(id);
   }
 
+  /** Stawia budynek otrzymany przez co-op (od innego gracza w trybie multiplayer). */
   placeBuildingFromCoop(type: string, x: number, y: number, dir: string) {
     const success = placeBuilding(this.state, type, x, y, dir, true);
     if (success) {
@@ -715,6 +820,7 @@ export class GameEngine {
     }
   }
 
+  /** Usuwa budynek otrzymany przez co-op (od innego gracza). */
   removeBuildingFromCoop(x: number, y: number) {
     const building = this.state.buildings.get(`${x},${y}`);
     if (building) {
@@ -723,6 +829,7 @@ export class GameEngine {
     }
   }
 
+  /** Ładuje dane świata podczas odwiedzania innego gracza (VisitWorldView). Zastępuje budynki i seed. */
   loadWorldData(worldData: { buildings: [string, unknown][]; seed: number }) {
     this.state.buildings.clear();
     this.state.conveyors.clear();

@@ -5,6 +5,7 @@ import { getBuildingCost, canAffordBuilding } from '../game/systems';
 import { GameState } from '../game/types';
 import { t } from '../lib/i18n';
 
+/** Props dla menu budowy — silnik, stan gry i callback zamknięcia. */
 interface Props {
   engine: GameEngine;
   state: GameState;
@@ -56,6 +57,7 @@ const CATEGORY_KEYS: Record<string, string> = {
   Defense: 'categoryDefense',
 };
 
+/** Menu budowy — lista wszystkich dostępnych budynków z kosztami, podział na kategorie i wyszukiwarkę. */
 export default function BuildMenu({ engine, state, onClose }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
 

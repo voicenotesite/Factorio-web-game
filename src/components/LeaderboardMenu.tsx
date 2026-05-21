@@ -30,10 +30,12 @@ const ACHIEVEMENTS = [
   { id: 'rocket_science', name: 'Rocket Science', description: 'Complete all research', icon: '🚀' },
 ];
 
+/** Props rankingu — callback zamknięcia. */
 interface Props {
   onClose: () => void;
 }
 
+/** Ranking graczy — level, gems, achievements (dane z Supabase profiles). */
 export default function LeaderboardMenu({ onClose }: Props) {
   const [tab, setTab] = useState<'leaderboard' | 'achievements'>('leaderboard');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
