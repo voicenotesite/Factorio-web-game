@@ -49,8 +49,8 @@ export class GameEngine {
   tickAccumulator = 0;
   /** Poprzednia liczba wrogów do wykrywania śmierci (audio). */
   private prevEnemyCount = 0;
-  /** Poprzednie powiadomienie do wykrywania zmian (audio). */
-  private prevNotifLen = 0;
+  /** Poprzednia łączna liczba wyprodukowanych itemów (audio craft). */
+  private prevTotalItemsProduced = 0;
   /** Callback wywoływany przy każdej zmianie stanu — synchronizacja z React. */
   onStateChange?: (state: GameState) => void;
   /** Callback wywoływany przy stawianiu/usuwaniu budynku (tryb co-op). */
@@ -434,6 +434,13 @@ export class GameEngine {
       playEnemyDeathSound();
     }
     this.prevEnemyCount = state.enemies.size;
+
+    // Audio: craft completion detection
+    const totalProduced = Object.values(state.statistics.itemsProduced).reduce((a, b) => a + b, 0);
+    if (totalProduced > this.prevTotalItemsProduced) {
+      playCraftSound();
+    }
+    this.prevTotalItemsProduced = totalProduced;
 
     if (state.tick % 120 === 0 && state.player.health < state.player.maxHealth) {
       state.player.health = Math.min(state.player.maxHealth, state.player.health + 1);
