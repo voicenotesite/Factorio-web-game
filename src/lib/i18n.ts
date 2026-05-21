@@ -1,12 +1,9 @@
 /**
- * System internacjonalizacji (i18n) z 23 językami.
- * Ładuje tłumaczenia z obiektu translations i przechowuje wybrany język
- * w localStorage (klucz: novactorio_lang). Umożliwia podstawianie zmiennych
- * przez składnię {nazwa}.
+ * System internacjonalizacji — 23 języki, ~350 kluczy.
+ * Funkcja t() obsługuje dynamiczne klucze (string) oraz interpolację ({key} vars).
  */
 export type LangCode = 'en' | 'pl' | 'de' | 'fr' | 'es' | 'it' | 'nl' | 'pt' | 'cs' | 'sk' | 'hu' | 'ro' | 'sv' | 'da' | 'no' | 'fi' | 'hr' | 'bg' | 'el' | 'et' | 'lv' | 'lt' | 'sl';
 
-/** Zbiór tłumaczeń dla wszystkich wspieranych języków. */
 const translations = {
   en: {
     // Auth
@@ -330,13 +327,9 @@ const translations = {
     boostShieldDesc: 'Restore 25% HP',
     // Payment
     paymentStripe: 'Secure payment via Stripe',
-    paymentPaddle: 'Secure payment via Paddle',
-    paymentRedirect: 'Opening checkout...',
+    paymentRedirect: 'Redirecting to Stripe...',
     paymentLoginRequired: 'Log in to make a payment',
     paymentCancelAnytime: 'Cancel anytime',
-    shopCheckoutSuccess: 'Payment successful!',
-    shopCheckoutCancel: 'Payment cancelled',
-    savingGameState: 'SAVING GAME STATE',
     // Guide
     guideTitle: 'GUIDE',
     guideGettingStarted: '1. Getting Started',
@@ -347,14 +340,6 @@ const translations = {
     guideResearchSection: '4. Research',
     guideDefense: '5. Defense',
     guideBuildingsRef: '6. Buildings Reference',
-    guideChainDesc: 'Build a production chain to automatically process raw resources into finished goods.',
-    guidePowerDesc: 'Most buildings require electricity. Build a power network to keep your factory running.',
-    guideResearchDesc: 'Unlock new buildings and upgrades by researching technology.',
-    guideDefenseDesc: 'Enemies will attack your factory. Build defenses to protect it.',
-    guideSteam: 'steam',
-    guidePower: 'power',
-    guideNeeds: 'needs',
-    guideNeed: 'need',
     // Admin panel
     adminPanel: 'ADMIN PANEL',
     adminDebug: 'Novactorio Debug Console',
@@ -405,103 +390,6 @@ const translations = {
     loadGame: '📂 Load Save',
     deleteSave: '🗑 Delete Save',
     visitWorld: 'Visit',
-    // Stats
-    statEvolution: 'Evolution',
-    statPollution: 'Pollution',
-    statBalance: 'Balance',
-    unitTiles: 'tiles',
-    unitH: 'h',
-    unitM: 'm',
-    unitS: 's',
-    currencyZl: 'zł',
-    // Inventory
-    crafting: 'Crafting',
-    // Save/Load
-    loggedInAs: 'Logged in as',
-    saving: 'Saving...',
-    loading: 'Loading...',
-    loadFailed: 'Load failed: ',
-    deleteSaveFor: 'Delete save for',
-    deleteFailed: 'Delete failed: ',
-    // Building info
-    buildingUpgraded: 'Building upgraded!',
-    cannotAffordUpgrade: 'Cannot afford upgrade',
-    // Admin
-    broadcastSent: 'Broadcast sent!',
-    cheatEvoReset: 'Evolution & pollution reset to 0',
-    cheatResources: '+500 of every resource',
-    cheatResearch: 'All research unlocked!',
-    cheatLevel100: 'Player set to level 100',
-    cheatTimeSet: 'Time set',
-    // Shop / Premium
-    priceFree: '0 zł',
-    priceStarter: '9.99 zł/mies.',
-    pricePremium: '24.99 zł/mies.',
-    checkoutError: 'Checkout error',
-    perMonth: '/mo.',
-    featureInventory50: '50 inventory slots',
-    featureSave3: '3 save slots',
-    featureFriends20: '20 friends',
-    featurePriorityChat: 'Priority chat',
-    featureStarterBadge: 'Exclusive Starter badge',
-    featureGem1: '+1 gem per level',
-    featureInventoryUnlimited: 'Unlimited inventory',
-    featureSave10: '10 save slots',
-    featureFriendsUnlimited: 'Unlimited friends',
-    featureChatColor: 'Custom chat color',
-    featureAllCosmetics: 'All cosmetics unlocked',
-    featureRainbowTrail: 'Rainbow trail',
-    featureGem2: '+2 gems per level',
-    featureEarlyAccess: 'Early access features',
-    featureInventory30: 'Basic inventory (30 slots)',
-    featureSave1: '1 save slot',
-    featureFriends5: '5 friends max',
-    featureStandardChat: 'Standard chat',
-    // Weather
-    weatherClear: 'Clear',
-    weatherRain: 'Rain',
-    // Start screen
-    industrial: 'INDUSTRIAL',
-    // Misc
-    unknownError: 'Unknown error',
-    paymentError: 'Payment error. Please try again.',
-    levelAbbr: 'Lv',
-    tabLeaderboard: 'Leaderboard',
-    tabAchievements: 'Achievements',
-    navPricing: 'Pricing',
-    navTerms: 'Terms',
-    navTrade: 'Trade',
-    navPrivacy: 'Privacy',
-    navRefund: 'Refund',
-    // Achievements
-    achFirstIron: 'First Iron',
-    achFirstIronDesc: 'Mine your first iron ore',
-    achFirstPlate: 'First Plate',
-    achFirstPlateDesc: 'Smelt your first iron plate',
-    achSmallFactory: 'Small Factory',
-    achSmallFactoryDesc: 'Place 10 buildings',
-    achMediumFactory: 'Medium Factory',
-    achMediumFactoryDesc: 'Place 50 buildings',
-    achLargeFactory: 'Large Factory',
-    achLargeFactoryDesc: 'Place 100 buildings',
-    achFirstBlood: 'First Blood',
-    achFirstBloodDesc: 'Kill your first enemy',
-    achVeteran: 'Veteran',
-    achVeteranDesc: 'Kill 100 enemies',
-    achResearcher: 'Researcher',
-    achResearcherDesc: 'Complete first research',
-    achOilBaron: 'Oil Baron',
-    achOilBaronDesc: 'Build a pumpjack',
-    achRisingStar: 'Rising Star',
-    achRisingStarDesc: 'Reach level 5',
-    achFactoryMaster: 'Factory Master',
-    achFactoryMasterDesc: 'Reach level 10',
-    achIndustrialTitan: 'Industrial Titan',
-    achIndustrialTitanDesc: 'Reach level 25',
-    achMarathon: 'Marathon',
-    achMarathonDesc: 'Play for 1 hour',
-    achRocketScience: 'Rocket Science',
-    achRocketScienceDesc: 'Complete all research',
   },
   pl: {
     login: 'Zaloguj',
@@ -815,13 +703,9 @@ const translations = {
     boostShieldDesc: 'Przywróć 25% HP',
     // Payment
     paymentStripe: 'Bezpieczna płatność przez Stripe',
-    paymentPaddle: 'Bezpieczna płatność przez Paddle',
-    paymentRedirect: 'Przekierowanie do Paddle...',
+    paymentRedirect: 'Przekierowanie do Stripe...',
     paymentLoginRequired: 'Zaloguj się aby dokonać płatności',
     paymentCancelAnytime: 'Anuluj w każdej chwili',
-    shopCheckoutSuccess: 'Płatność udana! Premium aktywowane.',
-    shopCheckoutCancel: 'Płatność anulowana',
-    savingGameState: 'ZAPISYWANIE STANU GRY',
     // Guide
     guideTitle: 'PORADNIK',
     guideGettingStarted: '1. Pierwsze kroki',
@@ -832,14 +716,6 @@ const translations = {
     guideResearchSection: '4. Badania',
     guideDefense: '5. Obrona',
     guideBuildingsRef: '6. Budynki - opis',
-    guideChainDesc: 'Zbuduj łańcuch produkcyjny, który automatycznie przetwarza surowce w gotowe produkty.',
-    guidePowerDesc: 'Większość budynków wymaga energii. Zbuduj sieć energetyczną, aby utrzymać fabrykę w ruchu.',
-    guideResearchDesc: 'Odblokowuj nowe budynki i ulepszenia poprzez badania technologii.',
-    guideDefenseDesc: 'Wrogowie będą atakować twoją fabrykę. Zbuduj obronę, aby ją chronić.',
-    guideSteam: 'para',
-    guidePower: 'energia',
-    guideNeeds: 'potrzebuje',
-    guideNeed: 'potrzebuje',
     // Admin panel
     adminPanel: 'PANEL ADMINA',
     adminDebug: 'Novactorio Konsola Debug',
@@ -890,94 +766,6 @@ const translations = {
     loadGame: '📂 Wczytaj zapis',
     deleteSave: '🗑 Usuń zapis',
     visitWorld: 'Odwiedź',
-    savingGameState: 'ZAPISYWANIE STANU GRY',
-    statEvolution: 'Ewolucja',
-    statPollution: 'Zanieczyszczenie',
-    statBalance: 'Saldo',
-    unitTiles: 'kaf.ek',
-    unitH: 'g',
-    unitM: 'm',
-    unitS: 's',
-    currencyZl: 'zł',
-    crafting: 'Wytwarzanie',
-    loggedInAs: 'Zalogowany jako',
-    saving: 'Zapisywanie...',
-    loading: 'Wczytywanie...',
-    loadFailed: 'Błąd wczytywania: ',
-    deleteSaveFor: 'Usuń zapis dla',
-    deleteFailed: 'Błąd usuwania: ',
-    buildingUpgraded: 'Budynek ulepszony!',
-    cannotAffordUpgrade: 'Za mało zasobów na ulepszenie',
-    broadcastSent: 'Ogłoszenie wysłane!',
-    cheatEvoReset: 'Ewolucja i zanieczyszczenie zresetowane',
-    cheatResources: '+500 wszystkich zasobów',
-    cheatResearch: 'Wszystkie badania odblokowane!',
-    cheatLevel100: 'Gracz ustawiony na poziom 100',
-    cheatTimeSet: 'Czas ustawiony',
-    priceFree: '0 zł',
-    priceStarter: '9.99 zł/mies.',
-    pricePremium: '24.99 zł/mies.',
-    checkoutError: 'Błąd płatności',
-    perMonth: 'zł/mies.',
-    featureInventory50: '50 slotów ekwipunku',
-    featureSave3: '3 sloty zapisu',
-    featureFriends20: '20 znajomych',
-    featurePriorityChat: 'Priorytet na czacie',
-    featureStarterBadge: 'Odznaka Starter',
-    featureGem1: '+1 gem na poziom',
-    featureInventoryUnlimited: 'Nielimitowany ekwipunek',
-    featureSave10: '10 slotów zapisu',
-    featureFriendsUnlimited: 'Nielimitowani znajomi',
-    featureChatColor: 'Kolor czatu',
-    featureAllCosmetics: 'Wszystkie kosmetyki odblokowane',
-    featureRainbowTrail: 'Tęczowa smuga',
-    featureGem2: '+2 gemy na poziom',
-    featureEarlyAccess: 'Early access',
-    featureInventory30: 'Podstawowy ekwipunek (30 slotów)',
-    featureSave1: '1 slot zapisu',
-    featureFriends5: 'Max 5 znajomych',
-    featureStandardChat: 'Standardowy czat',
-    weatherClear: 'Czysto',
-    weatherRain: 'Deszcz',
-    industrial: 'INDUSTRIAL',
-    unknownError: 'Nieznany błąd',
-    achFirstIron: 'Pierwsze żelazo',
-    achFirstIronDesc: 'Wydobądź pierwszą rudę żelaza',
-    achFirstPlate: 'Pierwsza płyta',
-    achFirstPlateDesc: 'Przetop żelazo na płytę',
-    achSmallFactory: 'Mała fabryka',
-    achSmallFactoryDesc: 'Postaw 10 budynków',
-    achMediumFactory: 'Średnia fabryka',
-    achMediumFactoryDesc: 'Postaw 50 budynków',
-    achLargeFactory: 'Duża fabryka',
-    achLargeFactoryDesc: 'Postaw 100 budynków',
-    achFirstBlood: 'Pierwsza krew',
-    achFirstBloodDesc: 'Zabij pierwszego wroga',
-    achVeteran: 'Weteran',
-    achVeteranDesc: 'Zabij 100 wrogów',
-    achResearcher: 'Badacz',
-    achResearcherDesc: 'Ukończ pierwsze badania',
-    achOilBaron: 'Baron naftowy',
-    achOilBaronDesc: 'Zbuduj pompę głębinową',
-    achRisingStar: 'Wschodząca gwiazda',
-    achRisingStarDesc: 'Osiągnij poziom 5',
-    achFactoryMaster: 'Mistrz fabryki',
-    achFactoryMasterDesc: 'Osiągnij poziom 10',
-    achIndustrialTitan: 'Tytan przemysłu',
-    achIndustrialTitanDesc: 'Osiągnij poziom 25',
-    achMarathon: 'Maraton',
-    achMarathonDesc: 'Graj przez 1 godzinę',
-    achRocketScience: 'Rakietowa nauka',
-    achRocketScienceDesc: 'Ukończ wszystkie badania',
-    paymentError: 'Błąd płatności. Spróbuj ponownie.',
-    levelAbbr: 'Poz',
-    tabLeaderboard: 'Ranking',
-    tabAchievements: 'Osiągnięcia',
-    navPricing: 'Cennik',
-    navTerms: 'Regulamin',
-    navTrade: 'Handel',
-    navPrivacy: 'Prywatność',
-    navRefund: 'Zwroty',
   },
   de: {
     login: 'Anmelden',
@@ -2871,49 +2659,28 @@ const translations = {
   },
 } as const;
 
-/** Typ klucza tłumaczenia (wszystkie klucze z języka angielskiego). */
 export type TranslationKey = keyof typeof translations['en'];
 
-/** Lista obsługiwanych kodów językowych. */
 const SUPPORTED_LANGS: LangCode[] = ['en', 'pl', 'de', 'fr', 'es', 'it', 'nl', 'pt', 'cs', 'sk', 'hu', 'ro', 'sv', 'da', 'no', 'fi', 'hr', 'bg', 'el', 'et', 'lv', 'lt', 'sl'];
 
-/**
- * Wykrywa język przeglądarki (navigator.language) i zwraca jeśli jest wspierany,
- * w przeciwnym razie 'en'.
- */
 function detectLang(): LangCode {
   const nav = navigator.language || '';
   const code = nav.split('-')[0].toLowerCase() as LangCode;
   return SUPPORTED_LANGS.includes(code) ? code : 'en';
 }
 
-/** Aktualnie wybrany język (z localStorage lub wykryty). */
 let currentLang: LangCode = (localStorage.getItem('novactorio_lang') as LangCode) || detectLang();
 
-/**
- * Ustawia język aplikacji i zapisuje w localStorage.
- * @param lang Kod języka.
- */
 export function setLang(lang: LangCode): void {
   currentLang = lang;
   localStorage.setItem('novactorio_lang', lang);
 }
 
-/** Zwraca aktualnie wybrany kod języka. */
 export function getLang(): LangCode {
   return currentLang;
 }
 
-/**
- * Zwraca przetłumaczony tekst dla danego klucza.
- * Jeśli klucz nie istnieje w aktualnym języku, używa angielskiego.
- * Jeśli nie istnieje w ogóle, zwraca sam klucz.
- * Obsługuje podstawianie zmiennych przez {nazwa}.
- * @param key Klucz tłumaczenia.
- * @param vars Opcjonalne zmienne do podstawienia.
- * @returns Przetłumaczony tekst.
- */
-export function t(key: TranslationKey, vars?: Record<string, string | number>): string {
+export function t(key: string, vars?: Record<string, string | number>): string {
   const langDict = translations[currentLang] as Record<string, string>;
   const enDict = translations['en'] as Record<string, string>;
   const text = langDict[key] ?? enDict[key] ?? key;

@@ -1,108 +1,101 @@
 import { useState } from 'react';
 import type { GameState } from '../game/types';
 import { t } from '../lib/i18n';
-import { getCurrentUser, getCurrentUserId } from '../lib/auth';
-import { openPaddleCheckout } from '../lib/paddle';
+import { supabase } from '../lib/supabase';
+import { AuthService } from '../services/auth/AuthService';
 import PaymentModal from './PaymentModal';
 
-/** Minimalny interface silnika — tylko addNotification, którego sklep używa. */
+/** Props dla sklepu — engine (do powiadomień), stan gry i callback zamknięcia. */
 interface Props {
-  engine: { addNotification: (msg: string, type: string) => void };
+  engine: { addNotification: (msg: string, type?: 'info' | 'error' | 'success' | 'build') => void };
   state: GameState;
   onClose: () => void;
 }
 
-/** Dostępne kolory skórek gracza — nazwa, cena w gemach i zł, Paddle priceId. */
 const SKIN_COLORS = [
   { id: 'default', nameKey: 'skinSteelBlue', color: '#3388ee', gemCost: 0, zlCost: 0, priceId: '' },
-  { id: 'crimson', nameKey: 'skinCrimson', color: '#cc2233', gemCost: 5, zlCost: 5, priceId: 'pri_skin_crimson' },
-  { id: 'emerald', nameKey: 'skinEmerald', color: '#22aa55', gemCost: 5, zlCost: 5, priceId: 'pri_skin_emerald' },
-  { id: 'gold', nameKey: 'skinGold', color: '#cc9922', gemCost: 8, zlCost: 8, priceId: 'pri_skin_gold' },
-  { id: 'obsidian', nameKey: 'skinObsidian', color: '#334455', gemCost: 10, zlCost: 12, priceId: 'pri_skin_obsidian' },
-  { id: 'arctic', nameKey: 'skinArctic', color: '#88ccee', gemCost: 12, zlCost: 15, priceId: 'pri_skin_arctic' },
+  { id: 'crimson', nameKey: 'skinCrimson', color: '#cc2233', gemCost: 5, zlCost: 5, priceId: 'price_1TYVfpK4E5IHLVVAA1SYmslG' },
+  { id: 'emerald', nameKey: 'skinEmerald', color: '#22aa55', gemCost: 5, zlCost: 5, priceId: 'price_1TYVv5K4E5IHLVVAXhT6osbx' },
+  { id: 'gold', nameKey: 'skinGold', color: '#cc9922', gemCost: 8, zlCost: 8, priceId: 'price_1TYVwBK4E5IHLVVAJfZUCG3K' },
+  { id: 'obsidian', nameKey: 'skinObsidian', color: '#334455', gemCost: 10, zlCost: 12, priceId: 'price_1TYVx4K4E5IHLVVAbo5r2MkW' },
+  { id: 'arctic', nameKey: 'skinArctic', color: '#88ccee', gemCost: 12, zlCost: 15, priceId: 'price_1TYVxcK4E5IHLVVAqTG2lyEO' },
 ];
 
-/** Dostępne kapelusze kosmetyczne. */
 const HAT_TYPES = [
   { id: 'none', nameKey: 'hatNone', gemCost: 0, zlCost: 0, priceId: '' },
-  { id: 'hardhat', nameKey: 'hatHardHat', gemCost: 8, zlCost: 10, priceId: 'pri_hat_hardhat' },
-  { id: 'crown', nameKey: 'hatCrown', gemCost: 0, zlCost: 50, priceId: 'pri_hat_crown' },
-  { id: 'beret', nameKey: 'hatBeret', gemCost: 10, zlCost: 12, priceId: 'pri_hat_beret' },
-  { id: 'helmet', nameKey: 'hatMilHelmet', gemCost: 15, zlCost: 20, priceId: 'pri_hat_helmet' },
+  { id: 'hardhat', nameKey: 'hatHardHat', gemCost: 8, zlCost: 10, priceId: 'price_1TYVyUK4E5IHLVVAudubM5qg' },
+  { id: 'crown', nameKey: 'hatCrown', gemCost: 0, zlCost: 50, priceId: 'price_1TYVzJK4E5IHLVVAGeoq3G7O' },
+  { id: 'beret', nameKey: 'hatBeret', gemCost: 10, zlCost: 12, priceId: 'price_1TYVzoK4E5IHLVVAToFxaUUB' },
+  { id: 'helmet', nameKey: 'hatMilHelmet', gemCost: 15, zlCost: 20, priceId: 'price_1TYW0KK4E5IHLVVAqq91685S' },
 ];
 
-/** Dostępne efekty chodu (trail). */
 const TRAIL_EFFECTS = [
   { id: 'none', nameKey: 'trailNone', gemCost: 0, zlCost: 0, priceId: '' },
-  { id: 'sparkle', nameKey: 'trailSparkle', gemCost: 10, zlCost: 12, priceId: 'pri_trail_sparkle' },
-  { id: 'flame', nameKey: 'trailFlame', gemCost: 0, zlCost: 20, priceId: 'pri_trail_flame' },
-  { id: 'electric', nameKey: 'trailElectric', gemCost: 0, zlCost: 30, priceId: 'pri_trail_electric' },
-  { id: 'rainbow', nameKey: 'trailRainbow', gemCost: 0, zlCost: 50, priceId: 'pri_trail_rainbow' },
+  { id: 'sparkle', nameKey: 'trailSparkle', gemCost: 10, zlCost: 12, priceId: 'price_1TYW0zK4E5IHLVVActd503r0' },
+  { id: 'flame', nameKey: 'trailFlame', gemCost: 0, zlCost: 20, priceId: 'price_1TYW1UK4E5IHLVVAVnQdxNYy' },
+  { id: 'electric', nameKey: 'trailElectric', gemCost: 0, zlCost: 30, priceId: 'price_1TYW26K4E5IHLVVAV2y4L9r7' },
+  { id: 'rainbow', nameKey: 'trailRainbow', gemCost: 0, zlCost: 50, priceId: 'price_1TYW2ZK4E5IHLVVAKUdeeXRQ' },
 ];
 
-/** Boosty jednorazowe — speed, mining, XP, shield. */
 const BOOST_PACKS = [
-  { id: 'speed_boost', nameKey: 'boostSpeed', descKey: 'boostSpeedDesc', gemCost: 3, zlCost: 5, icon: '⚡', color: '#fbbf24', priceId: 'pri_boost_speed' },
-  { id: 'mining_boost', nameKey: 'boostMining', descKey: 'boostMiningDesc', gemCost: 3, zlCost: 5, icon: '⛏', color: '#f97316', priceId: 'pri_boost_mining' },
-  { id: 'xp_boost', nameKey: 'boostXP', descKey: 'boostXPDesc', gemCost: 5, zlCost: 8, icon: '⭐', color: '#a78bfa', priceId: 'pri_boost_xp' },
-  { id: 'shield', nameKey: 'boostShield', descKey: 'boostShieldDesc', gemCost: 5, zlCost: 8, icon: '🛡', color: '#38bdf8', priceId: 'pri_boost_shield' },
+  { id: 'speed_boost', nameKey: 'boostSpeed', descKey: 'boostSpeedDesc', gemCost: 3, zlCost: 5, icon: '⚡', color: '#fbbf24', priceId: 'price_1TYW3AK4E5IHLVVAkj7iFjem' },
+  { id: 'mining_boost', nameKey: 'boostMining', descKey: 'boostMiningDesc', gemCost: 3, zlCost: 5, icon: '⛏', color: '#f97316', priceId: 'price_1TYW3eK4E5IHLVVAEQpIBt7z' },
+  { id: 'xp_boost', nameKey: 'boostXP', descKey: 'boostXPDesc', gemCost: 5, zlCost: 8, icon: '⭐', color: '#a78bfa', priceId: 'price_1TYW42K4E5IHLVVATGU8HJ2s' },
+  { id: 'shield', nameKey: 'boostShield', descKey: 'boostShieldDesc', gemCost: 5, zlCost: 8, icon: '🛡', color: '#38bdf8', priceId: 'price_1TYW4OK4E5IHLVVAcBO5zYoN' },
 ];
 
-/** Plany subskrypcyjne — FREE, STARTER, PREMIUM. */
 const PREMIUM_TIERS = [
   {
     id: 'free' as const,
-    nameKey: 'FREE',
-    priceKey: 'priceFree',
+    name: 'FREE',
+    price: '0 zł',
     color: '#94a3b8',
-    featureKeys: ['featureInventory30', 'featureSave1', 'featureFriends5', 'featureStandardChat'],
+    features: ['Basic inventory (30 slots)', '1 save slot', '5 friends max', 'Standard chat'],
   },
   {
     id: 'starter' as const,
-    nameKey: 'STARTER',
-    priceKey: 'priceStarter',
+    name: 'STARTER',
+    price: '9.99 zł/mies.',
     color: '#f59e0b',
-    featureKeys: ['featureInventory50', 'featureSave3', 'featureFriends20', 'featurePriorityChat', 'featureStarterBadge', 'featureGem1'],
+    features: ['50 inventory slots', '3 save slots', '20 friends', 'Priority chat', 'Exclusive Starter badge', '+1 gem/level'],
   },
   {
     id: 'premium' as const,
-    nameKey: 'PREMIUM',
-    priceKey: 'pricePremium',
+    name: 'PREMIUM',
+    price: '24.99 zł/mies.',
     color: '#a78bfa',
-    featureKeys: ['featureInventoryUnlimited', 'featureSave10', 'featureFriendsUnlimited', 'featureChatColor', 'featureAllCosmetics', 'featureRainbowTrail', 'featureGem2', 'featureEarlyAccess'],
+    features: ['Unlimited inventory', '10 save slots', 'Unlimited friends', 'Custom chat color', 'All cosmetics unlocked', 'Rainbow trail', '+2 gems/level', 'Early access features'],
   },
 ];
 
-/**
- * Sklep — kosmetyki (skiny, kapelusze, traile), boosty (speed, mining, XP, shield)
- * i subskrypcje premium przez Paddle. Zarządza walutami: gems (free) i premiumBalance (płatne).
- */
+/** Sklep — kosmetyki (skiny, kapelusze, traile), boosty (speed, mining, XP, shield) i subskrypcje premium przez Stripe. */
 export default function ShopMenu({ engine, state, onClose }: Props) {
-  /** Aktualna zakładka: cosmetics | boosts | premium. */
   const [tab, setTab] = useState<'cosmetics' | 'boosts' | 'premium'>('cosmetics');
-  /** Komunikat zwrotny (sukces/porażka). */
   const [message, setMessage] = useState('');
-  /** Czy pokazać modal płatności (subskrypcje). */
   const [showPayment, setShowPayment] = useState(false);
-  /** Który przycisk Paddle jest w trakcie ładowania (ID elementu). */
-  const [paddleLoading, setPaddleLoading] = useState<string | null>(null);
+  const [stripeLoading, setStripeLoading] = useState<string | null>(null);
 
-  /** Otwiera Paddle Checkout dla podanego priceId. */
-  const handlePaddleCheckout = async (priceId: string, label: string) => {
-    setPaddleLoading(label);
+  const handleStripeCheckout = async (priceId: string, label: string) => {
+    setStripeLoading(label);
     try {
-      await openPaddleCheckout(priceId, {
-        userId: getCurrentUserId() ?? '',
-        username: getCurrentUser() ?? '',
-      });
+      const { data, error: fnError } = await supabase.functions.invoke('stripe-checkout', {
+        body: {
+          priceId,
+          userId: AuthService.getCurrentUserId(),
+          username: AuthService.getCurrentUser(),
+          successUrl: 'https://factoryworld.mmc29213.workers.dev/?checkout=success',
+          cancelUrl: 'https://factoryworld.mmc29213.workers.dev/?checkout=cancel',
+        },
+      })
+      if (fnError) throw new Error(fnError.message)
+      if (!data?.url) throw new Error('No checkout URL')
+      window.location.href = data.url
     } catch (e: any) {
-      setMessage(e.message || 'Checkout error');
-    } finally {
-      setPaddleLoading(null);
+      setMessage(e.message || 'Stripe error')
+      setStripeLoading(null)
     }
   };
 
-  /** Kupuje przedmiot za gems (waluta free). Odejmuje gems, wywołuje callback, pokazuje powiadomienie. */
   const purchaseWithGems = (gemCost: number, callback: () => void) => {
     if (state.player.gems < gemCost) { setMessage(t('insufficientGems')); return; }
     state.player.gems -= gemCost;
@@ -111,7 +104,6 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
     engine.addNotification(t('purchased'), 'success');
   };
 
-  /** Kupuje przedmiot za premiumBalance (waluta płatna). Analogicznie do purchaseWithGems. */
   const purchaseWithZl = (zlCost: number, callback: () => void) => {
     if (state.player.premiumBalance < zlCost) { setMessage(t('insufficientBalance')); return; }
     state.player.premiumBalance -= zlCost;
@@ -120,7 +112,6 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
     engine.addNotification(t('purchased'), 'success');
   };
 
-  /** Czy komunikat błędu (czerwony) vs sukcesu (zielony). */
   const isError = message === t('insufficientBalance') || message === t('insufficientGems');
 
   return (
@@ -143,7 +134,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-green-400 font-mono font-bold tabular-nums">{state.player.premiumBalance.toFixed(2)}</span>
-                <span className="text-white/20 text-xs">{t('currencyZl')}</span>
+                <span className="text-white/20 text-xs">zł</span>
               </div>
             </div>
           </div>
@@ -212,14 +203,14 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                             <button onClick={() => purchaseWithZl(skin.zlCost, cb)}
                               className="text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95"
                               style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.25)' }}>
-                              {skin.zlCost.toFixed(2)} {t('currencyZl')}
+                              {skin.zlCost.toFixed(2)} zł
                             </button>
                             {skin.priceId && (
-                              <button onClick={() => handlePaddleCheckout(skin.priceId, skin.id)}
-                                disabled={paddleLoading === skin.id}
+                              <button onClick={() => handleStripeCheckout(skin.priceId, skin.id)}
+                                disabled={stripeLoading === skin.id}
                                 className="text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95 disabled:opacity-50"
                                 style={{ background: 'rgba(168,85,247,0.12)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.25)' }}>
-                                {paddleLoading === skin.id ? '⏳' : '💳'}
+                                {stripeLoading === skin.id ? '⏳' : '💳'}
                               </button>
                             )}
                           </div>
@@ -258,14 +249,14 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                             <button onClick={() => purchaseWithZl(hat.zlCost, cb)}
                               className="text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95"
                               style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.25)' }}>
-                              {hat.zlCost.toFixed(2)} {t('currencyZl')}
+                              {hat.zlCost.toFixed(2)} zł
                             </button>
                             {hat.priceId && (
-                              <button onClick={() => handlePaddleCheckout(hat.priceId, hat.id)}
-                                disabled={paddleLoading === hat.id}
+                              <button onClick={() => handleStripeCheckout(hat.priceId, hat.id)}
+                                disabled={stripeLoading === hat.id}
                                 className="text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95 disabled:opacity-50"
                                 style={{ background: 'rgba(168,85,247,0.12)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.25)' }}>
-                                {paddleLoading === hat.id ? '⏳' : '💳'}
+                                {stripeLoading === hat.id ? '⏳' : '💳'}
                               </button>
                             )}
                           </div>
@@ -303,14 +294,14 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                             <button onClick={() => purchaseWithZl(trail.zlCost, cb)}
                               className="text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95"
                               style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.25)' }}>
-                              {trail.zlCost.toFixed(2)} {t('currencyZl')}
+                              {trail.zlCost.toFixed(2)} zł
                             </button>
                             {trail.priceId && (
-                              <button onClick={() => handlePaddleCheckout(trail.priceId, trail.id)}
-                                disabled={paddleLoading === trail.id}
+                              <button onClick={() => handleStripeCheckout(trail.priceId, trail.id)}
+                                disabled={stripeLoading === trail.id}
                                 className="text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95 disabled:opacity-50"
                                 style={{ background: 'rgba(168,85,247,0.12)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.25)' }}>
-                                {paddleLoading === trail.id ? '⏳' : '💳'}
+                                {stripeLoading === trail.id ? '⏳' : '💳'}
                               </button>
                             )}
                           </div>
@@ -356,14 +347,14 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                     <button onClick={() => purchaseWithZl(pack.zlCost, applyBoost)}
                       className="text-[10px] px-2 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95"
                       style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.25)' }}>
-                      {pack.zlCost.toFixed(2)} {t('currencyZl')}
+                      {pack.zlCost.toFixed(2)} zł
                     </button>
                     {pack.priceId && (
-                      <button onClick={() => handlePaddleCheckout(pack.priceId, pack.id)}
-                        disabled={paddleLoading === pack.id}
+                      <button onClick={() => handleStripeCheckout(pack.priceId, pack.id)}
+                        disabled={stripeLoading === pack.id}
                         className="text-[10px] px-2 py-0.5 rounded-md font-bold transition-all hover:opacity-80 active:scale-95 disabled:opacity-50"
                         style={{ background: 'rgba(168,85,247,0.12)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.25)' }}>
-                        {paddleLoading === pack.id ? '⏳' : '💳'}
+                        {stripeLoading === pack.id ? '⏳' : '💳'}
                       </button>
                     )}
                   </div>
@@ -375,7 +366,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
 
         {tab === 'premium' && (
           <div className="space-y-3">
-            <p className="text-xs text-white/30 text-center mb-4 font-exo">{t('selectPlan')} · {t('paymentPaddle')}</p>
+            <p className="text-xs text-white/30 text-center mb-4 font-exo">{t('selectPlan')} · {t('paymentStripe')}</p>
             {PREMIUM_TIERS.map(tier => {
               const isCurrent = state.player.premiumTier === tier.id;
               return (
@@ -390,16 +381,16 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-orbitron font-bold text-sm tracking-wider" style={{ color: tier.color }}>{t(tier.nameKey)}</span>
+                      <span className="font-orbitron font-bold text-sm tracking-wider" style={{ color: tier.color }}>{tier.name}</span>
                       {isCurrent && <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: `${tier.color}20`, color: tier.color }}>{t('currentPlan').toUpperCase()}</span>}
                     </div>
-                    <span className="font-mono text-sm font-bold" style={{ color: tier.color }}>{t(tier.priceKey)}</span>
+                    <span className="font-mono text-sm font-bold" style={{ color: tier.color }}>{tier.price}</span>
                   </div>
                   <ul className="space-y-1 mb-3">
-                    {tier.featureKeys.map((fk, i) => (
+                    {tier.features.map((f, i) => (
                       <li key={i} className="flex items-center gap-2 text-[11px]" style={{ color: isCurrent ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.35)' }}>
                         <span style={{ color: tier.color }}>✓</span>
-                        {t(fk)}
+                        {f}
                       </li>
                     ))}
                   </ul>
@@ -423,6 +414,7 @@ export default function ShopMenu({ engine, state, onClose }: Props) {
   );
 }
 
+/** Sekcja kosmetyków z nagłówkiem (linia + tytuł). */
 function CosmeticSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
