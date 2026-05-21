@@ -175,6 +175,12 @@ export default function AuthScreen({ onAuth }: Props) {
           <div className="mt-4 text-center text-[9px] text-white/15 font-exo">
             {t('authFooter')}
           </div>
+          <div className="mt-3 flex justify-center gap-3 text-[9px] font-exo">
+            <a href="/terms" target="_blank" className="text-white/20 hover:text-amber-400/60 transition-colors underline underline-offset-2 decoration-white/10">Terms</a>
+            <a href="/privacy" target="_blank" className="text-white/20 hover:text-amber-400/60 transition-colors underline underline-offset-2 decoration-white/10">Privacy</a>
+            <a href="/refund" target="_blank" className="text-white/20 hover:text-amber-400/60 transition-colors underline underline-offset-2 decoration-white/10">Refund</a>
+            <a href="/trade-terms" target="_blank" className="text-white/20 hover:text-amber-400/60 transition-colors underline underline-offset-2 decoration-white/10">Trade</a>
+          </div>
         </div>
         <div className="mt-4 flex justify-center">
           <LangSelector />

@@ -198,9 +198,15 @@ export default function GuideMenu({ onClose }: Props) {
 
           {/* Footer */}
           <div
-            className="px-6 py-4 flex justify-end"
+            className="px-6 py-4 flex items-center justify-between"
             style={{ borderTop: '1px solid rgba(216,128,16,0.15)' }}
           >
+            <div className="flex gap-4 text-[10px] font-exo">
+              <a href="/terms" target="_blank" className="text-white/20 hover:text-amber-400/60 transition-colors">Terms</a>
+              <a href="/privacy" target="_blank" className="text-white/20 hover:text-amber-400/60 transition-colors">Privacy</a>
+              <a href="/refund" target="_blank" className="text-white/20 hover:text-amber-400/60 transition-colors">Refund</a>
+              <a href="/trade-terms" target="_blank" className="text-white/20 hover:text-amber-400/60 transition-colors">Trade</a>
+            </div>
             <button
               onClick={onClose}
               className="px-5 py-2 rounded-lg text-sm font-orbitron tracking-wider transition-all hover:opacity-90"
