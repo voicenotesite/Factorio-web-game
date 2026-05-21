@@ -386,6 +386,7 @@ export class GameRenderer {
     ctx.fillRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
     ctx.globalAlpha = 1;
   }
+  }
 
     // Parse ore color components
     const rC = parseInt(color.slice(1, 3), 16);
