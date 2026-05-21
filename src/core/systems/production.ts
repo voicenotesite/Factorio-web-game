@@ -167,6 +167,8 @@ function updateLab(state: GameState, building: Building) {
 }
 
 function updateRadar(state: GameState, building: Building) {
+  // Radar skanuje tylko co 60 ticków (oszczędza 452 getTileAt na tick)
+  if (state.tick % 60 !== 0) return
   const radius = 12
   for (let dy = -radius; dy <= radius; dy++) {
     for (let dx = -radius; dx <= radius; dx++) {
@@ -181,14 +183,14 @@ function updateRadar(state: GameState, building: Building) {
 function updateTurret(state: GameState, building: Building) {
   const range = 12
   let nearestEnemy: Enemy | null = null
-  let nearestDist = Infinity
+  let nearestDistSq = Infinity
 
   for (const [, enemy] of state.enemies) {
     const dx = enemy.x - building.x
     const dy = enemy.y - building.y
-    const dist = Math.sqrt(dx * dx + dy * dy)
-    if (dist < range && dist < nearestDist) {
-      nearestDist = dist
+    const distSq = dx * dx + dy * dy
+    if (distSq < range * range && distSq < nearestDistSq) {
+      nearestDistSq = distSq
       nearestEnemy = enemy
     }
   }
