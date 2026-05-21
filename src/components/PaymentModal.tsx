@@ -1,52 +1,44 @@
 import { useState } from 'react';
 import { t } from '../lib/i18n';
-import { AuthService } from '../services/auth/AuthService';
-import { supabase } from '../lib/supabase';
+import { getCurrentUser, getCurrentUserId } from '../lib/auth';
+import { openPaddleCheckout } from '../lib/paddle';
 
+/** Definicje planów subskrypcyjnych z cenami i Paddle Price ID. */
 const PLANS = [
-  { id: 'starter', name: 'STARTER', price: 9.99, color: '#f59e0b', priceId: 'price_1TYW6EK4E5IHLVVAW4SaLTXU' },
-  { id: 'premium', name: 'PREMIUM', price: 24.99, color: '#a78bfa', priceId: 'price_1TYW9LK4E5IHLVVAZrXNVjWk' },
+  { id: 'starter', name: 'STARTER', price: 9.99, color: '#f59e0b', priceId: 'pri_sub_starter' },
+  { id: 'premium', name: 'PREMIUM', price: 24.99, color: '#a78bfa', priceId: 'pri_sub_premium' },
 ];
 
-/** Props modalu płatności — callback zamknięcia. */
+/** Props modala płatności — callback zamknięcia. */
 interface Props {
   onClose: () => void;
 }
 
-/** Modal płatności Stripe — wybór subskrypcji (starter/premium) przez Stripe Checkout. */
+/** Modal płatności Paddle — wybór planu (STARTER/PREMIUM) i otwarcie Paddle Checkout. */
 export default function PaymentModal({ onClose }: Props) {
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'premium'>('starter');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const username = AuthService.getCurrentUser();
-  const userId = AuthService.getCurrentUserId();
+  const username = getCurrentUser();
+  const userId = getCurrentUserId();
 
   const plan = PLANS.find(p => p.id === selectedPlan)!;
 
+  /** Otwiera Paddle Checkout dla wybranego planu. */
   const handleCheckout = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('stripe-checkout', {
-        body: {
-          priceId: plan.priceId,
-          userId,
-          username,
-          successUrl: window.location.origin + '?checkout=success',
-          cancelUrl: window.location.origin + '?checkout=cancel',
-        },
-      })
-
-      if (fnError) throw new Error(fnError.message)
-      if (!data?.url) throw new Error('No checkout URL returned')
-
-      // Redirect to Stripe Checkout
-      window.location.href = data.url
+      await openPaddleCheckout(plan.priceId, {
+        userId: userId ?? '',
+        username: username ?? '',
+      });
     } catch (e: any) {
-      setError(e.message || 'Payment error. Please try again.')
-      setLoading(false)
+      setError(e.message || t('paymentError'))
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -65,7 +57,6 @@ export default function PaymentModal({ onClose }: Props) {
           boxShadow: '0 0 60px rgba(0,0,0,0.8), inset 0 1px 0 rgba(216,128,16,0.06)',
         }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-orbitron font-bold tracking-wider text-base" style={{ color: '#d88010' }}>
             💳 {t('selectPlan').toUpperCase()}
@@ -91,7 +82,6 @@ export default function PaymentModal({ onClose }: Props) {
         )}
 
         <div className="space-y-4">
-          {/* Plan selector */}
           <div>
             <label className="block text-[10px] font-orbitron tracking-widest text-white/30 mb-2 uppercase">
               {t('selectPlan')}
@@ -108,17 +98,16 @@ export default function PaymentModal({ onClose }: Props) {
                   }}
                 >
                   <div className="font-orbitron font-bold text-[11px] tracking-wider" style={{ color: p.color }}>
-                    {p.name}
+                    {t(p.name)}
                   </div>
                   <div className="font-mono text-sm font-bold mt-0.5" style={{ color: p.color }}>
-                    {p.price.toFixed(2)} zł/mies.
+                    {p.price.toFixed(2)}{t('perMonth')}
                   </div>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Payment info */}
           <div className="p-3 rounded-xl text-xs"
             style={{
               background: 'rgba(255,255,255,0.02)',
@@ -126,11 +115,10 @@ export default function PaymentModal({ onClose }: Props) {
               color: 'rgba(255,255,255,0.4)',
             }}
           >
-            <span className="text-cyan-400">🔒</span> {t('paymentStripe')} ·{' '}
-            {plan.name === 'PREMIUM' ? '24.99 zł/mies.' : '9.99 zł/mies.'} · {t('paymentCancelAnytime')}
+            <span className="text-cyan-400">🔒</span> {t('paymentPaddle')} ·{' '}
+            {plan.id === 'premium' ? '24.99' + t('perMonth') : '9.99' + t('perMonth')} · {t('paymentCancelAnytime')}
           </div>
 
-          {/* Pay button */}
           <button
             onClick={handleCheckout}
             disabled={loading || !userId}
@@ -148,7 +136,7 @@ export default function PaymentModal({ onClose }: Props) {
                 {t('paymentRedirect')}
               </span>
             ) : (
-              `${t('payButton', { price: plan.price.toFixed(2) })} · ${plan.name}`
+              {t('payButton', { price: plan.price.toFixed(2) })} · {t(plan.name)}
             )}
           </button>
 

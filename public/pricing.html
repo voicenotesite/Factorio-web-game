@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Pricing - Novactorio</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#080c12;color:#e2e8f0;font-family:'Exo 2',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:1rem}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 50% 0,rgba(6,182,212,.08) 0,transparent 70%);pointer-events:none;z-index:0}
+nav{position:relative;z-index:1;width:100%;max-width:800px;display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-bottom:1.5rem;padding:.5rem;background:rgba(17,24,32,.8);border:1px solid rgba(6,182,212,.1);border-radius:1rem;backdrop-filter:blur(12px)}
+nav a{padding:.4rem .9rem;border-radius:.5rem;font-family:Orbitron,sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;color:rgba(255,255,255,.35);transition:all .2s;border:1px solid transparent}
+nav a:hover{color:#06b6d4;background:rgba(6,182,212,.1);border-color:rgba(6,182,212,.2)}
+nav .game-link{color:#4ade80;border-color:rgba(74,222,128,.2)}
+nav .game-link:hover{background:rgba(74,222,128,.1);color:#4ade80}
+.card{position:relative;z-index:1;background:rgba(17,24,32,.85);border:1px solid rgba(6,182,212,.12);border-radius:1.25rem;padding:2rem;max-width:800px;width:100%;backdrop-filter:blur(16px);box-shadow:0 0 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(6,182,212,.06);animation:fadeIn .5s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+h1{font-family:Orbitron,sans-serif;font-size:1.35rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:#06b6d4;margin-bottom:.5rem}
+.subtitle{color:rgba(255,255,255,.3);font-size:.8rem;margin-bottom:1.5rem}
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+.plan{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:1rem;padding:1.25rem;transition:all .2s;position:relative;overflow:hidden}
+.plan:hover{border-color:rgba(6,182,212,.3);box-shadow:0 0 20px rgba(6,182,212,.05)}
+.plan-starter{--accent:#f59e0b}
+.plan-premium{--accent:#a78bfa}
+.plan .badge{display:inline-block;font-family:Orbitron,sans-serif;font-size:.55rem;font-weight:700;letter-spacing:.1em;padding:.2rem .5rem;border-radius:.3rem;background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);margin-bottom:.5rem}
+.plan h2{font-family:Orbitron,sans-serif;font-size:.85rem;font-weight:700;letter-spacing:.1em;color:var(--accent);margin-bottom:.25rem}
+.plan .price{font-size:1.35rem;font-weight:700;color:#4ade80;font-family:'Exo 2',sans-serif}
+.plan .features{list-style:none;margin-top:.75rem;font-size:.78rem;color:rgba(255,255,255,.5);line-height:1.8}
+.plan .features li::before{content:'✓ ';color:var(--accent);font-weight:700}
+.one-time{background:rgba(168,85,247,.04);border:1px solid rgba(168,85,247,.15);border-radius:1rem;padding:1.25rem}
+.one-time h3{font-family:Orbitron,sans-serif;font-size:.7rem;letter-spacing:.1em;color:#c084fc;margin-bottom:.75rem;text-transform:uppercase}
+.items{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;font-size:.8rem;color:rgba(255,255,255,.5)}
+.items span{padding:.4rem .6rem;background:rgba(255,255,255,.02);border-radius:.4rem;border:1px solid rgba(255,255,255,.04)}
+footer{position:relative;z-index:1;margin-top:1.5rem;font-size:.65rem;color:rgba(255,255,255,.15);text-align:center}
+@media(max-width:640px){
+  body{padding:.75rem}
+  .plans{grid-template-columns:1fr}
+  .card{padding:1.25rem}
+  .items{grid-template-columns:1fr}
+  nav{gap:.25rem}
+  nav a{font-size:.55rem;padding:.3rem .6rem}
+  h1{font-size:1.1rem}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="pricing.html" style="color:#06b6d4;border-color:rgba(6,182,212,.3)">Pricing</a>
+  <a href="terms.html">Terms</a>
+  <a href="privacy.html">Privacy</a>
+  <a href="refund.html">Refund</a>
+  <a href="trade-terms.html">Trade</a>
+  <a href="/" class="game-link">← Game</a>
+</nav>
+
+<div class="card">
+  <h1>Novactorio — Pricing</h1>
+  <p class="subtitle">Digital items for the browser game Novactorio. All prices in PLN.</p>
+
+  <div class="plans">
+    <div class="plan plan-starter">
+      <div class="badge">STARTER</div>
+      <div class="price">9.99 zł <span style="font-size:.65rem;font-weight:400;color:rgba(255,255,255,.3)">/ month</span></div>
+      <ul class="features">
+        <li>50 inventory slots</li>
+        <li>3 save slots</li>
+        <li>20 friends</li>
+        <li>Priority chat</li>
+        <li>Exclusive Starter badge</li>
+        <li>+1 gem per level</li>
+      </ul>
+    </div>
+    <div class="plan plan-premium">
+      <div class="badge">PREMIUM</div>
+      <div class="price">24.99 zł <span style="font-size:.65rem;font-weight:400;color:rgba(255,255,255,.3)">/ month</span></div>
+      <ul class="features">
+        <li>Unlimited inventory</li>
+        <li>10 save slots</li>
+        <li>Unlimited friends</li>
+        <li>Custom chat color</li>
+        <li>All cosmetics unlocked</li>
+        <li>Rainbow trail</li>
+        <li>+2 gems per level</li>
+        <li>Early access features</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="one-time">
+    <h3>One-time purchases</h3>
+    <div class="items">
+      <span>Character skins — 5–15 zł</span>
+      <span>Hats — 10–50 zł</span>
+      <span>Trail effects — 12–50 zł</span>
+      <span>Boost packs — 5–8 zł</span>
+    </div>
+  </div>
+</div>
+
+<footer>Novactorio &copy; 2026</footer>
+</body>
+</html>
