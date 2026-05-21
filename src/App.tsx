@@ -1,28 +1,29 @@
-import { useRef, useState, useCallback, useEffect, Component, ReactNode } from 'react';
+import { useRef, useState, useCallback, useEffect, Component, ReactNode, lazy, Suspense } from 'react';
 import GameCanvas from './components/GameCanvas';
 import HUD from './components/HUD';
-import BuildMenu from './components/BuildMenu';
-import ResearchMenu from './components/ResearchMenu';
-import InventoryMenu from './components/InventoryMenu';
-import StatsMenu from './components/StatsMenu';
-import LeaderboardMenu from './components/LeaderboardMenu';
-import ShopMenu from './components/ShopMenu';
-import BuildingInfo from './components/BuildingInfo';
-import SaveLoad from './components/SaveLoad';
-import StartScreen from './components/StartScreen';
-import AuthScreen from './components/AuthScreen';
-import ChatPanel from './components/ChatPanel';
-import FriendsPanel from './components/FriendsPanel';
-import VisitWorldView from './components/VisitWorldView';
 import MobileControls from './components/MobileControls';
-import PremiumPopup from './components/PremiumPopup';
-import AdminPanel from './components/AdminPanel';
-import GuideMenu from './components/GuideMenu';
-import CoopMenu from './components/CoopMenu';
 import TutorialOverlay from './components/TutorialOverlay';
-import { CoopLobbyService, type LobbyInfo } from './services/coop/CoopLobbyService';
 import { ActionBarBtn, WrenchIcon, FlaskIcon, PackageIcon, ChartIcon, TrophyIcon, GemIcon, SaveIcon, FriendsIcon } from './ui/components/ActionBar';
-import LangSelector from './components/LangSelector';
+
+const BuildMenu = lazy(() => import('./components/BuildMenu'));
+const ResearchMenu = lazy(() => import('./components/ResearchMenu'));
+const InventoryMenu = lazy(() => import('./components/InventoryMenu'));
+const StatsMenu = lazy(() => import('./components/StatsMenu'));
+const LeaderboardMenu = lazy(() => import('./components/LeaderboardMenu'));
+const ShopMenu = lazy(() => import('./components/ShopMenu'));
+const BuildingInfo = lazy(() => import('./components/BuildingInfo'));
+const SaveLoad = lazy(() => import('./components/SaveLoad'));
+const AuthScreen = lazy(() => import('./components/AuthScreen'));
+const StartScreen = lazy(() => import('./components/StartScreen'));
+const ChatPanel = lazy(() => import('./components/ChatPanel'));
+const FriendsPanel = lazy(() => import('./components/FriendsPanel'));
+const VisitWorldView = lazy(() => import('./components/VisitWorldView'));
+const PremiumPopup = lazy(() => import('./components/PremiumPopup'));
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const GuideMenu = lazy(() => import('./components/GuideMenu'));
+const CoopMenu = lazy(() => import('./components/CoopMenu'));
+const LangSelector = lazy(() => import('./components/LangSelector'));
+import { CoopLobbyService, type LobbyInfo } from './services/coop/CoopLobbyService';
 import { GameEngine } from './game/engine';
 import { GameState } from './game/types';
 import { AuthService } from './services/auth/AuthService';
@@ -292,15 +293,15 @@ function App() {
 
   return (
     <div className="w-screen h-screen overflow-hidden select-none font-exo" style={{ background: 'var(--bg)' }}>
-      {!currentUser && <AuthScreen onAuth={handleAuth} />}
-      {currentUser && !started && <StartScreen onStart={() => setStarted(true)} />}
+      {!currentUser && <Suspense fallback={null}><AuthScreen onAuth={handleAuth} /></Suspense>}
+      {currentUser && !started && <Suspense fallback={null}><StartScreen onStart={() => setStarted(true)} /></Suspense>}
       {currentUser && started && (
         <ErrorBoundary>
           <GameCanvas engineRef={engineRef} onEngineReady={handleEngineReady} />
         </ErrorBoundary>
       )}
       {currentUser && started && gameState && <HUD state={gameState} notifications={notifications} />}
-      {currentUser && started && gameState && engine && <BuildingInfo engine={engine} state={gameState} />}
+      {currentUser && started && gameState && engine && <Suspense fallback={null}><BuildingInfo engine={engine} state={gameState} /></Suspense>}
 
       {/* Mobile controls */}
       {currentUser && started && isMobile && engine && gameState && (
@@ -322,7 +323,7 @@ function App() {
       )}
 
       {/* Chat */}
-      {currentUser && started && <ChatPanel />}
+      {currentUser && started && <Suspense fallback={null}><ChatPanel /></Suspense>}
 
       {/* Bottom action bar */}
       {currentUser && started && !isMobile && (
@@ -387,7 +388,7 @@ function App() {
             </span>
           </button>
           <div className="w-px h-6 mx-1" style={{ background: 'rgba(245,158,11,0.15)' }} />
-          <LangSelector />
+          <Suspense fallback={null}><LangSelector /></Suspense>
         </div>
       )}
 
@@ -410,30 +411,30 @@ function App() {
       )}
 
       {/* Menus */}
-      {showBuild && engine && gameState && <BuildMenu engine={engine} state={gameState} onClose={() => setShowBuild(false)} />}
-      {showResearch && engine && gameState && <ResearchMenu engine={engine} state={gameState} onClose={() => setShowResearch(false)} />}
-      {showInventory && engine && gameState && <InventoryMenu engine={engine} state={gameState} onClose={() => setShowInventory(false)} />}
-      {showStats && gameState && <StatsMenu state={gameState} onClose={() => setShowStats(false)} />}
-      {showLeaderboard && <LeaderboardMenu onClose={() => setShowLeaderboard(false)} />}
-      {showShop && engine && gameState && <ShopMenu engine={engine} state={gameState} onClose={() => setShowShop(false)} />}
-      {showSaveLoad && engine && <SaveLoad engine={engine} onClose={() => setShowSaveLoad(false)} saveCooldown={saveCooldown} onSave={triggerSave} />}
-      {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} />}
-      {showAdmin && engine && gameState && <AdminPanel engine={engine} state={gameState} onClose={() => setShowAdmin(false)} />}
-      {showCoop && <CoopMenu
+      {showBuild && engine && gameState && <Suspense fallback={null}><BuildMenu engine={engine} state={gameState} onClose={() => setShowBuild(false)} /></Suspense>}
+      {showResearch && engine && gameState && <Suspense fallback={null}><ResearchMenu engine={engine} state={gameState} onClose={() => setShowResearch(false)} /></Suspense>}
+      {showInventory && engine && gameState && <Suspense fallback={null}><InventoryMenu engine={engine} state={gameState} onClose={() => setShowInventory(false)} /></Suspense>}
+      {showStats && gameState && <Suspense fallback={null}><StatsMenu state={gameState} onClose={() => setShowStats(false)} /></Suspense>}
+      {showLeaderboard && <Suspense fallback={null}><LeaderboardMenu onClose={() => setShowLeaderboard(false)} /></Suspense>}
+      {showShop && engine && gameState && <Suspense fallback={null}><ShopMenu engine={engine} state={gameState} onClose={() => setShowShop(false)} /></Suspense>}
+      {showSaveLoad && engine && <Suspense fallback={null}><SaveLoad engine={engine} onClose={() => setShowSaveLoad(false)} saveCooldown={saveCooldown} onSave={triggerSave} /></Suspense>}
+      {showFriends && <Suspense fallback={null}><FriendsPanel onClose={() => setShowFriends(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} /></Suspense>}
+      {showAdmin && engine && gameState && <Suspense fallback={null}><AdminPanel engine={engine} state={gameState} onClose={() => setShowAdmin(false)} /></Suspense>}
+      {showCoop && <Suspense fallback={null}><CoopMenu
         onJoinLobby={handleJoinLobby}
         onLeaveLobby={handleLeaveLobby}
         lobbyInfo={lobbyInfo}
         isHost={lobbyInfo?.hostId === AuthService.getCurrentUserId()}
         onClose={() => setShowCoop(false)}
-      />}
-      {visitingWorld && <VisitWorldView friendId={visitingWorld.id} friendName={visitingWorld.name} onClose={() => setVisitingWorld(null)} />}
-      {showGuide && <GuideMenu onClose={() => setShowGuide(false)} />}
+      /></Suspense>}
+      {visitingWorld && <Suspense fallback={null}><VisitWorldView friendId={visitingWorld.id} friendName={visitingWorld.name} onClose={() => setVisitingWorld(null)} /></Suspense>}
+      {showGuide && <Suspense fallback={null}><GuideMenu onClose={() => setShowGuide(false)} /></Suspense>}
       {showPremiumPopup && (
-        <PremiumPopup
+        <Suspense fallback={null}><PremiumPopup
           onClose={() => setShowPremiumPopup(false)}
           onDontAsk={() => { localStorage.setItem('novactorio_no_premium_popup', '1'); setShowPremiumPopup(false); }}
           onBuyPremium={() => setShowShop(true)}
-        />
+        /></Suspense>
       )}
 
       {/* Save cooldown overlay */}

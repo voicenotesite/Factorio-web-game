@@ -3,9 +3,9 @@ import { GameEngine } from '../game/engine';
 import { GameState } from '../game/types';
 import { BUILDING_COLORS, RESOURCE_COLORS } from '../game/constants';
 import { t } from '../lib/i18n';
+import { initAudio } from '../game/audio';
 import LangSelector from './LangSelector';
 
-/** Props dla mobilnego sterowania — wszystkie callbacki menu plus engine i stan gry. */
 interface Props {
   engine: GameEngine;
   gameState: GameState;
@@ -22,21 +22,15 @@ interface Props {
   onLogout: () => void;
 }
 
-/** Mobilne sterowanie — joystick, przycisk ataku, kopania, demolki, szybki dostęp do menu. Zastępuje klawiaturę na urządzeniach dotykowych. */
 export default function MobileControls({
   engine, gameState, currentUser, onBuild, onCraft, onResearch, onStats, onSave, onCoop, onFriends, onAdmin, onGuide, onLogout,
 }: Props) {
-  // === Joystick (movement) ===
   const joystickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
   const [joystickActive, setJoystickActive] = useState(false);
-  /** Punkt startowy joysticka (środek base) — pozycja bezwzględna toucha. */
   const joystickOrigin = useRef({ x: 0, y: 0 });
-  /** Przesunięcie gałki względem środka (znormalizowane do -1..1). */
   const joystickDelta = useRef({ x: 0, y: 0 });
-  /** ID klatki animacji — do czyszczenia przy unmount. */
   const animFrameRef = useRef<number>(0);
-
   const joystickActiveRef = useRef(false);
   const joystickTouchId = useRef<number | null>(null);
 
@@ -48,17 +42,17 @@ export default function MobileControls({
         if (Math.abs(x) > 0.05 || Math.abs(y) > 0.05) {
           engine.state.player.x += x * speed;
           engine.state.player.y += y * speed;
-          // camera is handled by engine.updateCamera() — do NOT set it here
         }
       }
       animFrameRef.current = requestAnimationFrame(tick);
     };
     animFrameRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [engine]); // only re-run if engine changes, not on joystick toggle
+  }, [engine]);
 
   const handleJoystickStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
+    initAudio();
     const touch = e.changedTouches[0];
     joystickTouchId.current = touch.identifier;
     const rect = joystickRef.current!.getBoundingClientRect();
@@ -70,7 +64,6 @@ export default function MobileControls({
   const handleJoystickMove = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
     if (!joystickActiveRef.current) return;
-    // Find the specific finger that started the joystick (multi-touch safe)
     let touch: React.Touch | undefined;
     for (let i = 0; i < e.touches.length; i++) {
       if (e.touches[i].identifier === joystickTouchId.current) {
@@ -95,7 +88,6 @@ export default function MobileControls({
 
   const handleJoystickEnd = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
-    // Only end if the joystick finger was lifted
     let joystickFingerLifted = false;
     for (let i = 0; i < e.changedTouches.length; i++) {
       if (e.changedTouches[i].identifier === joystickTouchId.current) {
@@ -115,7 +107,6 @@ export default function MobileControls({
 
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
 
-  // Poll engine for selected building
   useEffect(() => {
     const id = setInterval(() => {
       setSelectedBuilding(engine.selectedBuilding);
@@ -124,42 +115,33 @@ export default function MobileControls({
   }, [engine]);
 
   const isAdmin = currentUser.toUpperCase() === 'ADMIN';
-
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
     <div className="fixed inset-0 z-10 pointer-events-none" style={{ userSelect: 'none' }}>
 
-      {/* ── Top action bar (essential gameplay actions only) ── */}
+      {/* ── Top action bar ── */}
       <div
-        className="absolute top-14 left-0 right-0 flex justify-center gap-2 pointer-events-auto px-3"
+        className="absolute top-14 left-0 right-0 flex justify-center gap-2 px-3 pointer-events-auto"
         style={{ zIndex: 11 }}
       >
         <TopBtn label={t('mobileBuild')} icon="🔨" color="#f59e0b" onClick={onBuild} />
         <TopBtn label={t('mobileCraft')} icon="⚙️" color="#22c55e" onClick={onCraft} />
         <TopBtn label={t('mobileTech')} icon="🔬" color="#38bdf8" onClick={onResearch} />
+        <TopBtn label={t('mobileStats')} icon="📊" color="#a78bfa" onClick={onStats} />
       </div>
 
-      {/* ── Drawer toggle button (menu icon) ── */}
+      {/* ── Drawer toggle ── */}
       <button
-        onClick={() => setDrawerOpen(p => !p)}
+        onClick={() => { setDrawerOpen(p => !p); initAudio(); }}
         style={{
-          position: 'absolute',
-          top: '14px',
-          right: '14px',
-          width: '44px',
-          height: '44px',
-          borderRadius: '10px',
+          position: 'absolute', top: '14px', right: '14px',
+          width: '44px', height: '44px', borderRadius: '10px',
           background: drawerOpen ? 'rgba(216,128,16,0.25)' : 'rgba(0,0,0,0.6)',
           border: `1.5px solid ${drawerOpen ? 'rgba(216,128,16,0.6)' : 'rgba(255,255,255,0.15)'}`,
           color: drawerOpen ? '#d88010' : 'rgba(255,255,255,0.6)',
-          fontSize: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          touchAction: 'none',
-          zIndex: 20,
-          pointerEvents: 'auto',
+          fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          touchAction: 'none', zIndex: 20, pointerEvents: 'auto',
           boxShadow: drawerOpen ? '0 0 15px rgba(216,128,16,0.3)' : 'none',
           transition: 'all 0.2s ease',
         }}
@@ -167,7 +149,7 @@ export default function MobileControls({
         {drawerOpen ? '✕' : '☰'}
       </button>
 
-      {/* ── Drawer overlay (non-essential features) ── */}
+      {/* ── Drawer ── */}
       {drawerOpen && (
         <>
           <div
@@ -178,12 +160,8 @@ export default function MobileControls({
           <div
             className="absolute pointer-events-auto"
             style={{
-              top: '64px',
-              right: '14px',
-              zIndex: 19,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
+              top: '64px', right: '14px', zIndex: 19,
+              display: 'flex', flexDirection: 'column', gap: '6px',
               animation: 'slide-up 0.15s ease',
             }}
           >
@@ -202,18 +180,10 @@ export default function MobileControls({
               onTouchEnd={(e) => { e.preventDefault(); onLogout(); }}
               onClick={onLogout}
               style={{
-                width: '100%',
-                height: '40px',
-                borderRadius: '10px',
-                background: 'rgba(239,68,68,0.15)',
-                border: '1px solid rgba(239,68,68,0.35)',
-                color: '#f87171',
-                fontSize: '10px',
-                fontFamily: 'Orbitron',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
+                width: '100%', height: '40px', borderRadius: '10px',
+                background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)',
+                color: '#f87171', fontSize: '10px', fontFamily: 'Orbitron',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                 touchAction: 'none',
               }}
             >
@@ -224,42 +194,33 @@ export default function MobileControls({
         </>
       )}
 
-      {/* ── Minimap — above joystick, bottom-left ── */}
+      {/* ── Minimap — top-left, above joystick ── */}
       <div
         className="absolute rounded-xl overflow-hidden pointer-events-none"
         style={{
-          bottom: '148px',
-          left: '16px',
-          width: '84px',
-          height: '84px',
+          top: '100px', left: '12px',
+          width: '72px', height: '72px',
           background: 'linear-gradient(180deg, #111820, #0c1016)',
           border: '1px solid rgba(216,128,16,0.3)',
           boxShadow: '0 0 14px rgba(0,0,0,0.8)',
-          opacity: 0.9,
-          zIndex: 12,
+          opacity: 0.85, zIndex: 12,
         }}
       >
-        <div className="absolute top-0.5 left-1.5 text-[6px] font-orbitron text-white/30 z-10 tracking-widest">{t('hudMap')}</div>
-        <MiniMapCanvas state={gameState} size={84} />
+        <div className="absolute top-0.5 left-1 text-[5px] font-orbitron text-white/25 z-10 tracking-widest">{t('hudMap')}</div>
+        <MiniMapCanvas state={gameState} size={72} />
       </div>
 
-      {/* ── Virtual Joystick — bottom left ── */}
+      {/* ── Joystick ── */}
       <div
         ref={joystickRef}
         className="absolute pointer-events-auto"
         style={{
-          bottom: '28px',
-          left: '28px',
-          width: '108px',
-          height: '108px',
-          borderRadius: '50%',
+          bottom: '28px', left: '28px',
+          width: '100px', height: '100px', borderRadius: '50%',
           background: 'rgba(0,0,0,0.5)',
           border: '2px solid rgba(216,128,16,0.4)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          touchAction: 'none',
-          boxShadow: '0 0 24px rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          touchAction: 'none', boxShadow: '0 0 24px rgba(0,0,0,0.6)',
         }}
         onTouchStart={handleJoystickStart}
         onTouchMove={handleJoystickMove}
@@ -268,9 +229,7 @@ export default function MobileControls({
         <div
           ref={knobRef}
           style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '50%',
+            width: '44px', height: '44px', borderRadius: '50%',
             background: joystickActive ? 'rgba(216,128,16,0.75)' : 'rgba(216,128,16,0.45)',
             border: '2px solid rgba(216,128,16,0.9)',
             transition: joystickActive ? 'none' : 'transform 0.15s ease',
@@ -279,35 +238,27 @@ export default function MobileControls({
         />
       </div>
 
-      {/* ── Mine + Attack buttons — bottom right ── */}
+      {/* ── Bottom-right action cluster ── */}
       <div
-        className="absolute pointer-events-auto flex flex-col gap-3"
-        style={{ bottom: '28px', right: '20px' }}
+        className="absolute pointer-events-auto flex flex-row gap-3 items-end"
+        style={{ bottom: '28px', right: '16px' }}
       >
+        <div className="flex flex-col gap-2 items-center">
+          <DemolishBtn engine={engine} />
+          <MineHoldBtn engine={engine} />
+        </div>
         <AttackHoldBtn engine={engine} />
-        <MineHoldBtn engine={engine} />
-      </div>
-
-      {/* ── Demolish button — right side ── */}
-      <div
-        className="absolute pointer-events-auto flex flex-col gap-2"
-        style={{ bottom: '160px', right: '20px' }}
-      >
-        <DemolishBtn engine={engine} />
       </div>
 
       {/* ── Cancel building banner ── */}
       {selectedBuilding && (
         <div
-          className="absolute pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-2xl"
+          className="absolute pointer-events-auto flex items-center gap-3 px-4 py-2 rounded-2xl"
           style={{
-            bottom: '155px',
-            left: '50%',
-            transform: 'translateX(-50%)',
+            bottom: '155px', left: '50%', transform: 'translateX(-50%)',
             background: 'linear-gradient(135deg, #0f1418, #0a0d11)',
             border: '1.5px solid rgba(56,189,248,0.5)',
-            boxShadow: '0 0 20px rgba(56,189,248,0.2)',
-            zIndex: 15,
+            boxShadow: '0 0 20px rgba(56,189,248,0.2)', zIndex: 15,
           }}
         >
           <span className="text-xs text-white/50 font-exo">{t('mobilePlacing')}</span>
@@ -317,8 +268,7 @@ export default function MobileControls({
             style={{
               background: 'rgba(239,68,68,0.25)',
               border: '1px solid rgba(239,68,68,0.5)',
-              color: '#f87171',
-              touchAction: 'none',
+              color: '#f87171', touchAction: 'none',
             }}
             onTouchEnd={(e) => { e.preventDefault(); engine.cancelBuilding(); }}
             onClick={() => engine.cancelBuilding()}
@@ -331,14 +281,14 @@ export default function MobileControls({
   );
 }
 
-/** Przycisk ataku (trzymany = powtarzalny). Wywołuje engine.attackNearestEnemy() co 350ms z feedbackiem flash. */
-function AttackHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }) {
+function AttackHoldBtn({ engine }: { engine: GameEngine }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [pressed, setPressed] = useState(false);
   const [flash, setFlash] = useState(false);
 
   const start = (e: React.TouchEvent) => {
     e.preventDefault();
+    initAudio();
     setPressed(true);
     const hit = engine.attackNearestEnemy();
     if (hit) { setFlash(true); setTimeout(() => setFlash(false), 120); }
@@ -357,9 +307,9 @@ function AttackHoldBtn({ engine }: { engine: import('../game/engine').GameEngine
   return (
     <button
       style={{
-        width: '64px', height: '64px', borderRadius: '50%',
+        width: '68px', height: '68px', borderRadius: '50%',
         background: flash ? 'rgba(251,191,36,0.7)' : pressed ? 'rgba(251,191,36,0.45)' : 'rgba(251,191,36,0.2)',
-        border: '2px solid rgba(251,191,36,0.7)', color: 'white', fontSize: '26px',
+        border: '2.5px solid rgba(251,191,36,0.7)', color: 'white', fontSize: '28px',
         display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none',
         boxShadow: pressed ? '0 0 28px rgba(251,191,36,0.6)' : '0 0 14px rgba(251,191,36,0.2)',
         transform: pressed ? 'scale(0.88)' : 'scale(1)',
@@ -370,13 +320,13 @@ function AttackHoldBtn({ engine }: { engine: import('../game/engine').GameEngine
   );
 }
 
-/** Przycisk kopania (trzymany = powtarzalny). Wywołuje engine.mineInFront() co 200ms. */
-function MineHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }) {
+function MineHoldBtn({ engine }: { engine: GameEngine }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [pressed, setPressed] = useState(false);
 
   const start = (e: React.TouchEvent) => {
     e.preventDefault();
+    initAudio();
     setPressed(true);
     engine.mineInFront();
     intervalRef.current = setInterval(() => engine.mineInFront(), 200);
@@ -391,37 +341,25 @@ function MineHoldBtn({ engine }: { engine: import('../game/engine').GameEngine }
   return (
     <button
       style={{
-        width: '64px',
-        height: '64px',
-        borderRadius: '50%',
+        width: '56px', height: '56px', borderRadius: '50%',
         background: pressed ? 'rgba(220,38,38,0.55)' : 'rgba(220,38,38,0.35)',
-        border: '2px solid rgba(220,38,38,0.6)',
-        color: 'white',
-        fontSize: '22px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        touchAction: 'none',
+        border: '2px solid rgba(220,38,38,0.6)', color: 'white', fontSize: '20px',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none',
         boxShadow: pressed ? '0 0 25px rgba(220,38,38,0.5)' : '0 0 15px rgba(220,38,38,0.2)',
         transform: pressed ? 'scale(0.88)' : 'scale(1)',
         transition: 'transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease',
       }}
-      onTouchStart={start}
-      onTouchEnd={stop}
-      onTouchCancel={stop}
-    >
-      ⛏
-    </button>
+      onTouchStart={start} onTouchEnd={stop} onTouchCancel={stop}
+    >⛏</button>
   );
 }
 
-
-/** Przycisk demolki (tap) — usuwa najbliższy budynek przez engine.removeNearestBuilding(). */
-function DemolishBtn({ engine }: { engine: import('../game/engine').GameEngine }) {
+function DemolishBtn({ engine }: { engine: GameEngine }) {
   const [flash, setFlash] = useState(false);
 
   const handleTap = (e: React.TouchEvent) => {
     e.preventDefault();
+    initAudio();
     const removed = engine.removeNearestBuilding();
     if (removed) { setFlash(true); setTimeout(() => setFlash(false), 200); }
   };
@@ -431,78 +369,50 @@ function DemolishBtn({ engine }: { engine: import('../game/engine').GameEngine }
       onTouchEnd={handleTap}
       onClick={() => engine.removeNearestBuilding()}
       style={{
-        width: '44px',
-        height: '44px',
-        borderRadius: '10px',
+        width: '40px', height: '40px', borderRadius: '10px',
         background: flash ? 'rgba(239,68,68,0.55)' : 'rgba(239,68,68,0.18)',
         border: `1.5px solid rgba(239,68,68,${flash ? '0.9' : '0.45'})`,
-        color: '#f87171',
-        fontSize: '18px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '1px',
+        color: '#f87171', fontSize: '16px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1px',
         touchAction: 'none',
         transition: 'background 0.15s, border-color 0.15s',
         boxShadow: flash ? '0 0 16px rgba(239,68,68,0.5)' : 'none',
       }}
     >
       <span>🗑</span>
-      <span style={{ fontSize: '6px', fontFamily: 'Orbitron', opacity: 0.6 }}>{t('mobileDemolish')}</span>
+      <span style={{ fontSize: '5px', fontFamily: 'Orbitron', opacity: 0.6 }}>{t('mobileDemolish')}</span>
     </button>
   );
 }
 
-/** Przycisk w górnym pasku szybkiego dostępu (budowa, craft, tech). */
 function TopBtn({ label, icon, color, onClick }: { label: string; icon: string; color: string; onClick: () => void }) {
   return (
     <button
-      onClick={onClick}
+      onClick={() => { initAudio(); onClick(); }}
       style={{
-        flex: 1,
-        maxWidth: '72px',
-        height: '44px',
-        borderRadius: '10px',
+        flex: 1, maxWidth: '80px', height: '48px', borderRadius: '12px',
         background: 'rgba(0,0,0,0.65)',
-        border: `1.5px solid ${color}44`,
-        color,
-        fontSize: '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '2px',
-        touchAction: 'none',
-        boxShadow: `0 0 10px ${color}22`,
+        border: `1.5px solid ${color}44`, color, fontSize: '18px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+        touchAction: 'none', boxShadow: `0 0 10px ${color}22`,
       }}
     >
       <span>{icon}</span>
-      <span style={{ fontSize: '6px', fontFamily: 'Orbitron', letterSpacing: '0.05em', opacity: 0.65 }}>{label}</span>
+      <span style={{ fontSize: '7px', fontFamily: 'Orbitron', letterSpacing: '0.05em', opacity: 0.65 }}>{label}</span>
     </button>
   );
 }
 
-/** Przycisk w wysuwanym drawerze (menu dodatkowe: statystyki, save, friends, admin, itp.). */
 function DrawerBtn({ label, icon, color, onClick }: { label: string; icon: string; color: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       style={{
-        width: '160px',
-        height: '40px',
-        borderRadius: '10px',
+        width: '160px', height: '40px', borderRadius: '10px',
         background: 'rgba(0,0,0,0.8)',
-        border: `1.5px solid ${color}44`,
-        color,
-        fontSize: '14px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        gap: '10px',
-        padding: '0 14px',
-        touchAction: 'none',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
+        border: `1.5px solid ${color}44`, color, fontSize: '14px',
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '10px',
+        padding: '0 14px', touchAction: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
       }}
     >
       <span style={{ fontSize: '16px' }}>{icon}</span>
@@ -511,7 +421,6 @@ function DrawerBtn({ label, icon, color, onClick }: { label: string; icon: strin
   );
 }
 
-/** Miniatura minimapy w drawerze — rysuje ten sam widok co Minimap w HUD. */
 function MiniMapCanvas({ state, size }: { state: GameState; size: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -530,13 +439,6 @@ function MiniMapCanvas({ state, size }: { state: GameState; size: number }) {
     ctx.fillStyle = '#06080a';
     ctx.fillRect(0, 0, size, size);
 
-    const BUILDING_COLORS_MAP: Record<string, string> = {
-      miner: '#f59e0b', furnace: '#ef4444', assembler: '#3b82f6',
-      conveyor: '#f97316', inserter: '#fb923c', boiler: '#dc2626',
-      steam_engine: '#fbbf24', power_pole: '#facc15', lab: '#a855f7',
-      turret: '#dc2626', wall: '#6b7280', storage: '#0ea5e9',
-    };
-
     for (const [, chunk] of state.chunks) {
       for (let y = 0; y < chunk.length; y++) {
         for (let x = 0; x < chunk[y].length; x++) {
@@ -546,7 +448,7 @@ function MiniMapCanvas({ state, size }: { state: GameState; size: number }) {
           const my = (tile.y - py) * scale + cy;
           if (mx < -2 || mx > size + 2 || my < -2 || my > size + 2) continue;
           if (tile.building) {
-            ctx.fillStyle = BUILDING_COLORS_MAP[tile.building.type] || BUILDING_COLORS[tile.building.type] || '#888';
+            ctx.fillStyle = BUILDING_COLORS[tile.building.type] || '#888';
           } else if (tile.resource) {
             ctx.fillStyle = RESOURCE_COLORS[tile.resource] || '#555';
           } else {
@@ -561,7 +463,6 @@ function MiniMapCanvas({ state, size }: { state: GameState; size: number }) {
       }
     }
 
-    // Enemies (red dots)
     for (const [, enemy] of state.enemies) {
       const ex = (enemy.x - px) * scale + cx;
       const ey = (enemy.y - py) * scale + cy;
@@ -570,7 +471,6 @@ function MiniMapCanvas({ state, size }: { state: GameState; size: number }) {
       ctx.fillRect(ex - 1, ey - 1, 2, 2);
     }
 
-    // Player dot
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 5);
     g.addColorStop(0, 'rgba(56,189,248,0.9)');
     g.addColorStop(1, 'rgba(56,189,248,0)');
@@ -584,4 +484,3 @@ function MiniMapCanvas({ state, size }: { state: GameState; size: number }) {
 
   return <canvas ref={canvasRef} width={size} height={size} style={{ width: size, height: size }} />;
 }
-
