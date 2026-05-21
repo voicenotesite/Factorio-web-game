@@ -387,19 +387,6 @@ export class GameRenderer {
     ctx.globalAlpha = 1;
   }
 
-    if (tile.resource === 'oil') {
-      ctx.fillStyle = '#0a0a1a';
-      ctx.beginPath();
-      ctx.ellipse(x + TILE_SIZE / 2, y + TILE_SIZE / 2, 11, 9, 0, 0, Math.PI * 2);
-      ctx.fill();
-      const sheen = Math.sin(this.frameCount * 0.03 + tile.x) * 0.1;
-      ctx.fillStyle = `rgba(80,40,120,${0.15 + sheen})`;
-      ctx.beginPath();
-      ctx.ellipse(x + TILE_SIZE / 2, y + TILE_SIZE / 2, 8, 6, 0, 0, Math.PI * 2);
-      ctx.fill();
-      return;
-    }
-
     // Parse ore color components
     const rC = parseInt(color.slice(1, 3), 16);
     const gC = parseInt(color.slice(3, 5), 16);
