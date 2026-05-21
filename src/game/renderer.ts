@@ -3,6 +3,8 @@ import { CHUNK_SIZE, TILE_SIZE, BUILDING_SIZES, BUILDING_COLORS, RESOURCE_COLORS
 import { hasTreeAt, getYieldColor } from './world';
 import { DIR_OFFSETS, lightenColorUtil, lightenColor, darkenColor } from '../render/utils';
 
+const CHUNK_CACHE_VERSION = 1;
+
 /**
  * Renderer Canvas 2D — rysuje świat gry (chunki, budynki, NPC, wrogowie,
  * cząsteczki, efekty świetlne, ghost building, minimap overlay).
@@ -32,12 +34,27 @@ export class GameRenderer {
   private sunShadowDY = 4;
   private sunShadowAlpha = 0.25;
 
+  private chunkCache = new Map<string, HTMLCanvasElement>();
+  private chunkCacheVer = new Map<string, number>();
+
   /** Inicjalizuje renderer: zapisuje referencję do canvas, context 2D i tworzy offscreen lightCanvas. */
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false })!;
     this.lightCanvas = document.createElement('canvas');
     this.lightCtx = this.lightCanvas.getContext('2d')!;
+  }
+
+  /** Unieważnia cache dla konkretnego chunka (np. po miningu). */
+  invalidateChunk(chunkKey: string) {
+    this.chunkCache.delete(chunkKey);
+    this.chunkCacheVer.delete(chunkKey);
+  }
+
+  /** Czyści cały cache chunków (np. przy zmianie sezonu). */
+  clearChunkCache() {
+    this.chunkCache.clear();
+    this.chunkCacheVer.clear();
   }
 
   /** Główna metoda renderowania: czyści ekran, rysuje chunki, budynki, NPC, wrogów, cząsteczki, ghost building, fog i efekty świetlne. */
@@ -110,22 +127,39 @@ export class GameRenderer {
     const endCX = Math.floor(viewRight / TILE_SIZE / CHUNK_SIZE) + 1;
     const endCY = Math.floor(viewBottom / TILE_SIZE / CHUNK_SIZE) + 1;
 
-    // Render ground layer
+    // Render ground layer (with chunk caching — ogromna oszczędność draw calli)
     for (let cy = startCY; cy <= endCY; cy++) {
       for (let cx = startCX; cx <= endCX; cx++) {
         const key = `${cx},${cy}`;
         const chunk = state.chunks.get(key);
         if (!chunk) continue;
-        for (let ly = 0; ly < CHUNK_SIZE; ly++) {
-          for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-            const tile = chunk[ly][lx];
-            const sx = tile.x * TILE_SIZE;
-            const sy = tile.y * TILE_SIZE;
-            if (sx + TILE_SIZE < viewLeft || sx > viewRight || sy + TILE_SIZE < viewTop || sy > viewBottom) continue;
-            this.renderTile(ctx, tile, dayFactor, state);
+
+        // Cached canvas for this chunk
+        let cached = this.chunkCache.get(key);
+        if (!cached) {
+          cached = document.createElement('canvas');
+          cached.width = CHUNK_SIZE * TILE_SIZE;
+          cached.height = CHUNK_SIZE * TILE_SIZE;
+          const cctx = cached.getContext('2d')!;
+          for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+            for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+              this.renderTile(cctx, chunk[ly][lx], 1.0, state);
+            }
           }
+          this.chunkCache.set(key, cached);
         }
+
+        const cx2 = cx * CHUNK_SIZE * TILE_SIZE;
+        const cy2 = cy * CHUNK_SIZE * TILE_SIZE;
+        ctx.drawImage(cached, cx2, cy2);
       }
+    }
+
+    // Day/night overlay: single rect zamiast per-tile dayFactor
+    if (dayFactor < 0.5) {
+      const darkness = (0.5 - dayFactor) / 0.5;
+      ctx.fillStyle = `rgba(0,0,0,${darkness * 0.35})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     // Render conveyors (below buildings)

@@ -53,6 +53,7 @@ export class GameEngine {
   selectedRecipe: string | null = null;
   /** Czy pętla gry jest aktywna. */
   running = false;
+  paused = false;
   /** Znacznik czasu ostatniej klatki (do delta-time). */
   lastTime = 0;
   /** Akumulator czasu dla fixed-tick (16.67ms na tick). */
@@ -61,6 +62,13 @@ export class GameEngine {
   private prevEnemyCount = 0;
   /** Poprzednia łączna liczba wyprodukowanych itemów (audio craft). */
   private prevTotalItemsProduced = 0;
+  /** Auto-FPS: historia czasów klatek do dynamicznego skipu. */
+  private frameTimes: number[] = [];
+  /** Auto-FPS: co n-tą klatkę renderujemy (1 = każda, 2 = co druga). */
+  private autoRenderSkip = 1;
+  private renderSkipCounter = 0;
+  /** Throttle React state do ~20fps (co 3 tick). */
+  private stateUpdateThrottle = 0;
   /** Callback wywoływany przy każdej zmianie stanu — synchronizacja z React. */
   onStateChange?: (state: GameState) => void;
   /** Callback wywoływany przy stawianiu/usuwaniu budynku (tryb co-op). */
@@ -395,18 +403,33 @@ export class GameEngine {
   /** Zatrzymuje pętlę gry i odłącza nasłuchiwacze klawiatury. */
   stop() {
     this.running = false;
+    this.paused = false;
     stopAmbientHum();
     if (this.keyDownHandler) { window.removeEventListener('keydown', this.keyDownHandler); this.keyDownHandler = null; }
     if (this.keyUpHandler) { window.removeEventListener('keyup', this.keyUpHandler); this.keyUpHandler = null; }
   }
 
+  /** Pauzuje pętlę gry (nie zatrzymuje jej — loop dalej leci, ale nic nie robi). */
+  pause() { this.paused = true; }
+  /** Wznawia pętlę gry. */
+  resume() { this.paused = false; }
+
   /** Główna pętla gry (requestAnimationFrame). Oblicza deltę czasu, wykonuje fixed-tick (16.67ms) i renderuje. */
   private loop = () => {
     if (!this.running) return;
+    if (this.paused) { requestAnimationFrame(this.loop); return; }
 
     const now = performance.now();
     const dt = Math.min(now - this.lastTime, 50);
     this.lastTime = now;
+
+    // Auto-FPS: track frame times, adjust render skip
+    this.frameTimes.push(dt);
+    if (this.frameTimes.length > 30) this.frameTimes.shift();
+    const avg = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
+    if (avg > 33) this.autoRenderSkip = Math.min(4, this.autoRenderSkip + 1);
+    else if (avg < 20 && this.autoRenderSkip > 1) this.autoRenderSkip--;
+    else if (avg > 50) this.autoRenderSkip = Math.min(8, this.autoRenderSkip + 1);
 
     this.tickAccumulator += dt;
     while (this.tickAccumulator >= 16.67) {
@@ -414,17 +437,21 @@ export class GameEngine {
       this.tickAccumulator -= 16.67;
     }
 
-    this.renderer.ghostBuilding = this.selectedBuilding;
-    this.renderer.ghostTile = this.hoveredTile;
-    this.renderer.ghostDirection = this.selectedDirection;
-    this.renderer.ghostCanAfford = this.selectedBuilding ? canAffordBuilding(this.state, this.selectedBuilding) : false;
-    this.renderer.render(this.state);
-    if (this.postProcEnabled && this.postProcCanvas && this.postProcSkip > 0) {
-      this.postProcFrame = (this.postProcFrame + 1) % this.postProcSkip;
-      if (this.postProcFrame === 0) {
-        this.postProcCanvas.width = this.canvas.width;
-        this.postProcCanvas.height = this.canvas.height;
-        applyPostProc(this.canvas, now / 1000);
+    // Skip rendering if FPS is low
+    this.renderSkipCounter = (this.renderSkipCounter + 1) % this.autoRenderSkip;
+    if (this.renderSkipCounter === 0) {
+      this.renderer.ghostBuilding = this.selectedBuilding;
+      this.renderer.ghostTile = this.hoveredTile;
+      this.renderer.ghostDirection = this.selectedDirection;
+      this.renderer.ghostCanAfford = this.selectedBuilding ? canAffordBuilding(this.state, this.selectedBuilding) : false;
+      this.renderer.render(this.state);
+      if (this.postProcEnabled && this.postProcCanvas && this.postProcSkip > 0) {
+        this.postProcFrame = (this.postProcFrame + 1) % this.postProcSkip;
+        if (this.postProcFrame === 0) {
+          this.postProcCanvas.width = this.canvas.width;
+          this.postProcCanvas.height = this.canvas.height;
+          applyPostProc(this.canvas, now / 1000);
+        }
       }
     }
     requestAnimationFrame(this.loop);
@@ -498,7 +525,10 @@ export class GameEngine {
       this.notifications.push(n);
     }
 
-    this.onStateChange?.(state);
+    this.stateUpdateThrottle = (this.stateUpdateThrottle + 1) % 3;
+    if (this.stateUpdateThrottle === 0) {
+      this.onStateChange?.(state);
+    }
   }
 
   /** Aktualizuje pozycję gracza na podstawie wciśniętych klawiszy (WASD/strzałki). Obsługuje sprint (Shift). */
@@ -570,12 +600,14 @@ export class GameEngine {
   private handleMouseActions() {
     if (!this.hoveredTile) return;
     const { x, y } = this.hoveredTile;
+    let worldModified = false;
 
     if (this.mouse.down) {
       if (this.selectedBuilding) {
         if (!canAffordBuilding(this.state, this.selectedBuilding)) {
           this.addNotification('Not enough resources!', 'error');
         } else if (placeBuilding(this.state, this.selectedBuilding, x, y, this.selectedDirection)) {
+          worldModified = true;
           this.addNotification(`Placed ${this.selectedBuilding.replace(/_/g, ' ')}`, 'success');
           this.onBuildingAction?.('place', this.selectedBuilding, x, y, this.selectedDirection);
           playBuildSound();
@@ -586,6 +618,7 @@ export class GameEngine {
         if (dist <= this.state.player.reach) {
           if (this.miningCooldown <= 0 || this.lastMinedTile !== tileKey) {
             if (playerMine(this.state, x, y)) {
+              worldModified = true;
               this.miningCooldown = 8;
               this.lastMinedTile = tileKey;
               playMineSound();
@@ -618,6 +651,7 @@ export class GameEngine {
         }
         const removedType = building.type;
         if (removeBuilding(this.state, building.x, building.y)) {
+          worldModified = true;
           this.addNotification('Removed ' + removedType.replace(/_/g, ' '));
           this.onBuildingAction?.('remove', removedType, building.x, building.y, building.direction);
           this.state.buildQueue = this.state.buildQueue.filter(q => !(q.x === x && q.y === y));
@@ -662,6 +696,7 @@ export class GameEngine {
         }
       }
     }
+    if (worldModified) this.renderer.clearChunkCache();
   }
 
   /** Generuje ambient particle efekty: świetliki w nocy, kurz przy aktywnych koparkach. */

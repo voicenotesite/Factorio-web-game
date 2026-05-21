@@ -122,8 +122,9 @@ export default function TradeHub({ onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.85)' }}>
-      <div className="bg-zinc-900 rounded-xl max-w-2xl w-full mx-4 border border-amber-800/30 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#080c12' }}>
+      <div className="flex-1 flex items-center justify-center overflow-hidden">
+        <div className="bg-zinc-900 rounded-xl max-w-2xl w-full mx-4 border border-amber-800/30 max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-zinc-800">
           <h2 className="text-lg font-bold text-amber-400 font-orbitron">TRADE HUB</h2>
@@ -231,6 +232,7 @@ export default function TradeHub({ onClose }: Props) {
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

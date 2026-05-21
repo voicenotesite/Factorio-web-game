@@ -76,6 +76,12 @@ function App() {
 
   const engine = engineRef.current;
 
+  // Pause game when Trade Hub opens
+  useEffect(() => {
+    if (showTradeHub) engine?.pause();
+    else engine?.resume();
+  }, [showTradeHub, engine]);
+
   const handleEngineReady = useCallback((engine: GameEngine) => {
     engineRef.current = engine;
     (window as any).__gameState = engine.state;
