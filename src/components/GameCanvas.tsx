@@ -7,6 +7,10 @@ interface Props {
   onEngineReady: (engine: GameEngine) => void;
 }
 
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+/** Skala renderowania — zmniejsza rozdzielczość canvas aby zredukować pixel fill rate. */
+const RENDER_SCALE = isMobile ? 0.5 : 0.75;
+
 /** Główny Canvas gry — tworzy GameEngine, podpina ref i callback onEngineReady. */
 export default function GameCanvas({ engineRef, onEngineReady }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -16,8 +20,8 @@ export default function GameCanvas({ engineRef, onEngineReady }: Props) {
     if (!canvas) return;
 
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      canvas.width = Math.max(1, Math.round(window.innerWidth * RENDER_SCALE));
+      canvas.height = Math.max(1, Math.round(window.innerHeight * RENDER_SCALE));
     };
     resize();
     window.addEventListener('resize', resize);
@@ -37,7 +41,7 @@ export default function GameCanvas({ engineRef, onEngineReady }: Props) {
     <canvas
       ref={canvasRef}
       className="fixed inset-0 w-full h-full"
-      style={{ cursor: 'crosshair' }}
+      style={{ cursor: 'crosshair', imageRendering: 'pixelated' }}
     />
   );
 }

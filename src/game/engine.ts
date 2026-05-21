@@ -221,10 +221,14 @@ export class GameEngine {
 
     canvas.addEventListener('mousemove', (e) => {
       const rect = canvas.getBoundingClientRect();
-      this.mouse.x = e.clientX - rect.left;
-      this.mouse.y = e.clientY - rect.top;
-      this.mouse.worldX = (this.mouse.x - canvas.width / 2) / this.state.camera.zoom + this.state.camera.x;
-      this.mouse.worldY = (this.mouse.y - canvas.height / 2) / this.state.camera.zoom + this.state.camera.y;
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const cx = (e.clientX - rect.left) * scaleX;
+      const cy = (e.clientY - rect.top) * scaleY;
+      this.mouse.x = cx;
+      this.mouse.y = cy;
+      this.mouse.worldX = (cx - canvas.width / 2) / this.state.camera.zoom + this.state.camera.x;
+      this.mouse.worldY = (cy - canvas.height / 2) / this.state.camera.zoom + this.state.camera.y;
       this.hoveredTile = {
         x: Math.floor(this.mouse.worldX / TILE_SIZE),
         y: Math.floor(this.mouse.worldY / TILE_SIZE),

@@ -33,10 +33,15 @@ export default function VisitWorldView({ friendId, friendName, onClose }: Props)
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+    const renderScale = isMobile ? 0.5 : 0.75;
+    canvas.width = Math.max(1, Math.round(window.innerWidth * renderScale));
+    canvas.height = Math.max(1, Math.round(window.innerHeight * renderScale));
 
-    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    const resize = () => {
+      canvas.width = Math.max(1, Math.round(window.innerWidth * renderScale));
+      canvas.height = Math.max(1, Math.round(window.innerHeight * renderScale));
+    };
     window.addEventListener('resize', resize);
 
     let cleanup: (() => void) | undefined;
