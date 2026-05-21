@@ -24,6 +24,7 @@ const GuideMenu = lazy(() => import('./components/GuideMenu'));
 const CoopMenu = lazy(() => import('./components/CoopMenu'));
 const LangSelector = lazy(() => import('./components/LangSelector'));
 const Pico8Console = lazy(() => import('./easter/pico8/Pico8Console'));
+const TradeHub = lazy(() => import('./components/TradeHub/TradeHub'));
 import { CoopLobbyService, type LobbyInfo } from './services/coop/CoopLobbyService';
 import { GameEngine } from './game/engine';
 import { GameState } from './game/types';
@@ -59,6 +60,7 @@ function App() {
   const [showGuide, setShowGuide] = useState(false);
   const [showCoop, setShowCoop] = useState(false);
   const [showPico8, setShowPico8] = useState(false);
+  const [showTradeHub, setShowTradeHub] = useState(false);
   const [saveCooldown, setSaveCooldown] = useState(0);
   const [showSaveOverlay, setShowSaveOverlay] = useState(false);
   const [coopMode, setCoopMode] = useState(false);
@@ -322,6 +324,7 @@ function App() {
           onAdmin={() => setShowAdmin(true)}
           onGuide={() => setShowGuide(true)}
           onPico8={() => setShowPico8(true)}
+          onTradeHub={() => setShowTradeHub(true)}
           onLogout={() => { AuthService.logout(); setCurrentUser(null); setStarted(false); }}
         />
       )}
@@ -357,6 +360,8 @@ function App() {
             icon={<GemIcon />} color="#06b6d4" />
           <ActionBarBtn label={t('actionFriends')} shortcut="" onClick={() => setShowFriends(true)} active={showFriends}
             icon={<FriendsIcon />} color="#f472b6" />
+          <ActionBarBtn label="Trade" shortcut="" onClick={() => setShowTradeHub(true)} active={false}
+            icon={<span>🏪</span>} color="#FFCC00" />
           {isAdmin(currentUser) && (
             <>
               <div className="w-px h-6 mx-1" style={{ background: 'rgba(220,38,38,0.3)' }} />
@@ -426,6 +431,7 @@ function App() {
       {showShop && engine && gameState && <Suspense fallback={null}><ShopMenu engine={engine} state={gameState} onClose={() => setShowShop(false)} /></Suspense>}
       {showSaveLoad && engine && <Suspense fallback={null}><SaveLoad engine={engine} onClose={() => setShowSaveLoad(false)} saveCooldown={saveCooldown} onSave={triggerSave} /></Suspense>}
       {showPico8 && <Suspense fallback={null}><Pico8Console onClose={() => setShowPico8(false)} /></Suspense>}
+      {showTradeHub && <Suspense fallback={null}><TradeHub onClose={() => setShowTradeHub(false)} /></Suspense>}
       {showFriends && <Suspense fallback={null}><FriendsPanel onClose={() => setShowFriends(false)} onVisitWorld={(id, name) => setVisitingWorld({ id, name })} /></Suspense>}
       {showAdmin && engine && gameState && <Suspense fallback={null}><AdminPanel engine={engine} state={gameState} onClose={() => setShowAdmin(false)} /></Suspense>}
       {showCoop && <Suspense fallback={null}><CoopMenu

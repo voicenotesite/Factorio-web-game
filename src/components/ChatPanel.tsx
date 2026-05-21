@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { AuthService } from '../services/auth/AuthService';
+import { TradeService } from '../services/trade/TradeService';
 import { t } from '../lib/i18n';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -12,47 +13,48 @@ interface ChatMessage {
   username: string;
   message: string;
   created_at: string;
+  channel?: string;
 }
 
-/** Props panelu czatu — opcjonalny callback zamknięcia. */
 interface Props {
   onClose?: () => void;
+  onTradeFeeCreated?: () => void;
 }
 
-/** Panel czatu z innymi graczami (Supabase Realtime). Wiadomości wysyłane przez broadcast. */
-export default function ChatPanel({ onClose }: Props) {
+export default function ChatPanel({ onClose, onTradeFeeCreated }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [minimized, setMinimized] = useState(false);
   const [unread, setUnread] = useState(0);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [channel, setChannel] = useState<'global' | 'trade'>('global');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const minimizedRef = useRef(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const username = AuthService.getCurrentUser();
+  const userId = AuthService.getCurrentUserId();
   const isMobile = window.innerWidth < 768;
+
+  const filteredMessages = messages.filter(m => (m.channel ?? 'global') === channel);
 
   useEffect(() => { minimizedRef.current = minimized; }, [minimized]);
 
   useEffect(() => {
-    // Fetch last HISTORY_LIMIT messages from DB (global history)
     supabase
       .from('chat_messages')
-      .select('id,username,message,created_at')
+      .select('id,username,message,created_at,channel')
       .order('created_at', { ascending: false })
       .limit(HISTORY_LIMIT)
       .then(({ data }) => {
         if (data) setMessages((data as ChatMessage[]).reverse());
       });
 
-    // Single channel instance — reused for both subscribe AND send
-    const channel = supabase
+    const ch = supabase
       .channel('global-chat', { config: { broadcast: { self: true } } })
       .on('broadcast', { event: 'msg' }, ({ payload }) => {
         const msg = payload as ChatMessage;
         setMessages(prev => {
-          // Deduplicate by id (own message arrives via broadcast too now)
           if (prev.some(m => m.id === msg.id)) return prev;
           return [...prev.slice(-(HISTORY_LIMIT - 1)), msg];
         });
@@ -60,8 +62,8 @@ export default function ChatPanel({ onClose }: Props) {
       })
       .subscribe();
 
-    channelRef.current = channel;
-    return () => { supabase.removeChannel(channel); channelRef.current = null; };
+    channelRef.current = ch;
+    return () => { supabase.removeChannel(ch); channelRef.current = null; };
   }, []);
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export default function ChatPanel({ onClose }: Props) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       setUnread(0);
     }
-  }, [messages, minimized]);
+  }, [filteredMessages, minimized]);
 
   const sendMessage = useCallback(async () => {
     if (!input.trim() || !username || sending) return;
@@ -82,34 +84,78 @@ export default function ChatPanel({ onClose }: Props) {
       id: crypto.randomUUID(),
       username,
       message: msg,
+      channel,
       created_at: new Date().toISOString(),
     };
 
-    // 1. Broadcast via the subscribed channel (instant delivery to all online)
     channelRef.current?.send({ type: 'broadcast', event: 'msg', payload: newMsg });
 
-    // 2. Persist to DB for history (new players fetching on connect will see it)
     const { error } = await supabase.from('chat_messages').insert({
       id: newMsg.id,
       username,
       message: msg,
-      user_id: AuthService.getCurrentUserId(),
+      user_id: userId,
+      channel,
     });
 
     if (error) {
-      // Non-fatal: message was broadcast already, just warn about history
       setSendError('⚠ ' + t('chatHistoryError'));
       setTimeout(() => setSendError(''), 3000);
     }
 
     setSending(false);
-  }, [input, username, sending]);
+  }, [input, username, sending, channel, userId]);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
+  // Price scanner for trade channel: tracks last price mention per user
+  const priceTracker = useRef<{ user: string; price: number; msg: string } | null>(null);
+  const [pendingDeal, setPendingDeal] = useState<{ seller: string; buyer: string; price: number; msg: string } | null>(null);
+
+  useEffect(() => {
+    if (channel !== 'trade') return;
+    const lastMsg = filteredMessages[filteredMessages.length - 1];
+    if (!lastMsg || lastMsg.username === username) return;
+    const price = TradeService.scanMessageForPrice(lastMsg.message);
+    if (price && price > 0) {
+      // First price mention → potential seller
+      if (!priceTracker.current || priceTracker.current.user === lastMsg.username) {
+        priceTracker.current = { user: lastMsg.username, price, msg: lastMsg.message };
+      } else {
+        // Different user mentions a price → potential agreement
+        setPendingDeal({
+          seller: priceTracker.current.user,
+          buyer: lastMsg.username,
+          price,
+          msg: lastMsg.message,
+        });
+        priceTracker.current = null;
+      }
+    }
+  }, [filteredMessages, channel, username]);
+
+  const handleConfirmDeal = async () => {
+    const deal = pendingDeal;
+    if (!deal || !userId || !username) return;
+    try {
+      const fee = await TradeService.createFeeFromChat(
+        deal.seller, deal.seller,
+        deal.buyer, deal.buyer,
+        deal.price, 'item', 1, deal.msg,
+      );
+      setPendingDeal(null);
+      setSendError('Fee created! Pay ' + (fee.amount_grosz / 100).toFixed(2) + ' PLN');
+      setTimeout(() => setSendError(''), 5000);
+      onTradeFeeCreated?.();
+    } catch (err) {
+      setSendError('Failed: ' + String(err));
+    }
+  };
+
   if (minimized) {
+    const unreadTrade = messages.filter(m => (m.channel ?? 'global') === 'trade').length;
     return (
       <div
         className="fixed z-25 cursor-pointer"
@@ -124,7 +170,7 @@ export default function ChatPanel({ onClose }: Props) {
             color: 'rgba(205,197,178,0.7)',
           }}
         >
-          💬 Chat {unread > 0 && <span className="bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px]">{unread}</span>}
+          💬 {channel === 'trade' ? 'Trade' : 'Chat'} {unread > 0 && <span className="bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px]">{unread}</span>}
         </div>
       </div>
     );
@@ -155,18 +201,45 @@ export default function ChatPanel({ onClose }: Props) {
       }}
     >
       <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <span className="font-orbitron text-xs tracking-wider" style={{ color: 'rgba(216,128,16,0.8)' }}>💬 {t('globalChat')}</span>
+        <div className="flex gap-1">
+          <button
+            onClick={() => setChannel('global')}
+            className={`text-[10px] font-orbitron px-2 py-1 rounded transition-colors ${channel === 'global' ? 'bg-amber-900/30 text-amber-400' : 'text-zinc-600 hover:text-zinc-400'}`}
+          >
+            Global
+          </button>
+          <button
+            onClick={() => setChannel('trade')}
+            className={`text-[10px] font-orbitron px-2 py-1 rounded transition-colors ${channel === 'trade' ? 'bg-amber-900/30 text-amber-400' : 'text-zinc-600 hover:text-zinc-400'}`}
+          >
+            Trade
+          </button>
+        </div>
         <div className="flex gap-1">
           <button onClick={() => setMinimized(true)} className="text-white/30 hover:text-white/60 text-xs px-1">—</button>
           {onClose && <button onClick={onClose} className="text-white/30 hover:text-white/60 text-xs px-1">✕</button>}
         </div>
       </div>
+      {pendingDeal && (
+        <div className="mx-3 mt-1 p-2 bg-amber-900/30 border border-amber-700/50 rounded-lg flex items-center justify-between animate-pulse">
+          <div className="text-xs text-amber-300">
+            🤝 Deal: {pendingDeal.seller} ↔ {pendingDeal.buyer}<br />
+            <span className="text-amber-400 font-bold">{pendingDeal.price} PLN</span>
+          </div>
+          <button
+            onClick={handleConfirmDeal}
+            className="text-[10px] bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded font-bold"
+          >
+            Confirm
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}>
-        {messages.length === 0 && (
+        {filteredMessages.length === 0 && (
           <div className="text-center text-white/20 text-xs mt-4 font-orbitron">{t('chatEmpty')}</div>
         )}
-        {messages.map(msg => {
+        {filteredMessages.map(msg => {
           const isOwn = msg.username === username;
           return (
             <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>

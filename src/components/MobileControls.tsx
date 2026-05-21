@@ -20,6 +20,7 @@ interface Props {
   onAdmin: () => void;
   onGuide: () => void;
   onPico8: () => void;
+  onTradeHub: () => void;
   onLogout: () => void;
 }
 
@@ -172,6 +173,7 @@ export default function MobileControls({
             <DrawerBtn label={t('mobileGuide')} icon="📖" color="#22d3ee" onClick={() => { onGuide(); setDrawerOpen(false); }} />
             <DrawerBtn label={t('mobileSave')} icon="💾" color="#94a3b8" onClick={() => { onSave(); setDrawerOpen(false); }} />
             <DrawerBtn label="PICO-8" icon="🕹️" color="#FFEC27" onClick={() => { onPico8(); setDrawerOpen(false); }} />
+            <DrawerBtn label="Trade" icon="🏪" color="#FFCC00" onClick={() => { onTradeHub(); setDrawerOpen(false); }} />
             {isAdmin && (
               <DrawerBtn label={t('mobileAdmin')} icon="🛡️" color="#ef4444" onClick={() => { onAdmin(); setDrawerOpen(false); }} />
             )}
